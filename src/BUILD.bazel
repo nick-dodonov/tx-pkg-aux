@@ -1,7 +1,15 @@
+load("@rules_cc//cc:defs.bzl", "cc_library", "cc_binary")
+
 cc_library(
     name = "tx-pkg-aux",
     srcs = ["Log/Log.cpp"],
     hdrs = ["Log/Log.h"],
     deps = ["@lwlog//:lwlog"],
     visibility = ["//visibility:public"],
+)
+
+cc_binary(
+    name = "test_main",
+    srcs = ["test_main.cpp"],
+    deps = [":tx-pkg-aux"],
 )

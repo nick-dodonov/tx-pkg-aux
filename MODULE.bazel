@@ -1,17 +1,18 @@
 module(
-    name = "tx-pkg-aux",
+    name = "tx-pkg-aux", 
     version = "0.1.0",
 )
 
-# Зависимость на модуль lwlog по имени и версии
-bazel_dep(name = "lwlog", version = "1.4.0")
+LWLOG_VERSION = "1.4.0"
 
-# Используем локально описанный модуль
+bazel_dep(name = "rules_cc", version = "0.1.1")
+bazel_dep(name = "lwlog", version = LWLOG_VERSION)
+
 local_path_override(
     module_name = "lwlog",
     path = "./modules/lwlog",
 )
 
-# Версия передается в локальный модуль через extension
 lwlog_ext = use_extension("@lwlog//:lwlog_ext.bzl", "lwlog")
-lwlog_ext.version(version = "1.4.0")  # Версия из bazel_dep выше
+lwlog_ext.version(version = LWLOG_VERSION)
+use_repo(lwlog_ext, "lwlog_src")

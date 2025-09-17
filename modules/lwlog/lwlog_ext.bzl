@@ -59,6 +59,9 @@ cc_library(
     ], allow_empty = True) + glob([
         "include/**/*.h",
     ], allow_empty = True),
+    srcs = [
+        "install/lib/liblwlog_lib.a",
+    ],
     includes = [
         "install/include",
         "install/include/lwlog",  # для внутренних includes
@@ -86,21 +89,37 @@ _lwlog_version_tag = tag_class(attrs = {
 })
 
 def _lwlog_ext_impl(module_ctx):
-    # Получаем версию из корневого модуля через контекст
-    # В Bazel, module_ctx содержит информацию о том, как модуль был запрошен
+    # ОТЛАДКА: Исследуем, что доступно в module_ctx
+    # Каждый module в module_ctx.modules представляет модуль, который использует extension
     
-    # Проверяем, есть ли явные теги с версией (для переопределения)
-    version_configs = module_ctx.modules[0].tags.version
+    root_module = None
+    for module in module_ctx.modules:
+        # module.name - имя модуля (например, "tx-pkg-aux" или "lwlog") 
+        # module.version - версия из MODULE.bazel этого модуля
+        # module.is_root - является ли корневым модулем
+        
+        # ВАЖНО: module.version это версия из MODULE.bazel самого модуля,
+        # а НЕ версия из bazel_dep в корневом модуле!
+        
+        if module.is_root:
+            root_module = module
+            break
     
-    if len(version_configs) == 0:
-        # Версия должна быть передана из корневого модуля
-        # Пока используем fallback, позже можем улучшить
-        fail("Версия lwlog должна быть указана в корневом модуле или через тег version")
-    elif len(version_configs) == 1:
-        # Используем указанную версию
+    if not root_module:
+        fail("Не удалось найти корневой модуль")
+    
+    version_configs = root_module.tags.version
+    
+    if len(version_configs) == 1:
+        # Используем явно указанную версию через тег
         config = version_configs[0]
         version = config.version
         git_url = config.git_url
+    elif len(version_configs) == 0:
+        # Версия по умолчанию - избегаем дублирования
+        # Здесь НЕТ доступа к версии из bazel_dep!
+        version = "master"  # Версия по умолчанию - latest development
+        git_url = "https://github.com/ChristianPanov/lwlog"
     else:
         fail("Можно указать только одну версию lwlog")
     
