@@ -1,0 +1,19 @@
+# Настройки Bazel для проекта tx-pkg-aux
+
+# Перенаправляем симлинки в build/ директорию
+build --symlink_prefix=build/bazel-
+
+# Альтернативно, можно полностью отключить симлинки
+# build --symlink_prefix=/
+
+# Дополнительные полезные настройки
+build --show_progress_rate_limit=1
+build --show_timestamps
+build --worker_verbose
+
+# Настройки для C++
+build --cxxopt=-std=c++17
+build --host_cxxopt=-std=c++17
+
+# Показывать подробности при ошибках
+build --verbose_failures

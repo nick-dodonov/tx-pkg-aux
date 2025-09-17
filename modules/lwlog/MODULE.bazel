@@ -1,0 +1,9 @@
+# modules/lwlog/MODULE.bazel
+module(
+    name = "lwlog",
+    version = "1.4.0",
+)
+
+# Используем extension для сборки lwlog из git репозитория
+lwlog_ext = use_extension(":lwlog_ext.bzl", "lwlog")
+use_repo(lwlog_ext, "lwlog_src")

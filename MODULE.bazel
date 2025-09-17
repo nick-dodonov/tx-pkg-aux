@@ -1,0 +1,13 @@
+module(
+    name = "tx-pkg-aux",
+    version = "0.1.0",
+)
+
+# Зависимость на модуль lwlog по имени и версии
+bazel_dep(name = "lwlog", version = "1.4.0")
+
+# Используем локально описанный модуль
+local_path_override(
+    module_name = "lwlog",
+    path = "./modules/lwlog",
+)

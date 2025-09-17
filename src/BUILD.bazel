@@ -1,0 +1,7 @@
+cc_library(
+    name = "tx-pkg-aux",
+    srcs = ["Log/Log.cpp"],
+    hdrs = ["Log/Log.h"],
+    deps = ["@lwlog//:lwlog"],
+    visibility = ["//visibility:public"],
+)

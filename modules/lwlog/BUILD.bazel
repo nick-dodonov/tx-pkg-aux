@@ -1,0 +1,8 @@
+# BUILD файл для модуля lwlog - экспортирует готовую библиотеку
+
+# Переэкспортируем lwlog из внутреннего репозитория
+alias(
+    name = "lwlog",
+    actual = "@lwlog_src//:lwlog",
+    visibility = ["//visibility:public"],
+)

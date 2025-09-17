@@ -2,6 +2,9 @@
 .xmake/
 build/
 
+# Bazel
+MODULE.bazel.lock
+
 # MacOS Cache
 .DS_Store
 
