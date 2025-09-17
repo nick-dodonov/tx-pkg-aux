@@ -11,3 +11,7 @@ local_path_override(
     module_name = "lwlog",
     path = "./modules/lwlog",
 )
+
+# Версия передается в локальный модуль через extension
+lwlog_ext = use_extension("@lwlog//:lwlog_ext.bzl", "lwlog")
+lwlog_ext.version(version = "1.4.0")  # Версия из bazel_dep выше

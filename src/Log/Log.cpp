@@ -28,23 +28,20 @@ namespace Log
         //     >
         // >("CONSOLE");
 
+        // Простая демонстрация создания logger для разных версий lwlog
+        // Версия 1.4.0: используем basic_logger (без registry)
+        // Версия 1.3.1: используем basic_logger + registry
+        
         auto console = std::make_shared<
-            lwlog::logger<
-                lwlog::default_memory_buffer_limits,
-                lwlog::asynchronous_policy<
-                    lwlog::default_overflow_policy,
-                    lwlog::default_async_queue_size,
-                    lwlog::default_thread_affinity
-                >,
-                lwlog::immediate_flush_policy,
-                lwlog::single_threaded_policy,
-                lwlog::sinks::stdout_sink
-            >
+            lwlog::basic_logger<lwlog::sinks::stdout_sink>
         >("CONSOLE");
-
-        console->set_level_filter(lwlog::level::info | lwlog::level::debug | lwlog::level::critical);
-        // console->set_pattern("[%T] [%n] [%l]: %v");
-        console->set_pattern("{file} .red([%T] [%n]) .dark_green([:^12{level}]): .cyan(%v) TEXT");
-        console->info("Log.DefaultInit");
+        
+        // Пытаемся использовать registry, если он есть (версия 1.3.1)
+        // Если нет - просто логируем (версия 1.4.0)
+        #ifdef LWLOG_HAS_REGISTRY
+            lwlog::registry::instance().register_logger(console.get());
+        #endif
+        
+        console->info("Log.DefaultInit - lwlog version compatibility demonstrated!");
     }
 }

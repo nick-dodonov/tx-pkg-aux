@@ -55,12 +55,16 @@ cc_library(
     hdrs = glob([
         "install/include/**/*.h",
     ], allow_empty = True) + glob([
+        "lwlog/**/*.h",
+    ], allow_empty = True) + glob([
         "include/**/*.h",
     ], allow_empty = True),
     includes = [
         "install/include",
         "install/include/lwlog",  # для внутренних includes
-        "include",  # fallback
+        "lwlog/src",              # для lwlog.h в версиях 1.3.x
+        "lwlog",                  # для прямого доступа
+        "include",                # fallback
     ],
     linkopts = ["-pthread"],
     visibility = ["//visibility:public"],
@@ -82,16 +86,18 @@ _lwlog_version_tag = tag_class(attrs = {
 })
 
 def _lwlog_ext_impl(module_ctx):
-    # Получаем версию и git_url из тегов или используем версию модуля
+    # Получаем версию из корневого модуля через контекст
+    # В Bazel, module_ctx содержит информацию о том, как модуль был запрошен
+    
+    # Проверяем, есть ли явные теги с версией (для переопределения)
     version_configs = module_ctx.modules[0].tags.version
     
     if len(version_configs) == 0:
-        # Читаем версию из MODULE.bazel
-        # Используем версию, которая указана в module()
-        version = "1.4.0"  # Должна совпадать с version в module()
-        git_url = "https://github.com/ChristianPanov/lwlog"
+        # Версия должна быть передана из корневого модуля
+        # Пока используем fallback, позже можем улучшить
+        fail("Версия lwlog должна быть указана в корневом модуле или через тег version")
     elif len(version_configs) == 1:
-        # Используем указанную версию (для переопределения)
+        # Используем указанную версию
         config = version_configs[0]
         version = config.version
         git_url = config.git_url
