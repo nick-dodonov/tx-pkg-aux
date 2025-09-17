@@ -1,9 +1,11 @@
-# modules/lwlog/MODULE.bazel
+"""lwlog module for Bazel - builds lwlog from git repository"""
+
+# Версия модуля определяет версию lwlog для сборки
 module(
     name = "lwlog",
-    version = "1.4.0",
+    version = "1.4.0",  # Эта версия будет использована для сборки из git
 )
 
-# Используем extension для сборки lwlog из git репозитория
+# Extension читает версию из module(version = "...")
 lwlog_ext = use_extension(":lwlog_ext.bzl", "lwlog")
 use_repo(lwlog_ext, "lwlog_src")
