@@ -1,17 +1,11 @@
-load("@rules_cc//cc:defs.bzl", "cc_library", "cc_binary")
+load("@rules_cc//cc:defs.bzl", "cc_library")
 
 cc_library(
-    name = "tx-pkg-aux",
+    name = "pkg-log",
     srcs = ["Log/Log.cpp"],
     hdrs = ["Log/Log.h"],
+    strip_include_prefix = ".",
     deps = ["@lwlog//:lwlog"],
     copts = ["-std=c++17"],
     visibility = ["//visibility:public"],
-)
-
-cc_binary(
-    name = "test_main",
-    srcs = ["test_main.cpp"],
-    deps = [":tx-pkg-aux"],
-    copts = ["-std=c++17"],
 )
