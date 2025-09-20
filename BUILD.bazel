@@ -1,20 +1,11 @@
 # Root BUILD file for convenience targets
-
-# Main library
 alias(
     name = "pkg-log",
     actual = "//src:pkg-log",
     visibility = ["//visibility:public"],
 )
 
-# Demo binary
 alias(
     name = "demo",
     actual = "//demo:log_demo",
 )
-
-# Test targets (when implemented)
-# alias(
-#     name = "test",
-#     actual = "//test:log_test",
-# )

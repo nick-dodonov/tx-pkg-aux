@@ -1,15 +1,12 @@
-load("@rules_cc//cc:defs.bzl", "cc_test")  # @unused
+load("@rules_cc//cc:defs.bzl", "cc_test")
 
-# TODO: Add unit tests
-# Example test file would use:
-# #include "Log/Log.h"  // Correct include path
-#
-# cc_test(
-#     name = "log_test",
-#     srcs = ["log_test.cpp"],
-#     deps = [
-#         "//src:pkg-log",
-#         "@googletest//:gtest_main",
-#     ],
-#     copts = ["-std=c++17"],
-# )
+cc_test(
+    name = "log_test",
+    srcs = ["log_test.cpp"],
+    deps = [
+        "//src:pkg-log",
+        "@googletest//:gtest_main",
+    ],
+    copts = ["-std=c++17"],
+    size = "small",
+)

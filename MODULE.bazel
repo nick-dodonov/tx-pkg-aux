@@ -1,5 +1,9 @@
 """Auxiliary targets package"""
 module(name = "tx-pkg-aux", version = "0.1.0")
 
-bazel_dep(name = "lwlog", version = "1.4.0")
-bazel_dep(name = "rules_cc", version = "0.2.8") # src dependency
+# src dependency
+bazel_dep(name = "rules_cc", version = "0.2.8")
+bazel_dep(name = "lwlog", version = "1.4.0") # in private external repository
+
+# test dependency
+bazel_dep(name = "googletest", version = "1.15.2")
