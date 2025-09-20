@@ -5,10 +5,6 @@ build --registry=file:///Users/rix/p/t/tx/tx-kit-repo
 # Результат сборки без спама в корне
 build --symlink_prefix=build/bazel-
 
-# Настройки для C++
-build --cxxopt=-std=c++17
-build --host_cxxopt=-std=c++17
-
 # Полезные настройки
 build --show_progress_rate_limit=1
 build --show_timestamps
