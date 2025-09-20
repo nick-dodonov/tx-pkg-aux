@@ -1,18 +1,5 @@
-module(
-    name = "tx-pkg-aux", 
-    version = "0.1.0",
-)
+"""Auxiliary targets package"""
+module(name = "tx-pkg-aux", version = "0.1.0")
 
-LWLOG_VERSION = "1.4.0"
-
-bazel_dep(name = "rules_cc", version = "0.1.1")
-bazel_dep(name = "lwlog", version = LWLOG_VERSION)
-
-local_path_override(
-    module_name = "lwlog",
-    path = "./modules/lwlog",
-)
-
-lwlog_ext = use_extension("@lwlog//:lwlog_ext.bzl", "lwlog")
-lwlog_ext.version(version = LWLOG_VERSION)
-use_repo(lwlog_ext, "lwlog_src")
+bazel_dep(name = "lwlog", version = "1.4.0")
+bazel_dep(name = "rules_cc", version = "0.2.8") # src dependency

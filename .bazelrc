@@ -1,19 +1,17 @@
-# Настройки Bazel для проекта tx-pkg-aux
+#TODO: Профили для разных стратегий registry
+build --registry=https://bcr.bazel.build/
+build --registry=file:///Users/rix/p/t/tx/tx-kit-repo
 
-# Перенаправляем симлинки в build/ директорию
+# Результат сборки без спама в корне
 build --symlink_prefix=build/bazel-
-
-# Альтернативно, можно полностью отключить симлинки
-# build --symlink_prefix=/
-
-# Дополнительные полезные настройки
-build --show_progress_rate_limit=1
-build --show_timestamps
-build --worker_verbose
 
 # Настройки для C++
 build --cxxopt=-std=c++17
 build --host_cxxopt=-std=c++17
 
-# Показывать подробности при ошибках
+# Полезные настройки
+build --show_progress_rate_limit=1
+build --show_timestamps
+build --worker_verbose
 build --verbose_failures
+#build --subcommands
