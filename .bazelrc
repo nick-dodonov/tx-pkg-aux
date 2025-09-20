@@ -2,8 +2,14 @@
 build --registry=https://bcr.bazel.build/
 build --registry=https://raw.githubusercontent.com/nick-dodonov/tx-kit-repo/main
 
+query --registry=https://bcr.bazel.build/
+query --registry=https://raw.githubusercontent.com/nick-dodonov/tx-kit-repo/main
+
 # Build output without cluttering the project root
 build --symlink_prefix=build/bazel-
+
+# Try to use disk cache to speed up builds
+build --disk_cache=../.bazel-cache
 
 # Useful settings
 build --show_progress_rate_limit=1
@@ -14,3 +20,10 @@ build --verbose_failures
 # build --subcommands
 # build --sandbox_debug
 # build --logging 6
+
+# Profiling flags (uncomment when needed)
+# build --profile=build_profile.json
+# build --experimental_profile_include_target_label
+# build --experimental_profile_include_primary_output
+# build --record_full_profiler_data
+# build --experimental_generate_json_trace_profile
