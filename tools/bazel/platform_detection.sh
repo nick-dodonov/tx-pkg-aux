@@ -31,24 +31,88 @@ case "$(uname -s)" in
             echo "build --host_cpu=darwin_x86_64" >> "$LOCAL_RC"
         fi
         
-        # Поиск Homebrew инструментов
-        if command -v brew >/dev/null 2>&1; then
-            HOMEBREW_PREFIX=$(brew --prefix)
-            echo "   Homebrew обнаружен: $HOMEBREW_PREFIX"
+        # Поиск инструментов с приоритетами
+        detect_tool() {
+            local tool_name="$1"
+            local env_var="$2"
+            local homebrew_names=("${@:3}")  # Массив имен в Homebrew
             
-            # Проверяем наличие инструментов
-            for tool in pkg-config ninja cmake; do
-                if [[ -f "$HOMEBREW_PREFIX/bin/$tool" ]]; then
-                    tool_upper=$(echo "$tool" | tr '[:lower:]' '[:upper:]' | tr '-' '_')
-                    echo "build --action_env=${tool_upper}=$HOMEBREW_PREFIX/bin/$tool" >> "$LOCAL_RC"
-                    echo "   ✅ $tool: $HOMEBREW_PREFIX/bin/$tool"
-                else
-                    echo "   ⚠️  $tool: не найден в Homebrew"
-                fi
-            done
-        else
-            echo "   ⚠️  Homebrew не найден"
-        fi
+            local found=false
+            
+            # 1. Сначала ищем в Homebrew
+            if command -v brew >/dev/null 2>&1; then
+                local HOMEBREW_PREFIX=$(brew --prefix)
+                for name in "${homebrew_names[@]}"; do
+                    if [[ -f "$HOMEBREW_PREFIX/bin/$name" ]]; then
+                        echo "build --action_env=${env_var}=$HOMEBREW_PREFIX/bin/$name" >> "$LOCAL_RC"
+                        echo "   ✅ $tool_name: $HOMEBREW_PREFIX/bin/$name (Homebrew)"
+                        found=true
+                        break
+                    fi
+                done
+            fi
+            
+            # 2. Если не найден в Homebrew, ищем в стандартных локациях
+            if [[ "$found" == "false" ]]; then
+                for path in "/usr/local/bin" "/usr/bin"; do
+                    for name in "${homebrew_names[@]}"; do
+                        if [[ -f "$path/$name" ]]; then
+                            if [[ "$path" == "/usr/bin" && "$name" == "make" ]]; then
+                                # Для системного make показываем версию
+                                local version=$($path/$name --version 2>/dev/null | head -1)
+                                echo "build --action_env=${env_var}=$path/$name" >> "$LOCAL_RC"
+                                echo "   ✅ $tool_name: $path/$name (системный - $version)"
+                            else
+                                echo "build --action_env=${env_var}=$path/$name" >> "$LOCAL_RC"
+                                echo "   ✅ $tool_name: $path/$name"
+                            fi
+                            found=true
+                            break 2
+                        fi
+                    done
+                done
+            fi
+            
+            # 3. Если не найден, ищем в PATH
+            if [[ "$found" == "false" ]]; then
+                for name in "${homebrew_names[@]}"; do
+                    if command -v "$name" >/dev/null 2>&1; then
+                        local tool_path=$(which "$name")
+                        echo "build --action_env=${env_var}=$tool_path" >> "$LOCAL_RC"
+                        echo "   ✅ $tool_name: $tool_path (в PATH)"
+                        found=true
+                        break
+                    fi
+                done
+            fi
+            
+            # 4. Если ничего не найдено
+            if [[ "$found" == "false" ]]; then
+                echo "   ⚠️  $tool_name: не найден"
+                case "$tool_name" in
+                    make)
+                        echo "      Системный: xcode-select --install"
+                        echo "      GNU Make: brew install make"
+                        ;;
+                    cmake)
+                        echo "      Homebrew: brew install cmake"
+                        echo "      Скачать: https://cmake.org/download/"
+                        ;;
+                    pkg-config)
+                        echo "      Установка: brew install pkg-config"
+                        ;;
+                    ninja)
+                        echo "      Установка: brew install ninja"
+                        ;;
+                esac
+            fi
+        }
+        
+        # Определяем все инструменты
+        detect_tool "make" "MAKE" "gmake" "make"
+        detect_tool "cmake" "CMAKE" "cmake"
+        detect_tool "pkg-config" "PKG_CONFIG" "pkg-config"
+        detect_tool "ninja" "NINJA" "ninja"
         
         # Проверка Xcode
         if command -v xcodebuild >/dev/null 2>&1; then

@@ -42,4 +42,5 @@ test:mac-unit --config=macos --config=host --config=dev --config=unit
 test:mac-integration --config=macos --config=host --config=dev --config=integration
 
 # === DEFAULT CONFIGURATION ===
-build --config=auto
+# Базовые настройки применяются автоматически через .bazelrc.local
+# Для явной настройки используйте: --config=mac-dev, --config=wasm-release и т.д.

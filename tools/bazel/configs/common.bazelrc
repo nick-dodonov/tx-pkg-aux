@@ -15,14 +15,21 @@ build --verbose_failures
 #   ~/.cache/bazel/_bazel_$USER/
 #   /private/var/tmp/_bazel_$USER/
 # Кастомная директория:
-startup --output_base=/tmp/bazel_output_base
+startup --output_base=/tmp/.bazel/output_base
 
 # === КЕШИРОВАНИЕ ===
-build --repository_cache=/tmp/bazel_repo_cache
-build --disk_cache=/tmp/bazel_disk_cache
+build --repository_cache=/tmp/.bazel/repo_cache
+build --disk_cache=/tmp/.bazel/disk_cache
 
 # === ПРОФИЛИРОВАНИЕ ===
+# Полное профилирование (отключаем slim_profile для детального анализа)
 build:profile --profile=profile.json
+build:profile --noslim_profile
 build:profile --experimental_profile_include_target_label
 build:profile --experimental_profile_include_primary_output
 build:profile --record_full_profiler_data
+
+# Быстрое профилирование (slim profile для CI/CD)
+build:profile-slim --profile=profile-slim.json
+build:profile-slim --slim_profile
+build:profile-slim --experimental_profile_include_target_label

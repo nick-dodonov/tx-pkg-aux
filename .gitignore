@@ -6,13 +6,7 @@ build/
 MODULE.bazel.lock
 .bazelrc.local
 .bazelrc.user
-profile.json
-build_profile.json
-*_profile.json
-*_analysis.txt
-*_summary.txt
+profile*.json
 
 # MacOS Cache
 .DS_Store
-
-

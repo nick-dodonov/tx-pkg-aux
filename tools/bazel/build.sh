@@ -29,7 +29,7 @@ show_help() {
   $0                           # host dev //...
   $0 host release //...        # Релиз для текущей платформы
   $0 wasm release //src:app    # WebAssembly релиз
-  $0 host dev --config=profile # С профилированием
+  $0 host --config=profile     # С профилированием
 
 СПЕЦИАЛЬНЫЕ КОМАНДЫ:
   $0 clean          # Очистка
@@ -148,18 +148,37 @@ if [[ $# -eq 0 ]]; then
 fi
 
 # Формирование команды
-if [[ -n "$TARGET_ARG" ]]; then
-    CONFIGS="--config=$TARGET_ARG --config=$MODE"
-else
-    CONFIGS="--config=$MODE"
+CONFIGS=""
+
+# Добавляем платформенную конфигурацию
+if [[ -n "$TARGET_ARG" && "$TARGET_ARG" != "host" ]]; then
+    CONFIGS="--config=$TARGET_ARG"
+fi
+
+# Добавляем режим только если он не задан в .bazelrc.local как default
+DEFAULT_CONFIGS_IN_LOCAL=""
+if [[ -f .bazelrc.local ]]; then
+    DEFAULT_CONFIGS_IN_LOCAL=$(grep "build --config=" .bazelrc.local | sed 's/.*--config=\([a-zA-Z0-9_-]*\).*/\1/' | tr '\n' ' ')
+fi
+
+# Добавляем режим только если он не задан в .bazelrc.local
+if [[ "$DEFAULT_CONFIGS_IN_LOCAL" != *"$MODE"* ]]; then
+    CONFIGS="$CONFIGS --config=$MODE"
 fi
 
 echo "🚀 Сборка Bazel:"
 echo "   Платформа: $TARGET_ARG"
 echo "   Режим: $MODE"
+if [[ -n "$DEFAULT_CONFIGS_IN_LOCAL" ]]; then
+    echo "   Конфигурации по умолчанию: $DEFAULT_CONFIGS_IN_LOCAL"
+fi
 echo "   Цели: $*"
-echo "   Конфигурации: $CONFIGS"
+echo "   Дополнительные конфигурации: ${CONFIGS:-'(нет)'}"
 echo ""
 
 # Выполнение
-exec bazel build $CONFIGS "$@"
+if [[ -n "$CONFIGS" ]]; then
+    exec bazel build $CONFIGS "$@"
+else
+    exec bazel build "$@"
+fi
