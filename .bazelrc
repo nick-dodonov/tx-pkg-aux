@@ -1,11 +1,11 @@
-#TODO: Профили для разных стратегий registry
+# Module registry configuration for private dependencies
 build --registry=https://bcr.bazel.build/
-build --registry=file:///Users/rix/p/t/tx/tx-kit-repo
+build --registry=https://raw.githubusercontent.com/nick-dodonov/tx-kit-repo/main
 
-# Результат сборки без спама в корне
+# Build output without cluttering the project root
 build --symlink_prefix=build/bazel-
 
-# Полезные настройки
+# Useful settings
 build --show_progress_rate_limit=1
 build --show_timestamps
 build --worker_verbose
