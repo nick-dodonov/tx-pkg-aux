@@ -2,6 +2,7 @@
 # Различные режимы для development, release, debug и т.д.
 
 # === DEVELOPMENT (быстрая разработка) ===
+build:dev --config=system-tools # разработка с системными инструментами
 build:dev --compilation_mode=fastbuild
 build:dev --strip=never
 build:dev --copt=-O1
@@ -16,6 +17,7 @@ build:release --copt=-DNDEBUG
 build:release --linkopt=-s
 
 # === DEBUG (отладка) ===
+build:debug --config=system-tools # разработка с системными инструментами
 build:debug --compilation_mode=dbg
 build:debug --strip=never
 build:debug --copt=-g3

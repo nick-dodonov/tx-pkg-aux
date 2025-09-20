@@ -1,8 +1,19 @@
 """Auxiliary targets package"""
 module(name = "tx-pkg-aux", version = "0.1.0")
 
-# src dependency
+# common build rules
 bazel_dep(name = "rules_cc", version = "0.2.8")
+bazel_dep(name = "rules_foreign_cc", version = "0.15.0")
+
+# Disabled using preinstalled system tools (because build:system-tools in platforms.bazelrc for dev is faster)
+# bazel_dep(name = "rules_foreign_cc", version = "0.15.0")
+# # Configure foreign_cc to use PREBUILT tools instead of building from source
+# foreign_cc = use_extension("@rules_foreign_cc//foreign_cc:extensions.bzl", "tools")
+# # Use prebuilt toolchains for faster builds (no BootstrapGNUMake/BootstrapPkgConfig)
+# foreign_cc.cmake(version = "3.31.7")
+# foreign_cc.ninja(version = "1.13.0")
+
+# src dependency
 bazel_dep(name = "lwlog", version = "1.4.0") # in private external repository
 
 # test dependency
