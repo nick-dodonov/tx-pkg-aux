@@ -10,4 +10,7 @@ build --show_progress_rate_limit=1
 build --show_timestamps
 build --worker_verbose
 build --verbose_failures
-#build --subcommands
+# build --verbose_explanations
+# build --subcommands
+# build --sandbox_debug
+# build --logging 6
