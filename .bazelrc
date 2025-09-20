@@ -1,29 +1,71 @@
-# Module registry configuration for private dependencies
+# Оптимизированная конфигурация Bazel с системными инструментами
+# Объединяет registry настройки с использованием предустановленных инструментов
+
+# === MODULE REGISTRY CONFIGURATION ===
 build --registry=https://bcr.bazel.build/
 build --registry=https://raw.githubusercontent.com/nick-dodonov/tx-kit-repo/main
-
 query --registry=https://bcr.bazel.build/
 query --registry=https://raw.githubusercontent.com/nick-dodonov/tx-kit-repo/main
 
-# Build output without cluttering the project root
+# === BUILD OUTPUT CONFIGURATION ===
 build --symlink_prefix=build/bazel-
 
-# Try to use disk cache to speed up builds
-build --disk_cache=../.bazel-cache
+# === СИСТЕМНЫЕ ИНСТРУМЕНТЫ (решение Bootstrap проблемы) ===
+build --action_env=PATH
+build --host_action_env=PATH
 
-# Useful settings
+# Явное указание путей к системным инструментам
+build --action_env=MAKE=/usr/bin/make
+build --action_env=CMAKE=/Applications/CMake.app/Contents/bin/cmake
+build --action_env=PKG_CONFIG=/opt/homebrew/bin/pkg-config
+build --action_env=NINJA=/opt/homebrew/bin/ninja
+
+# === PERFORMANCE OPTIMIZATION ===
+# Параллелизм для CMake и Make
+build --action_env=CMAKE_BUILD_PARALLEL_LEVEL=8
+build --action_env=MAKEFLAGS=-j8
+
+# Использование Ninja для CMake (быстрее Make)
+build --action_env=CMAKE_GENERATOR=Ninja
+
+# === CACHING ===
+build --repository_cache=/tmp/bazel_repo_cache
+build --disk_cache=/tmp/bazel_cache
+
+# === PROGRESS AND DEBUGGING ===
 build --show_progress_rate_limit=1
 build --show_timestamps
 build --worker_verbose
 build --verbose_failures
-# build --verbose_explanations
-# build --subcommands
-# build --sandbox_debug
-# build --logging 6
 
-# Profiling flags (uncomment when needed)
+# === ПРОФИЛИРОВАНИЕ (раскомментировать при необходимости) ===
 # build --profile=build_profile.json
 # build --experimental_profile_include_target_label
 # build --experimental_profile_include_primary_output
 # build --record_full_profiler_data
-# build --experimental_generate_json_trace_profile
+
+# === КОНФИГУРАЦИИ ДЛЯ РАЗНЫХ РЕЖИМОВ ===
+
+# Быстрая разработка с системными инструментами (по умолчанию)
+build:dev --action_env=PATH
+build:dev --action_env=CMAKE_GENERATOR=Ninja
+build:dev --compilation_mode=fastbuild
+
+# Hermetic сборка (медленная, но воспроизводимая)
+build:hermetic --action_env=-PATH
+build:hermetic --host_action_env=-PATH
+build:hermetic --action_env=-MAKE
+build:hermetic --action_env=-CMAKE
+build:hermetic --action_env=-PKG_CONFIG
+
+# Профилирование
+build:profile --profile=profile.json
+build:profile --experimental_profile_include_target_label
+build:profile --experimental_profile_include_primary_output
+build:profile --record_full_profiler_data
+
+# === ИСПОЛЬЗОВАНИЕ ===
+# bazel build //...                    # По умолчанию (системные инструменты)
+# bazel build //... --config=dev       # Явно быстрая разработка
+# bazel build //... --config=hermetic  # Hermetic сборка (медленно)
+# bazel build //... --config=profile   # С профилированием
