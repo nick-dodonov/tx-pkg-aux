@@ -1,71 +1,45 @@
-# Оптимизированная конфигурация Bazel с системными инструментами
-# Объединяет registry настройки с использованием предустановленных инструментов
+# === ГЛАВНАЯ КОНФИГУРАЦИЯ BAZEL ===
+# Модульная система конфигураций с импортами
 
-# === MODULE REGISTRY CONFIGURATION ===
+# === MODULE REGISTRY ===
 build --registry=https://bcr.bazel.build/
 build --registry=https://raw.githubusercontent.com/nick-dodonov/tx-kit-repo/main
 query --registry=https://bcr.bazel.build/
 query --registry=https://raw.githubusercontent.com/nick-dodonov/tx-kit-repo/main
+mod --registry=https://bcr.bazel.build/
+mod --registry=https://raw.githubusercontent.com/nick-dodonov/tx-kit-repo/main
 
-# === BUILD OUTPUT CONFIGURATION ===
-build --symlink_prefix=build/bazel-
+# === ИМПОРТ МОДУЛЬНЫХ КОНФИГУРАЦИЙ ===
+try-import tools/bazel/configs/common.bazelrc
+try-import tools/bazel/configs/platforms.bazelrc  
+try-import tools/bazel/configs/targets.bazelrc
+try-import tools/bazel/configs/modes.bazelrc
 
-# === СИСТЕМНЫЕ ИНСТРУМЕНТЫ (решение Bootstrap проблемы) ===
-build --action_env=PATH
-build --host_action_env=PATH
+# === ПОЛЬЗОВАТЕЛЬСКИЕ НАСТРОЙКИ (не в git) ===
+try-import .bazelrc.local
 
-# Явное указание путей к системным инструментам
-build --action_env=MAKE=/usr/bin/make
-build --action_env=CMAKE=/Applications/CMake.app/Contents/bin/cmake
-build --action_env=PKG_CONFIG=/opt/homebrew/bin/pkg-config
-build --action_env=NINJA=/opt/homebrew/bin/ninja
+# === АВТООПРЕДЕЛЕНИЕ ПЛАТФОРМЫ ===
+# Будет переопределено в .bazelrc.local автоматически
+build:auto --config=macos --config=host --config=dev
 
-# === PERFORMANCE OPTIMIZATION ===
-# Параллелизм для CMake и Make
-build --action_env=CMAKE_BUILD_PARALLEL_LEVEL=8
-build --action_env=MAKEFLAGS=-j8
+# === ALIASES (удобные комбинации) ===
+build:mac-dev --config=macos --config=host --config=dev
+build:mac-release --config=macos --config=host --config=release
+build:mac-debug --config=macos --config=host --config=debug
 
-# Использование Ninja для CMake (быстрее Make)
-build --action_env=CMAKE_GENERATOR=Ninja
+build:win-dev --config=windows --config=host --config=dev
+build:win-release --config=windows --config=host --config=release
 
-# === CACHING ===
-build --repository_cache=/tmp/bazel_repo_cache
-build --disk_cache=/tmp/bazel_cache
+build:linux-dev --config=linux --config=host --config=dev
+build:linux-ci --config=linux --config=host --config=release --config=ci
 
-# === PROGRESS AND DEBUGGING ===
-build --show_progress_rate_limit=1
-build --show_timestamps
-build --worker_verbose
-build --verbose_failures
+# === EMSCRIPTEN COMBINATIONS ===
+build:wasm-dev --config=macos --config=wasm --config=dev
+build:wasm-release --config=macos --config=wasm --config=release
 
-# === ПРОФИЛИРОВАНИЕ (раскомментировать при необходимости) ===
-# build --profile=build_profile.json
-# build --experimental_profile_include_target_label
-# build --experimental_profile_include_primary_output
-# build --record_full_profiler_data
+# === TESTING COMBINATIONS ===
+test:mac-unit --config=macos --config=host --config=dev --config=unit
+test:mac-integration --config=macos --config=host --config=dev --config=integration
 
-# === КОНФИГУРАЦИИ ДЛЯ РАЗНЫХ РЕЖИМОВ ===
-
-# Быстрая разработка с системными инструментами (по умолчанию)
-build:dev --action_env=PATH
-build:dev --action_env=CMAKE_GENERATOR=Ninja
-build:dev --compilation_mode=fastbuild
-
-# Hermetic сборка (медленная, но воспроизводимая)
-build:hermetic --action_env=-PATH
-build:hermetic --host_action_env=-PATH
-build:hermetic --action_env=-MAKE
-build:hermetic --action_env=-CMAKE
-build:hermetic --action_env=-PKG_CONFIG
-
-# Профилирование
-build:profile --profile=profile.json
-build:profile --experimental_profile_include_target_label
-build:profile --experimental_profile_include_primary_output
-build:profile --record_full_profiler_data
-
-# === ИСПОЛЬЗОВАНИЕ ===
-# bazel build //...                    # По умолчанию (системные инструменты)
-# bazel build //... --config=dev       # Явно быстрая разработка
-# bazel build //... --config=hermetic  # Hermetic сборка (медленно)
-# bazel build //... --config=profile   # С профилированием
+# === DEFAULT CONFIGURATION ===
+build --config=auto

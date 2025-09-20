@@ -1,0 +1,41 @@
+# === ПЛАТФОРМЕННЫЕ НАСТРОЙКИ ===
+# Конфигурации для разных операционных систем (host platforms)
+
+# === MACOS ===
+build:macos --action_env=PATH
+build:macos --host_action_env=PATH
+build:macos --action_env=MAKE=/usr/bin/make
+build:macos --action_env=CMAKE=/Applications/CMake.app/Contents/bin/cmake
+build:macos --action_env=PKG_CONFIG=/opt/homebrew/bin/pkg-config
+build:macos --action_env=NINJA=/opt/homebrew/bin/ninja
+
+# macOS специфичные настройки
+build:macos --action_env=DEVELOPER_DIR
+build:macos --host_action_env=DEVELOPER_DIR
+
+# === WINDOWS ===
+build:windows --action_env=PATH
+build:windows --host_action_env=PATH
+build:windows --action_env=CMAKE="C:/Program Files/CMake/bin/cmake.exe"
+build:windows --action_env=NINJA="C:/tools/ninja/ninja.exe"
+build:windows --action_env=PKG_CONFIG="C:/msys64/mingw64/bin/pkg-config.exe"
+
+# Windows специфичные настройки
+build:windows --enable_runfiles
+build:windows --build_runfile_links
+
+# === LINUX ===
+build:linux --action_env=PATH
+build:linux --host_action_env=PATH
+build:linux --action_env=MAKE=/usr/bin/make
+build:linux --action_env=CMAKE=/usr/bin/cmake
+build:linux --action_env=PKG_CONFIG=/usr/bin/pkg-config
+build:linux --action_env=NINJA=/usr/bin/ninja
+
+# === CI/CD ENVIRONMENTS ===
+build:ci --action_env=PATH
+build:ci --noshow_progress
+build:ci --curses=no
+build:ci --color=no
+build:ci --show_result=1
+build:ci --verbose_failures
