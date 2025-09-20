@@ -2,12 +2,9 @@
 # Модульная система конфигураций с импортами
 
 # === MODULE REGISTRY ===
-build --registry=https://bcr.bazel.build/
-build --registry=https://raw.githubusercontent.com/nick-dodonov/tx-kit-repo/main
-query --registry=https://bcr.bazel.build/
-query --registry=https://raw.githubusercontent.com/nick-dodonov/tx-kit-repo/main
-mod --registry=https://bcr.bazel.build/
-mod --registry=https://raw.githubusercontent.com/nick-dodonov/tx-kit-repo/main
+# Общие настройки для всех команд (build, query, mod, test, etc.)
+common --registry=https://bcr.bazel.build/
+common --registry=https://raw.githubusercontent.com/nick-dodonov/tx-kit-repo/main
 
 # === ИМПОРТ МОДУЛЬНЫХ КОНФИГУРАЦИЙ ===
 try-import tools/bazel/configs/common.bazelrc
