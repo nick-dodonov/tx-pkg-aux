@@ -8,6 +8,12 @@ build:system-tools --extra_toolchains=@rules_foreign_cc//toolchains:preinstalled
 build:system-tools --extra_toolchains=@rules_foreign_cc//toolchains:preinstalled_ninja_toolchain
 build:system-tools --extra_toolchains=@rules_foreign_cc//toolchains:preinstalled_pkgconfig_toolchain
 
+# === EMSDK (системный Emscripten) ===
+build:system-emsdk --action_env=EMSDK=/Users/rix/emsdk
+build:system-emsdk --action_env=EMSCRIPTEN_ROOT=/Users/rix/emsdk/upstream/emscripten
+build:system-emsdk --action_env=EM_CACHE=/Users/rix/emsdk/upstream/emscripten/cache
+build:system-emsdk --action_env=PATH
+
 # === MACOS ===
 build:macos --action_env=PATH
 build:macos --host_action_env=PATH
