@@ -10,3 +10,6 @@ profile*.json
 
 # MacOS Cache
 .DS_Store
+
+# CLion
+/.clwb/

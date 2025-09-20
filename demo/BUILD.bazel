@@ -3,7 +3,7 @@ load("@rules_cc//cc:defs.bzl", "cc_binary")
 cc_binary(
     name = "log_demo",
     srcs = ["main.cpp"],
-    deps = ["//src:pkg-log"],
-    copts = ["-std=c++17"],
+    copts = ["-std=c++20"],
     visibility = ["//visibility:public"],
+    deps = ["//src:pkg-log"],
 )
