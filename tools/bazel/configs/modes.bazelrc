@@ -26,7 +26,8 @@ build:release --compilation_mode=opt
 build:release --strip=always
 build:release --copt=-O3
 build:release --copt=-DNDEBUG
-build:release --linkopt=-s
+#TODO: включить опцию линка для платформ, кроме EMSDK (иначе трактуется)
+# build:release --linkopt=-s
 
 # === HERMETIC (воспроизводимая сборка) ===
 build:hermetic --action_env=-PATH

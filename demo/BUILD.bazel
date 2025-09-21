@@ -1,9 +1,29 @@
 load("@rules_cc//cc:defs.bzl", "cc_binary")
 
+# Объединенная сборка с платформо-специфичными linkopts
 cc_binary(
     name = "log_demo",
     srcs = ["main.cpp"],
     copts = ["-std=c++20"],
+    linkopts = select({
+        "@platforms//cpu:wasm32": [
+            "--emrun",  # Поддержка emrun для headless запуска
+            # Need for exit(status)
+            # - https://emscripten.org/docs/api_reference/emscripten.h.html#c.emscripten_force_exit
+            # - https://emscripten.org/docs/getting_started/FAQ.html#what-does-exiting-the-runtime-mean-why-don-t-atexit-s-run
+            "-s EXIT_RUNTIME=1",
+            "-s WASM=1",
+            "--oformat=html"  # Используем --oformat вместо -o для избежания конфликта
+        ],
+        # "@platforms//os:windows": [
+        #     "/SUBSYSTEM:CONSOLE",
+        # ],
+        # "@platforms//os:macos": [
+        #     "-framework", "CoreFoundation",
+        #     "-lc++",
+        # ],
+        "//conditions:default": [],
+    }),
     visibility = ["//visibility:public"],
     deps = ["//src:pkg-log"],
 )
