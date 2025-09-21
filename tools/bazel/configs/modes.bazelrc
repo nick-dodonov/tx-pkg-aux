@@ -3,11 +3,11 @@
 
 # === DEVELOPMENT (быстрая разработка) ===
 build:dev --config=system-tools # разработка с системными инструментами
+build:dev --spawn_strategy=local
 build:dev --compilation_mode=fastbuild
 build:dev --strip=never
 build:dev --copt=-O1
 build:dev --action_env=CMAKE_GENERATOR=Ninja
-build:dev --spawn_strategy=standalone
 
 # === RELEASE (оптимизированная сборка) ===
 build:release --compilation_mode=opt
@@ -18,6 +18,7 @@ build:release --linkopt=-s
 
 # === DEBUG (отладка) ===
 build:debug --config=system-tools # разработка с системными инструментами
+build:debug --spawn_strategy=local
 build:debug --compilation_mode=dbg
 build:debug --strip=never
 build:debug --copt=-g3
@@ -45,3 +46,9 @@ test:integration --test_timeout=300
 test:performance --test_output=all
 test:performance --test_timeout=600
 test:performance --test_env=PERFORMANCE_TEST=1
+
+# === SOURCE MODE ===
+# Использование локальных исходников вместо registry
+# Устанавливает переменную окружения для скрипта setup_lwlog.sh
+build:source --action_env=LWLOG_USE_SOURCE=1
+test:source --action_env=LWLOG_USE_SOURCE=1

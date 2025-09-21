@@ -31,6 +31,10 @@ build:win-release --config=windows --config=host --config=release
 build:linux-dev --config=linux --config=host --config=dev
 build:linux-ci --config=linux --config=host --config=release --config=ci
 
+# === SOURCE DEVELOPMENT ALIASES ===
+build:mac-dev-source --config=macos --config=host --config=dev --config=source
+build:wasm-dev-source --config=macos --config=wasm --config=dev --config=source
+
 # === EMSCRIPTEN COMBINATIONS ===
 build:wasm-dev --config=macos --config=wasm --config=dev
 build:wasm-release --config=macos --config=wasm --config=release
