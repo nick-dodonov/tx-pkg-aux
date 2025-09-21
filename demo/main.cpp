@@ -4,14 +4,16 @@
 
 int main(int argc, char* argv[])
 {
-    Log::info("Test message from lwlog master branch");
-    Log::warn("Warning test message");
-    Log::error("Error test message");
+    Log::debug("Test message (debug)");
+    Log::info("Test message (info)");
+    Log::warn("Test message (warning)");
+    Log::error("Test message (error)");
+    Log::fatal("Test message (fatal)");
 
-    Log::info(std::format("Command line arguments count: {}", argc));
+    Log::info(std::format("Command line: {}", argc));
     for (int i = 0; i < argc; ++i) {
         Log::info(std::format("Argument {}: {}", i, argv[i]));
     }
 
-    return 0;
+    return argc - 1; // test exit code is passed from emrun
 }
