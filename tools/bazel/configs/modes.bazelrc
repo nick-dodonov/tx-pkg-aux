@@ -1,28 +1,33 @@
 # === РЕЖИМЫ СБОРКИ ===
 # Различные режимы для development, release, debug и т.д.
 
+# === SOURCE MODE ===
+# Использование локальных исходников вместо registry
+common:source --action_env=LWLOG_USE_SOURCE=1
+
+# === DEBUG (отладка) ===
+build:debug --config=system-tools
+build:debug --spawn_strategy=local
+build:debug --compilation_mode=dbg
+build:debug --strip=never
+build:debug --copt=-O0
+build:debug --copt=-g3
+build:debug --linkopt=-g
+
 # === DEVELOPMENT (быстрая разработка) ===
-build:dev --config=system-tools # разработка с системными инструментами
+build:dev --config=system-tools
+build:dev --spawn_strategy=local
 build:dev --compilation_mode=fastbuild
 build:dev --strip=never
 build:dev --copt=-O1
-build:dev --action_env=CMAKE_GENERATOR=Ninja
-build:dev --spawn_strategy=standalone
 
 # === RELEASE (оптимизированная сборка) ===
 build:release --compilation_mode=opt
 build:release --strip=always
 build:release --copt=-O3
 build:release --copt=-DNDEBUG
-build:release --linkopt=-s
-
-# === DEBUG (отладка) ===
-build:debug --config=system-tools # разработка с системными инструментами
-build:debug --compilation_mode=dbg
-build:debug --strip=never
-build:debug --copt=-g3
-build:debug --copt=-O0
-build:debug --linkopt=-g
+#TODO: включить опцию линка для платформ, кроме EMSDK (иначе трактуется)
+# build:release --linkopt=-s
 
 # === HERMETIC (воспроизводимая сборка) ===
 build:hermetic --action_env=-PATH

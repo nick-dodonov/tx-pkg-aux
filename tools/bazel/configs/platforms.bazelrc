@@ -2,45 +2,26 @@
 # Конфигурации для разных операционных систем (host platforms)
 
 # === SYSTEM TOOLS (skip hermetic builds) ===
-# Принудительно используем системные/prebuilt инструменты вместо bootstrap
+# Принудительно используем системные/preinstalled инструменты вместо bootstrap
 build:system-tools --extra_toolchains=@rules_foreign_cc//toolchains:preinstalled_cmake_toolchain
 build:system-tools --extra_toolchains=@rules_foreign_cc//toolchains:preinstalled_make_toolchain
 build:system-tools --extra_toolchains=@rules_foreign_cc//toolchains:preinstalled_ninja_toolchain
 build:system-tools --extra_toolchains=@rules_foreign_cc//toolchains:preinstalled_pkgconfig_toolchain
+# Используем системный PATH для поиска инструментов (включая EMSDK)
+build:system-tools --action_env=PATH
+build:system-tools --host_action_env=PATH
 
 # === MACOS ===
-build:macos --action_env=PATH
-build:macos --host_action_env=PATH
-build:macos --action_env=MAKE=/usr/bin/make
-build:macos --action_env=CMAKE=/Applications/CMake.app/Contents/bin/cmake
-build:macos --action_env=PKG_CONFIG=/opt/homebrew/bin/pkg-config
-build:macos --action_env=NINJA=/opt/homebrew/bin/ninja
-
 # macOS специфичные настройки
 build:macos --action_env=DEVELOPER_DIR
 build:macos --host_action_env=DEVELOPER_DIR
 
 # === WINDOWS ===
-build:windows --action_env=PATH
-build:windows --host_action_env=PATH
-build:windows --action_env=CMAKE="C:/Program Files/CMake/bin/cmake.exe"
-build:windows --action_env=NINJA="C:/tools/ninja/ninja.exe"
-build:windows --action_env=PKG_CONFIG="C:/msys64/mingw64/bin/pkg-config.exe"
-
 # Windows специфичные настройки
 build:windows --enable_runfiles
 build:windows --build_runfile_links
 
-# === LINUX ===
-build:linux --action_env=PATH
-build:linux --host_action_env=PATH
-build:linux --action_env=MAKE=/usr/bin/make
-build:linux --action_env=CMAKE=/usr/bin/cmake
-build:linux --action_env=PKG_CONFIG=/usr/bin/pkg-config
-build:linux --action_env=NINJA=/usr/bin/ninja
-
 # === CI/CD ENVIRONMENTS ===
-build:ci --action_env=PATH
 build:ci --noshow_progress
 build:ci --curses=no
 build:ci --color=no

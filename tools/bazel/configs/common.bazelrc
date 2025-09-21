@@ -1,25 +1,16 @@
 # === ОБЩИЕ НАСТРОЙКИ BAZEL ===
 # Базовые настройки, применяемые ко всем сборкам
 
-# === BUILD OUTPUT ===
-build --symlink_prefix=build/bazel-
+# === PLATFORM SPECIFIC CONFIG ===
+# Включаем платформенные настройки по умолчанию
+#   https://bazel.build/run/bazelrc#enable_platform_specific_config
+common --enable_platform_specific_config
 
 # === PROGRESS AND DEBUGGING ===
 build --show_progress_rate_limit=1
 build --show_timestamps
 build --worker_verbose
 build --verbose_failures
-
-# === OUTPUT BASE (где Bazel хранит внутренние файлы) ===
-# По умолчанию: 
-#   ~/.cache/bazel/_bazel_$USER/
-#   /private/var/tmp/_bazel_$USER/
-# Кастомная директория:
-startup --output_base=/tmp/.bazel/output_base
-
-# === КЕШИРОВАНИЕ ===
-build --repository_cache=/tmp/.bazel/repo_cache
-build --disk_cache=/tmp/.bazel/disk_cache
 
 # === ПРОФИЛИРОВАНИЕ ===
 # Полное профилирование (отключаем slim_profile для детального анализа)

@@ -1,24 +1,13 @@
 # === ЦЕЛЕВЫЕ ПЛАТФОРМЫ ===
 # Конфигурации для различных target platforms
 
-# === HOST (текущая платформа) ===
-build:host --compilation_mode=fastbuild
-build:host --action_env=CMAKE_GENERATOR=Ninja
-build:host --action_env=CMAKE_BUILD_PARALLEL_LEVEL=8
-build:host --action_env=MAKEFLAGS=-j8
-
 # === EMSCRIPTEN (WebAssembly) ===
-# Примечание: требует настройки @emsdk
-build:wasm --action_env=EMSCRIPTEN_ROOT
-build:wasm --action_env=EM_CONFIG
-build:wasm --compilation_mode=opt
-build:wasm --copt=-pthread
-build:wasm --linkopt=-pthread
-
-# Emscripten специфичные оптимизации
+# Базовая WASM сборка (использует @emsdk toolchain)
+build:wasm --platforms=@emsdk//:platform_wasm
 build:wasm --copt=-fno-exceptions
 build:wasm --linkopt=--bind
-build:wasm --linkopt=-s --linkopt=WASM=1
+build:wasm --linkopt=-sWASM=1
+build:wasm --linkopt=--closure=1
 
 # === ANDROID ===
 # Примечание: требует настройки Android SDK/NDK
