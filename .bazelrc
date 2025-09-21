@@ -5,7 +5,6 @@
 # Общие настройки для всех команд (build, query, mod, test, etc.)
 common --registry=https://bcr.bazel.build/
 common --registry=https://raw.githubusercontent.com/nick-dodonov/tx-kit-repo/main
-#TODO: repo local setup: common --registry=file:///Users/rix/p/t/tx/tx-kit-repo
 
 # === ИМПОРТ МОДУЛЬНЫХ КОНФИГУРАЦИЙ ===
 try-import tools/bazel/configs/common.bazelrc
@@ -14,35 +13,22 @@ try-import tools/bazel/configs/targets.bazelrc
 try-import tools/bazel/configs/modes.bazelrc
 
 # === ПОЛЬЗОВАТЕЛЬСКИЕ НАСТРОЙКИ (не в git) ===
-try-import .bazelrc.local
-
-# === АВТООПРЕДЕЛЕНИЕ ПЛАТФОРМЫ ===
-# Будет переопределено в .bazelrc.local автоматически
-build:auto --config=macos --config=host --config=dev
+try-import .local.bazelrc
+try-import .user.bazelrc
 
 # === ALIASES (удобные комбинации) ===
-build:mac-dev --config=macos --config=host --config=dev
-build:mac-release --config=macos --config=host --config=release
-build:mac-debug --config=macos --config=host --config=debug
-
-build:win-dev --config=windows --config=host --config=dev
-build:win-release --config=windows --config=host --config=release
-
-build:linux-dev --config=linux --config=host --config=dev
-build:linux-ci --config=linux --config=host --config=release --config=ci
+# Автоматическое определение платформы через --enable_platform_specific_config
+build:local-debug --config=debug
+build:local-dev --config=dev
+build:local-release --config=release
 
 # === SOURCE DEVELOPMENT ALIASES ===
-build:mac-dev-source --config=macos --config=host --config=dev --config=source
-build:wasm-dev-source --config=macos --config=wasm --config=dev --config=source
+build:local-debug-source --config=debug --config=source
 
 # === EMSCRIPTEN COMBINATIONS ===
-build:wasm-dev --config=macos --config=wasm --config=dev
-build:wasm-release --config=macos --config=wasm --config=release
+build:wasm-debug --config=wasm --config=debug
+build:wasm-dev --config=wasm --config=dev
+build:wasm-release --config=wasm --config=release
 
 # === TESTING COMBINATIONS ===
-test:mac-unit --config=macos --config=host --config=dev --config=unit
-test:mac-integration --config=macos --config=host --config=dev --config=integration
-
-# === DEFAULT CONFIGURATION ===
-# Базовые настройки применяются автоматически через .bazelrc.local
-# Для явной настройки используйте: --config=mac-dev, --config=wasm-release и т.д.
+test:local-unit --config=dev --config=unit

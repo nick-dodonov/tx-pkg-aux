@@ -6,7 +6,7 @@ build/
 /bazel-*
 /bazel-*/**
 MODULE.bazel.lock
-.bazelrc.local
+.local.bazelrc
 .bazelrc.user
 profile*.json
 
