@@ -1,4 +1,5 @@
 load("@rules_cc//cc:defs.bzl", "cc_binary")
+load("@rules_shell//shell:sh_binary.bzl", "sh_binary")
 
 # Объединенная сборка с платформо-специфичными linkopts
 cc_binary(
@@ -7,13 +8,13 @@ cc_binary(
     copts = ["-std=c++20"],
     linkopts = select({
         "@platforms//cpu:wasm32": [
+            "--oformat=html",
             "--emrun",  # Поддержка emrun для headless запуска
             # Need for exit(status)
             # - https://emscripten.org/docs/api_reference/emscripten.h.html#c.emscripten_force_exit
             # - https://emscripten.org/docs/getting_started/FAQ.html#what-does-exiting-the-runtime-mean-why-don-t-atexit-s-run
-            "-s EXIT_RUNTIME=1",
-            "-s WASM=1",
-            "--oformat=html"  # Используем --oformat вместо -o для избежания конфликта
+            "-sEXIT_RUNTIME=1",
+            "-sWASM=1",
         ],
         # "@platforms//os:windows": [
         #     "/SUBSYSTEM:CONSOLE",
@@ -26,4 +27,13 @@ cc_binary(
     }),
     visibility = ["//visibility:public"],
     deps = ["//src:pkg-log"],
+)
+
+# WASM runner
+sh_binary(
+    name = "log_runner",
+    srcs = ["run_wasm_demo.sh"],
+    args = ["$(execpath //demo:log_demo).html"],
+    data = ["//demo:log_demo"],
+    visibility = ["//visibility:public"],
 )

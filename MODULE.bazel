@@ -2,10 +2,11 @@
 module(name = "tx-pkg-aux", version = "0.1.0")
 
 # common build rules
+bazel_dep(name = "platforms", version = "0.0.11")
 bazel_dep(name = "rules_cc", version = "0.2.8")
+bazel_dep(name = "rules_shell", version = "0.6.1")
 bazel_dep(name = "rules_foreign_cc", version = "0.15.0")
 bazel_dep(name = "emsdk", version = "4.0.13")
-bazel_dep(name = "platforms", version = "0.0.10")
 
 # Disabled using preinstalled system tools (because build:system-tools in platforms.bazelrc for dev is faster)
 # bazel_dep(name = "rules_foreign_cc", version = "0.15.0")
