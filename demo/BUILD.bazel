@@ -1,4 +1,4 @@
-load("@rules_cc//cc:defs.bzl", "cc_binary", "cc_library")
+load("@rules_cc//cc:defs.bzl", "cc_binary")
 
 cc_binary(
     name = "log_demo",
@@ -6,22 +6,4 @@ cc_binary(
     copts = ["-std=c++20"],
     visibility = ["//visibility:public"],
     deps = ["//src:pkg-log"],
-)
-
-# Упрощенная версия Log без внешних зависимостей для WASM
-cc_library(
-    name = "log_simple",
-    srcs = ["simple_log.cpp"],
-    hdrs = ["simple_log.h"],
-    copts = ["-std=c++17"],
-    visibility = ["//visibility:public"],
-)
-
-# WASM демо без внешних зависимостей
-cc_binary(
-    name = "log_demo_wasm",
-    srcs = ["main_wasm.cpp"],
-    copts = ["-std=c++17"],
-    deps = [":log_simple"],
-    visibility = ["//visibility:public"],
 )
