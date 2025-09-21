@@ -3,6 +3,8 @@
 build/
 
 # Bazel
+/bazel-*
+/bazel-*/**
 MODULE.bazel.lock
 .bazelrc.local
 .bazelrc.user

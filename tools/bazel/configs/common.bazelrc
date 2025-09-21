@@ -1,8 +1,8 @@
 # === ОБЩИЕ НАСТРОЙКИ BAZEL ===
 # Базовые настройки, применяемые ко всем сборкам
 
-# === BUILD OUTPUT ===
-build --symlink_prefix=build/bazel-
+# # === BUILD OUTPUT ===
+# build --symlink_prefix=build/bazel-
 
 # === PROGRESS AND DEBUGGING ===
 build --show_progress_rate_limit=1
