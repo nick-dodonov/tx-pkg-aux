@@ -4,9 +4,9 @@
 namespace Log {
     void DefaultInit();
 
-    void debug(const std::string& message);
-    void info(const std::string& message);
-    void warn(const std::string& message);
-    void error(const std::string& message);
-    void fatal(const std::string& message);
+    void Debug(const std::string& message);
+    void Info(const std::string& message);
+    void Warn(const std::string& message);
+    void Error(const std::string& message);
+    void Fatal(const std::string& message);
 }

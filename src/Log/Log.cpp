@@ -9,8 +9,7 @@ namespace Log
     {
         g_logger = std::make_shared<
             lwlog::basic_logger<lwlog::sinks::stdout_sink>
-        >("GLOBAL");
-
+        >("default");
         //g_logger->set_level_filter(lwlog::level::info | lwlog::level::debug | lwlog::level::critical);
 
         //TODO: check/fix in web-tools and emrun
@@ -25,32 +24,32 @@ namespace Log
 #endif
         //TODO: {topic} supported
         //TODO: fix bug adding '.' in time crashes
+        //TODO: fix time in emscripten (it shows UTC, not local time)
         g_logger->set_pattern("[{time}·" SUBSECS "] :<8%l [%n] %v");
-
-        g_logger->info("Log.DefaultInit");
+        g_logger->debug("Logger initialized");
     }
 
-    void debug(const std::string& message) {
+    void Debug(const std::string& message) {
         if (!g_logger) DefaultInit();
         g_logger->debug(message.c_str());
     }
 
-    void info(const std::string& message) {
+    void Info(const std::string& message) {
         if (!g_logger) DefaultInit();
         g_logger->info(message.c_str());
     }
 
-    void warn(const std::string& message) {
+    void Warn(const std::string& message) {
         if (!g_logger) DefaultInit();
         g_logger->warning(message.c_str());
     }
 
-    void error(const std::string& message) {
+    void Error(const std::string& message) {
         if (!g_logger) DefaultInit();
         g_logger->error(message.c_str());
     }
 
-    void fatal(const std::string& message) {
+    void Fatal(const std::string& message) {
         if (!g_logger) DefaultInit();
         g_logger->critical(message.c_str());
     }

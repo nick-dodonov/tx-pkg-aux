@@ -4,16 +4,18 @@
 
 int main(int argc, char* argv[])
 {
-    Log::debug("Test message (debug)");
-    Log::info("Test message (info)");
-    Log::warn("Test message (warning)");
-    Log::error("Test message (error)");
-    Log::fatal("Test message (fatal)");
+    Log::Debug("Test message (debug)");
+    Log::Info("Test message (info)");
+    Log::Warn("Test message (warning)");
+    Log::Error("Test message (error)");
+    Log::Fatal("Test message (fatal)");
 
-    Log::info(std::format("Command line: {}", argc));
+    Log::Info("Command:");
     for (int i = 0; i < argc; ++i) {
-        Log::info(std::format("Argument {}: {}", i, argv[i]));
+        Log::Info(std::format("  Arg[{}]: {}", i, argv[i]));
     }
+    auto exitCode = argc - 1;
+    Log::Info(std::format("Exit: {}", exitCode));
 
-    return argc - 1; // test exit code is passed from emrun
+    return exitCode; // test exit code is passed from emrun
 }
