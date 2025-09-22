@@ -6,7 +6,6 @@
 common:source --action_env=LWLOG_USE_SOURCE=1
 
 # === DEBUG (отладка) ===
-build:debug --config=system-tools
 build:debug --spawn_strategy=local
 build:debug --compilation_mode=dbg
 build:debug --strip=never
@@ -15,7 +14,6 @@ build:debug --copt=-g3
 build:debug --linkopt=-g
 
 # === DEVELOPMENT (быстрая разработка) ===
-build:dev --config=system-tools
 build:dev --spawn_strategy=local
 build:dev --compilation_mode=fastbuild
 build:dev --strip=never

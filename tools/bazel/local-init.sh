@@ -10,8 +10,7 @@ LOCAL_RC="$PROJECT_ROOT/.local.bazelrc"
 echo "🔍 Инициализация локальной конфигурации Bazel..."
 
 # Создаем .local.bazelrc
-echo "# Автогенерированный .local.bazelrc" > "$LOCAL_RC"
-echo "# Не добавлять в git!" >> "$LOCAL_RC"
+echo "# Автогенерированный (не добавлять в git) .local.bazelrc" > "$LOCAL_RC"
 echo "# Генератор: tools/bazel/local-init.sh" >> "$LOCAL_RC"
 echo "# Дата создания: $(date)" >> "$LOCAL_RC"
 echo "" >> "$LOCAL_RC"
@@ -265,6 +264,12 @@ if [[ -n "${CI:-}" ]] || [[ -n "${GITHUB_ACTIONS:-}" ]] || [[ -n "${JENKINS_URL:
     echo "build --config=ci" >> "$LOCAL_RC"
 fi
 
+#TODO: Разобраться точно зачем BAZEL_USE_CPP_ONLY_TOOLCHAIN нужно
+echo "" >> "$LOCAL_RC"
+echo "# === РЕШЕНИЕ ПРОБЛЕМЫ С rules_foreign_cc ===" >> "$LOCAL_RC"
+echo "# Принудительное использование системных инструментов (частично работает)" >> "$LOCAL_RC"
+echo "build --action_env=BAZEL_USE_CPP_ONLY_TOOLCHAIN=1" >> "$LOCAL_RC"
+
 # Добавление пользовательских настроек по умолчанию
 echo "" >> "$LOCAL_RC"
 echo "# === ПЕРСОНАЛЬНЫЕ НАСТРОЙКИ ===" >> "$LOCAL_RC"
@@ -272,17 +277,15 @@ echo "# Раскомментируйте и настройте по необхо
 echo "# build --jobs=16" >> "$LOCAL_RC"
 echo "# build --local_cpu_resources=16" >> "$LOCAL_RC"
 echo "# build --local_ram_resources=32768" >> "$LOCAL_RC"
-
-echo "" >> "$LOCAL_RC"
-echo "# === РЕШЕНИЕ ПРОБЛЕМЫ С rules_foreign_cc ===" >> "$LOCAL_RC"
-echo "# Принудительное использование системных инструментов (частично работает)" >> "$LOCAL_RC"
-echo "build --action_env=BAZEL_USE_CPP_ONLY_TOOLCHAIN=1" >> "$LOCAL_RC"
+echo "# build --announce_rc" >> "$LOCAL_RC"
 
 # Добавление режима по умолчанию
 echo "" >> "$LOCAL_RC"
 echo "# === DEFAULT MODE ===" >> "$LOCAL_RC"
-echo "# Используем dev вместо debug/release для избежания конфликтов" >> "$LOCAL_RC"
-echo "# build --config=dev  # ОТКЛЮЧЕНО: будет установлено через aliases" >> "$LOCAL_RC"
+echo "# Используем system-tools по умолчанию для быстрой разработки" >> "$LOCAL_RC"
+echo "# build --config=system-tools" >> "$LOCAL_RC"
+echo "# Используем debug по умолчанию для отладки" >> "$LOCAL_RC"
+echo "# build --config=debug" >> "$LOCAL_RC"
 
 echo ""
 echo "✅ Создан файл: $LOCAL_RC"

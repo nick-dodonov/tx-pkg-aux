@@ -6,9 +6,9 @@ build/
 /bazel-*
 /bazel-*/**
 MODULE.bazel.lock
-.local.bazelrc
-.bazelrc.user
 profile*.json
+.local.bazelrc
+.user.bazelrc
 
 # MacOS Cache
 .DS_Store
