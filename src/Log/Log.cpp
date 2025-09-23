@@ -18,14 +18,15 @@ namespace Log
 
         // https://github.com/ChristianPanov/lwlog/tree/v1.4.0?tab=readme-ov-file#syntax
 #if defined(__EMSCRIPTEN__)
-#define SUBSECS ":>3%e" // wasm precision isn't good
+#define SUBSECS ":<3%e" // wasm precision isn't good
 #else
-#define SUBSECS ":>6%f" // microseconds is enough for native
+#define SUBSECS ":<6%f" // microseconds is enough for native
 #endif
         //TODO: {topic} supported
         //TODO: fix bug adding '.' in time crashes
         //TODO: fix time in emscripten (it shows UTC, not local time)
-        g_logger->set_pattern("[{time}·" SUBSECS "] :<8%l [%n] %v");
+        //TODO: {thread} depending on platform
+        g_logger->set_pattern("[{time}·" SUBSECS "] :<8%l [%n] {file} %v");
         g_logger->debug("Logger initialized");
     }
 

@@ -15,20 +15,3 @@ try-import tools/bazel/configs/modes.bazelrc
 # === ПОЛЬЗОВАТЕЛЬСКИЕ НАСТРОЙКИ (не в git) ===
 try-import .local.bazelrc
 try-import .user.bazelrc
-
-# === ALIASES (удобные комбинации) ===
-# Автоматическое определение платформы через --enable_platform_specific_config
-build:local-debug --config=debug
-build:local-dev --config=dev
-build:local-release --config=release
-
-# === SOURCE DEVELOPMENT ALIASES ===
-build:local-debug-source --config=debug --config=source
-
-# === EMSCRIPTEN COMBINATIONS ===
-build:wasm-debug --config=wasm --config=debug
-build:wasm-dev --config=wasm --config=dev
-build:wasm-release --config=wasm --config=release
-
-# === TESTING COMBINATIONS ===
-test:local-unit --config=dev --config=unit

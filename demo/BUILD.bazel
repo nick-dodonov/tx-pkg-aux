@@ -1,11 +1,15 @@
 load("@rules_cc//cc:defs.bzl", "cc_binary")
 load("@rules_shell//shell:sh_binary.bzl", "sh_binary")
+load("@emsdk//emscripten_toolchain:wasm_rules.bzl", "wasm_cc_binary")
 
 # Объединенная сборка с платформо-специфичными linkopts
 cc_binary(
-    name = "log_demo",
+    name = "hello-log-bin",
     srcs = ["main.cpp"],
-    copts = ["-std=c++20"],
+    copts = [
+        "-std=c++20",
+        #-fno-exceptions
+    ],
     linkopts = select({
         "@platforms//cpu:wasm32": [
             "--oformat=html",
@@ -13,8 +17,10 @@ cc_binary(
             # Need for exit(status)
             # - https://emscripten.org/docs/api_reference/emscripten.h.html#c.emscripten_force_exit
             # - https://emscripten.org/docs/getting_started/FAQ.html#what-does-exiting-the-runtime-mean-why-don-t-atexit-s-run
+            # - https://github.com/emscripten-core/emscripten/blob/main/src/settings.js
             "-sEXIT_RUNTIME=1",
-            "-sWASM=1",
+            #--bind ???
+            #--closure=1 ???
         ],
         # "@platforms//os:windows": [
         #     "/SUBSYSTEM:CONSOLE",
@@ -25,15 +31,38 @@ cc_binary(
         # ],
         "//conditions:default": [],
     }),
-    visibility = ["//visibility:public"],
     deps = ["//src:pkg-log"],
+    visibility = ["//visibility:public"],
 )
 
-# WASM runner
+# WASM правило для получения отдельных файлов
+wasm_cc_binary(
+    name = "hello-log-wasm",
+    cc_target = ":hello-log-bin",
+    # По-умолчанию output'ом будет .wasm, но можно указать и другие
+    # outputs = [
+    #     "some.html",
+    #     "some.js", 
+    #     "some.wasm",
+    # ],
+    visibility = ["//visibility:public"],
+)
+
+# WASM запуск в браузере через emrun и получение stdout/exit code
 sh_binary(
-    name = "log_runner",
+    name = "hello-log-runner",
     srcs = ["run_wasm_demo.sh"],
-    args = ["$(execpath //demo:log_demo).html"],
-    data = ["//demo:log_demo"],
+    args = ["$(execpaths :hello-log-wasm)"],
+    data = [":hello-log-wasm"],
+    visibility = ["//visibility:public"],
+)
+
+# Alias allowing to run //:hello-log on for different target platforms
+alias(
+    name = "hello-log",
+    actual = select({
+        "@platforms//cpu:wasm32": "//demo:hello-log-runner",
+        "//conditions:default": "//demo:hello-log-bin", 
+    }),
     visibility = ["//visibility:public"],
 )

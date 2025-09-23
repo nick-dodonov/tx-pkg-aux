@@ -4,10 +4,6 @@
 # === EMSCRIPTEN (WebAssembly) ===
 # Базовая WASM сборка (использует @emsdk toolchain)
 build:wasm --platforms=@emsdk//:platform_wasm
-build:wasm --copt=-fno-exceptions
-build:wasm --linkopt=--bind
-build:wasm --linkopt=-sWASM=1
-build:wasm --linkopt=--closure=1
 
 # === ANDROID ===
 # Примечание: требует настройки Android SDK/NDK
