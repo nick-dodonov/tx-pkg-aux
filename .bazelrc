@@ -8,7 +8,7 @@ common --registry=https://raw.githubusercontent.com/nick-dodonov/tx-kit-repo/mai
 
 # === ИМПОРТ МОДУЛЬНЫХ КОНФИГУРАЦИЙ ===
 try-import tools/bazel/configs/common.bazelrc
-try-import tools/bazel/configs/platforms.bazelrc  
+try-import tools/bazel/configs/platforms.bazelrc
 try-import tools/bazel/configs/targets.bazelrc
 try-import tools/bazel/configs/modes.bazelrc
 

@@ -201,6 +201,79 @@ case "$(uname -s)" in
         if [[ -f "/c/Program Files/CMake/bin/cmake.exe" ]]; then
             echo "build --action_env=CMAKE=\"C:/Program Files/CMake/bin/cmake.exe\"" >> "$LOCAL_RC"
             echo "   ✅ CMake: C:/Program Files/CMake/bin/cmake.exe"
+        elif command -v cmake >/dev/null 2>&1; then
+            cmake_path=$(which cmake)
+            # Конвертируем Unix путь в Windows путь если нужно
+            if [[ "$cmake_path" =~ ^/([a-z])/ ]]; then
+                drive_letter="${BASH_REMATCH[1]}"
+                cmake_path=$(echo "$cmake_path" | sed "s|^/${drive_letter}/|${drive_letter^^}:/|")
+            fi
+            # Добавляем .exe если его нет
+            if [[ ! "$cmake_path" =~ \.exe$ ]]; then
+                cmake_path="${cmake_path}.exe"
+            fi
+            echo "build --action_env=CMAKE=\"$cmake_path\"" >> "$LOCAL_RC"
+            echo "   ✅ CMake: $cmake_path"
+        else
+            echo "   ⚠️  CMake: не найден"
+            echo "      Установка: choco install cmake или скачать с https://cmake.org/"
+        fi
+        
+        # Проверка ninja в PATH
+        if command -v ninja >/dev/null 2>&1; then
+            ninja_path=$(which ninja)
+            # Конвертируем Unix путь в Windows путь если нужно
+            if [[ "$ninja_path" =~ ^/([a-z])/ ]]; then
+                drive_letter="${BASH_REMATCH[1]}"
+                ninja_path=$(echo "$ninja_path" | sed "s|^/${drive_letter}/|${drive_letter^^}:/|")
+            fi
+            # Добавляем .exe если его нет
+            if [[ ! "$ninja_path" =~ \.exe$ ]]; then
+                ninja_path="${ninja_path}.exe"
+            fi
+            echo "build --action_env=NINJA=\"$ninja_path\"" >> "$LOCAL_RC"
+            echo "   ✅ Ninja: $ninja_path"
+        else
+            echo "   ⚠️  Ninja: не найден в PATH"
+            echo "      Установка: choco install ninja или скачать с https://ninja-build.org/"
+        fi
+        
+        # Проверка make в PATH
+        if command -v make >/dev/null 2>&1; then
+            make_path=$(which make)
+            # Конвертируем Unix путь в Windows путь если нужно
+            if [[ "$make_path" =~ ^/([a-z])/ ]]; then
+                drive_letter="${BASH_REMATCH[1]}"
+                make_path=$(echo "$make_path" | sed "s|^/${drive_letter}/|${drive_letter^^}:/|")
+            fi
+            # Добавляем .exe если его нет
+            if [[ ! "$make_path" =~ \.exe$ ]]; then
+                make_path="${make_path}.exe"
+            fi
+            echo "build --action_env=MAKE=\"$make_path\"" >> "$LOCAL_RC"
+            echo "   ✅ Make: $make_path"
+        else
+            echo "   ⚠️  Make: не найден в PATH"
+            echo "      Установка: choco install make или через MSYS2/WSL"
+        fi
+        
+        # Проверка pkg-config в PATH
+        if command -v pkg-config >/dev/null 2>&1; then
+            pkgconfig_path=$(which pkg-config)
+            # Конвертируем Unix путь в Windows путь если нужно
+            if [[ "$pkgconfig_path" =~ ^/([a-z])/ ]]; then
+                drive_letter="${BASH_REMATCH[1]}"
+                pkgconfig_path=$(echo "$pkgconfig_path" | sed "s|^/${drive_letter}/|${drive_letter^^}:/|")
+            fi
+            # Добавляем .exe если его нет
+            if [[ ! "$pkgconfig_path" =~ \.exe$ ]]; then
+                pkgconfig_path="${pkgconfig_path}.exe"
+            fi
+            echo "build --action_env=PKG_CONFIG=\"$pkgconfig_path\"" >> "$LOCAL_RC"
+            echo "   ✅ pkg-config: $pkgconfig_path"
+        else
+            echo "   ⚠️  pkg-config: не найден в PATH"
+            echo "      Установка: choco install pkgconfiglite или через MSYS2"
         fi
         
         # Проверка и настройка EMSDK для Windows
@@ -208,7 +281,7 @@ case "$(uname -s)" in
         echo "# === EMSDK DETECTION ===" >> "$LOCAL_RC"
         if [[ -n "${EMSDK:-}" ]] && [[ -d "$EMSDK" ]]; then
             # Конвертируем Unix путь в Windows путь
-            local win_emsdk=$(echo "$EMSDK" | sed 's|^/c/|C:/|')
+            win_emsdk=$(echo "$EMSDK" | sed 's|^/c/|C:/|')
             echo "build --action_env=EMSDK=\"$win_emsdk\"" >> "$LOCAL_RC"
             echo "build --action_env=EMSCRIPTEN_ROOT=\"$win_emsdk/upstream/emscripten\"" >> "$LOCAL_RC"
             echo "build --action_env=EM_CACHE=\"$win_emsdk/upstream/emscripten/cache\"" >> "$LOCAL_RC"
