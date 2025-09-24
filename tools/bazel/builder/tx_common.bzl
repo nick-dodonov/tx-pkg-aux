@@ -6,7 +6,6 @@ that work for both native and WASM platforms:
 - get_default_linkopts(): Platform-specific linker options
 - merge_linkopts(): Merges user and default linkopts  
 - create_wasm_targets(): Creates WASM binary and runner targets
-- create_platform_alias(): Creates platform-specific aliases
 
 Usage:
 - tx_binary(): Creates executable targets 
@@ -90,23 +89,5 @@ def create_wasm_targets(name, cc_target_name, testonly = False):
         data = [":" + name + "-wasm"],
         visibility = ["//visibility:public"],
         target_compatible_with = ["@platforms//cpu:wasm32"],
-        testonly = testonly,
-    )
-
-def create_platform_alias(name, native_target_suffix, testonly = False):
-    """Creates platform-specific alias for native vs WASM execution.
-    
-    Args:
-        name: Name of the alias target.
-        native_target_suffix: Suffix for the native target (e.g., "-bin" or "-test").
-        testonly: Whether the alias target should be marked as testonly.
-    """
-    native.alias(
-        name = name,
-        actual = select({
-            "@platforms//cpu:wasm32": ":" + name + "-wasm-runner",
-            "//conditions:default": ":" + name + native_target_suffix,
-        }),
-        visibility = ["//visibility:public"],
         testonly = testonly,
     )

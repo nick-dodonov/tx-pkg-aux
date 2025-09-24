@@ -1,6 +1,6 @@
 """Starlark build definitions for tx_binary using cc_binary."""
 load("@rules_cc//cc:cc_binary.bzl", "cc_binary")
-load(":tx_common.bzl", "merge_copts", "merge_linkopts", "create_wasm_targets", "create_platform_alias")
+load(":tx_common.bzl", "merge_copts", "merge_linkopts", "create_wasm_targets")
 
 def tx_binary(name, *args, **kwargs):
     """Creates a multi-platform binary target that works for native and WASM platforms.
@@ -26,6 +26,15 @@ def tx_binary(name, *args, **kwargs):
         **kwargs,
     )
 
-    # Create WASM targets and platform alias
+    # Unpack WASM targets and make WASM runner target
     create_wasm_targets(name, name + "-bin")
-    create_platform_alias(name, "-bin")
+
+    # Create alias to run target similarly on native and WASM platforms
+    native.alias(
+        name = name,
+        actual = select({
+            "@platforms//cpu:wasm32": ":" + name + "-wasm-runner",
+            "//conditions:default": ":" + name + "-bin",
+        }),
+        visibility = ["//visibility:public"],
+    )
