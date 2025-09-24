@@ -1,17 +1,17 @@
-load("@rules_cc//cc:defs.bzl", "cc_test")
+load("//tools/bazel/builder:tx_test.bzl", "tx_test")
 
-cc_test(
+tx_test(
     name = "log_test",
     srcs = ["log_test.cpp"],
     deps = [
         "//src:pkg-log",
         "@googletest//:gtest_main",
     ],
-    copts = ["-std=c++17"],
+    copts = ["-std=c++20"],
     size = "small",
 )
 
-cc_test(
+tx_test(
     name = "boot_test",
     srcs = ["boot_test.cpp"],
     deps = [
