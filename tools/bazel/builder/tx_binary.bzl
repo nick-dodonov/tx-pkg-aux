@@ -63,7 +63,7 @@ def tx_binary(name, *args, **kwargs):
     # WASM запуск в браузере через emrun и получение stdout/exit code
     sh_binary(
         name = name + "-runner",
-        srcs = ["run_wasm_demo.sh"],
+        srcs = ["//tools/bazel/builder:run-wasm.sh"],
         args = ["$(execpaths :" + name + "-wasm)"],
         data = [":" + name + "-wasm"],
         visibility = ["//visibility:public"],
