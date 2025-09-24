@@ -13,14 +13,40 @@ def tx_binary(name, *args, **kwargs):
         **kwargs: Additional keyword arguments passed to cc_binary.
     """
 
+    # Default platform-specific linkopts
+    default_linkopts = select({
+        "@platforms//cpu:wasm32": [
+            "--oformat=html",
+            "--emrun",  # Поддержка emrun для headless запуска
+            # Need for exit(status)
+            # - https://emscripten.org/docs/api_reference/emscripten.h.html#c.emscripten_force_exit
+            # - https://emscripten.org/docs/getting_started/FAQ.html#what-does-exiting-the-runtime-mean-why-don-t-atexit-s-run
+            # - https://github.com/emscripten-core/emscripten/blob/main/src/settings.js
+            "-sEXIT_RUNTIME=1",
+        ],
+        # "@platforms//os:windows": [
+        #     "/SUBSYSTEM:CONSOLE",
+        # ],
+        # "@platforms//os:macos": [
+        #     "-framework", "CoreFoundation",
+        #     "-lc++",
+        # ],
+        "//conditions:default": [],
+    })
+    
+    # Merge user linkopts with defaults
+    user_linkopts = kwargs.pop("linkopts", [])
+    merged_linkopts = default_linkopts + user_linkopts
+
     # Бинарник целевой сборки
     cc_binary(
         name = name + "-bin",
+        linkopts = merged_linkopts,
         *args,
         **kwargs,
     )
 
-    # WASM правило для получения отдельных файлов
+    # WASM-специфичные цели создаются только для WASM платформы
     wasm_cc_binary(
         name = name + "-wasm",
         cc_target = ":" + name + "-bin",
@@ -31,6 +57,7 @@ def tx_binary(name, *args, **kwargs):
         #     "some.wasm",
         # ],
         visibility = ["//visibility:public"],
+        target_compatible_with = ["@platforms//cpu:wasm32"],
     )
 
     # WASM запуск в браузере через emrun и получение stdout/exit code
@@ -40,6 +67,7 @@ def tx_binary(name, *args, **kwargs):
         args = ["$(execpaths :" + name + "-wasm)"],
         data = [":" + name + "-wasm"],
         visibility = ["//visibility:public"],
+        target_compatible_with = ["@platforms//cpu:wasm32"],
     )
 
     # Alias allowing to run executable on for different target platforms

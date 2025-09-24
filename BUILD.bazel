@@ -1,4 +1,3 @@
-
 alias(
     name = "log",
     actual = "//src:pkg-log",

@@ -7,27 +7,7 @@ tx_binary(
         "-std=c++20",
         #-fno-exceptions
     ],
-    linkopts = select({
-        "@platforms//cpu:wasm32": [
-            "--oformat=html",
-            "--emrun",  # Поддержка emrun для headless запуска
-            # Need for exit(status)
-            # - https://emscripten.org/docs/api_reference/emscripten.h.html#c.emscripten_force_exit
-            # - https://emscripten.org/docs/getting_started/FAQ.html#what-does-exiting-the-runtime-mean-why-don-t-atexit-s-run
-            # - https://github.com/emscripten-core/emscripten/blob/main/src/settings.js
-            "-sEXIT_RUNTIME=1",
-            #--bind ???
-            #--closure=1 ???
-        ],
-        # "@platforms//os:windows": [
-        #     "/SUBSYSTEM:CONSOLE",
-        # ],
-        # "@platforms//os:macos": [
-        #     "-framework", "CoreFoundation",
-        #     "-lc++",
-        # ],
-        "//conditions:default": [],
-    }),
+    # linkopts = ["-custom-flag"],  # Custom linkopts can be added if needed
     deps = ["//src:pkg-log"],
     visibility = ["//visibility:public"],
 )
