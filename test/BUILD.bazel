@@ -12,10 +12,10 @@ cc_test(
 )
 
 cc_test(
-    name = "build_test",
-    srcs = ["build_test.cpp"],
+    name = "boot_test",
+    srcs = ["boot_test.cpp"],
     deps = [
-        "//src:pkg-build",
+        "//src:pkg-boot",
         "@googletest//:gtest_main",
     ],
     copts = ["-std=c++20"],

@@ -10,7 +10,7 @@ tx_binary(
     # linkopts = ["-custom-flag"],  # Custom linkopts can be added if needed
     deps = [
         "//src:pkg-log",
-        "//src:pkg-build",
+        "//src:pkg-boot",
     ],
     visibility = ["//visibility:public"],
 )
