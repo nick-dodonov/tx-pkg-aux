@@ -1,10 +1,7 @@
-load("@rules_cc//cc:defs.bzl", "cc_binary")
-load("@rules_shell//shell:sh_binary.bzl", "sh_binary")
-load("@emsdk//emscripten_toolchain:wasm_rules.bzl", "wasm_cc_binary")
+load("//tools/bazel/builder:tx_binary.bzl", "tx_binary")
 
-# Объединенная сборка с платформо-специфичными linkopts
-cc_binary(
-    name = "hello-log-bin",
+tx_binary(
+    name = "hello-log",
     srcs = ["main.cpp"],
     copts = [
         "-std=c++20",
@@ -32,37 +29,5 @@ cc_binary(
         "//conditions:default": [],
     }),
     deps = ["//src:pkg-log"],
-    visibility = ["//visibility:public"],
-)
-
-# WASM правило для получения отдельных файлов
-wasm_cc_binary(
-    name = "hello-log-wasm",
-    cc_target = ":hello-log-bin",
-    # По-умолчанию output'ом будет .wasm, но можно указать и другие
-    # outputs = [
-    #     "some.html",
-    #     "some.js", 
-    #     "some.wasm",
-    # ],
-    visibility = ["//visibility:public"],
-)
-
-# WASM запуск в браузере через emrun и получение stdout/exit code
-sh_binary(
-    name = "hello-log-runner",
-    srcs = ["run_wasm_demo.sh"],
-    args = ["$(execpaths :hello-log-wasm)"],
-    data = [":hello-log-wasm"],
-    visibility = ["//visibility:public"],
-)
-
-# Alias allowing to run //:hello-log on for different target platforms
-alias(
-    name = "hello-log",
-    actual = select({
-        "@platforms//cpu:wasm32": "//demo:hello-log-runner",
-        "//conditions:default": "//demo:hello-log-bin", 
-    }),
     visibility = ["//visibility:public"],
 )

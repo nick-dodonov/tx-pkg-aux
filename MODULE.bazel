@@ -19,7 +19,7 @@ bazel_dep(name = "emsdk", version = "4.0.13")
 # foreign_cc.ninja(version = "1.13.0")
 
 # src dependency
-bazel_dep(name = "lwlog", version = "1.4.0")  # in private external repository
+bazel_dep(name = "lwlog", version = "1.4.0-patch.2")  # in private external repository
 # single_version_override(
 #     module_name = "lwlog",
 #     registry = "https://raw.githubusercontent.com/nick-dodonov/tx-kit-repo/main",
