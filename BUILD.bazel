@@ -1,0 +1,11 @@
+alias(
+    name = "log",
+    actual = "//src:pkg-log",
+    visibility = ["//visibility:public"],
+)
+
+alias(
+    name = "demo",
+    actual = "//demo:hello-log",
+    visibility = ["//visibility:public"],
+)

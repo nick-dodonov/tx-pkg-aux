@@ -1,0 +1,23 @@
+load("//tools/bazel/builder:tx_test.bzl", "tx_test")
+
+tx_test(
+    name = "log-test",
+    srcs = ["log_test.cpp"],
+    deps = [
+        "//src:pkg-log",
+        "@googletest//:gtest_main",
+    ],
+    copts = ["-std=c++20"],
+    size = "small",
+)
+
+tx_test(
+    name = "boot-test",
+    srcs = ["boot_test.cpp"],
+    deps = [
+        "//src:pkg-boot",
+        "@googletest//:gtest_main",
+    ],
+    copts = ["-std=c++20"],
+    size = "small",
+)

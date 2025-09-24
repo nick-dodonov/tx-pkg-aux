@@ -1,0 +1,26 @@
+# === РЕЖИМЫ СБОРКИ ===
+
+build:debug --compilation_mode=dbg
+build:release --compilation_mode=opt
+
+# === HERMETIC (воспроизводимая сборка) ===
+build:hermetic --action_env=-PATH
+build:hermetic --host_action_env=-PATH
+build:hermetic --action_env=-MAKE
+build:hermetic --action_env=-CMAKE
+build:hermetic --action_env=-PKG_CONFIG
+build:hermetic --action_env=-NINJA
+build:hermetic --sandbox_default_allow_network=false
+
+# === TESTING ===
+test:unit --test_output=errors
+test:unit --test_summary=short
+test:unit --test_timeout=60
+
+test:integration --test_output=all
+test:integration --test_summary=detailed
+test:integration --test_timeout=300
+
+test:performance --test_output=all
+test:performance --test_timeout=600
+test:performance --test_env=PERFORMANCE_TEST=1

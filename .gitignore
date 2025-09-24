@@ -2,7 +2,16 @@
 .xmake/
 build/
 
+# Bazel
+/bazel-*
+/bazel-*/**
+MODULE.bazel.lock
+profile*.json
+.local.bazelrc
+.user.bazelrc
+
 # MacOS Cache
 .DS_Store
 
-
+# CLion
+/.clwb/

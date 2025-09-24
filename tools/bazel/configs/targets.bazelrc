@@ -1,0 +1,18 @@
+# === ЦЕЛЕВЫЕ ПЛАТФОРМЫ ===
+# Конфигурации для различных target platforms
+
+# === EMSCRIPTEN (WebAssembly) ===
+# Базовая WASM сборка (использует @emsdk toolchain)
+build:wasm --platforms=@emsdk//:platform_wasm
+
+# === ANDROID ===
+# Примечание: требует настройки Android SDK/NDK
+build:android --android_crosstool_top=@androidndk//:default_crosstool
+build:android --cpu=arm64-v8a
+build:android --fat_apk_cpu=arm64-v8a,armeabi-v7a
+
+# === IOS ===  
+# Примечание: только на macOS с Xcode
+build:ios --apple_platform_type=ios
+build:ios --ios_minimum_os=12.0
+build:ios --xcode_version_config=@bazel_tools//tools/cpp:host_xcodes
