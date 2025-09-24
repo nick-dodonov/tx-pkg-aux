@@ -10,3 +10,14 @@ cc_test(
     copts = ["-std=c++17"],
     size = "small",
 )
+
+cc_test(
+    name = "build_test",
+    srcs = ["build_test.cpp"],
+    deps = [
+        "//src:pkg-build",
+        "@googletest//:gtest_main",
+    ],
+    copts = ["-std=c++20"],
+    size = "small",
+)

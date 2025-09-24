@@ -8,6 +8,9 @@ tx_binary(
         #-fno-exceptions
     ],
     # linkopts = ["-custom-flag"],  # Custom linkopts can be added if needed
-    deps = ["//src:pkg-log"],
+    deps = [
+        "//src:pkg-log",
+        "//src:pkg-build",
+    ],
     visibility = ["//visibility:public"],
 )
