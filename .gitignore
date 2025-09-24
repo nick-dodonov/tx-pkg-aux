@@ -1,14 +1,8 @@
-# Xmake cache
-.xmake/
-build/
-
 # Bazel
 /bazel-*
-/bazel-*/**
 MODULE.bazel.lock
 profile*.json
-.local.bazelrc
-.user.bazelrc
+.*.bazelrc
 
 # MacOS Cache
 .DS_Store
