@@ -1,5 +1,5 @@
-"""Starlark build definitions for tx_test using cc_test."""
-load("@rules_cc//cc:cc_test.bzl", "cc_test")
+"""Starlark build definitions for tx_test using cc_binary."""
+load("@rules_cc//cc:cc_binary.bzl", "cc_binary")
 load("@rules_shell//shell:sh_test.bzl", "sh_test")
 load("@emsdk//emscripten_toolchain:wasm_rules.bzl", "wasm_cc_binary")
 load(":tx_common.bzl", "merge_copts", "merge_linkopts")
@@ -26,12 +26,20 @@ def tx_test(name, *args, **kwargs):
     user_linkopts = kwargs.pop("linkopts", [])
     merged_copts = merge_copts(user_copts)
     merged_linkopts = merge_linkopts(user_linkopts)
+    
+    # Extract test-specific kwargs that don't apply to cc_binary
+    test_size = kwargs.pop("size", "small")
+    test_timeout = kwargs.pop("timeout", None)
+    test_flaky = kwargs.pop("flaky", None)
+    test_shard_count = kwargs.pop("shard_count", None)
 
-    # Main test target for native platforms (no target_compatible_with - runs everywhere by default)
-    cc_test(
+    # Native test binary - not a test target itself, just a compilation target
+    cc_binary(
         name = name + "-native",
         copts = merged_copts,
         linkopts = merged_linkopts,
+        testonly = True,
+        visibility = ["//visibility:private"],
         *args,
         **kwargs,
     )
@@ -45,7 +53,7 @@ def tx_test(name, *args, **kwargs):
         testonly = True,
     )
 
-    # Для native платформ - просто запускаем исходный тест, для WASM - через run-wasm.sh
+    # Main test wrapper - works for both native and WASM platforms
     sh_test(
         name = name,
         srcs = select({
@@ -54,13 +62,13 @@ def tx_test(name, *args, **kwargs):
         }),
         args = select({
             "@platforms//cpu:wasm32": ["$(execpaths :" + name + "-wasm)"],
-            "//conditions:default": [":" + name + "-native"],
+            "//conditions:default": [],
         }),
         data = select({
             "@platforms//cpu:wasm32": [":" + name + "-wasm"],
             "//conditions:default": [":" + name + "-native"],
         }),
         testonly = True,
-        size = kwargs.get("size", "small"), #TODO: передать из kwargs
+        size = test_size,
         visibility = ["//visibility:public"],
     )

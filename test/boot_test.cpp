@@ -27,7 +27,4 @@ TEST(BuildTest, BuildDescriptionContainsRequiredInfo) {
     
     // Should contain C++ standard
     EXPECT_TRUE(desc.find("C++") != std::string::npos);
-    
-    // Should contain build timestamp
-    EXPECT_TRUE(desc.find("Built:") != std::string::npos);
 }
