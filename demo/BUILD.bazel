@@ -2,15 +2,20 @@ load("//tools/bazel/builder:tx_binary.bzl", "tx_binary")
 
 tx_binary(
     name = "hello-log",
-    srcs = ["main.cpp"],
+    srcs = ["hello-log/main.cpp"],
     copts = [
         "-std=c++20",
         #-fno-exceptions
     ],
     # linkopts = ["-custom-flag"],  # Custom linkopts can be added if needed
-    deps = [
-        "//src:pkg-log",
-        "//src:pkg-boot",
-    ],
+    deps = ["//src:pkg-log"],
+    visibility = ["//visibility:public"],
+)
+
+tx_binary(
+    name = "hello-boot",
+    srcs = ["hello-boot/main.cpp"],
+    copts = ["-std=c++20"],
+    deps = ["//src:pkg-boot"],
     visibility = ["//visibility:public"],
 )

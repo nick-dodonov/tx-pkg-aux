@@ -1,6 +1,7 @@
 #pragma once
 #include <string>
 
-namespace Build {
+namespace Build
+{
     std::string BuildDescription();
 }

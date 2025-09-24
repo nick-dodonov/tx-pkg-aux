@@ -6,15 +6,18 @@ cc_library(
     hdrs = ["Log/Log.h"],
     strip_include_prefix = ".",
     deps = ["@lwlog//:lwlog"],
-    copts = ["-std=c++17"],
+    copts = ["-std=c++20"],
     visibility = ["//visibility:public"],
 )
 
 cc_library(
     name = "pkg-boot",
-    srcs = ["Boot/Build.cpp"],
-    hdrs = ["Boot/Build.h"],
+    srcs = glob(["Boot/*.cpp"]),
+    hdrs = glob(["Boot/*.h"]),
     strip_include_prefix = ".",
     copts = ["-std=c++20"],
+    deps = [
+        ":pkg-log",
+    ],
     visibility = ["//visibility:public"],
 )
