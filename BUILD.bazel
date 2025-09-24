@@ -1,16 +1,11 @@
-# Root BUILD file for convenience targets
 alias(
-    name = "pkg-log",
+    name = "log",
     actual = "//src:pkg-log",
     visibility = ["//visibility:public"],
 )
 
-# Alias allowing to run //:demo on for different target platforms
 alias(
     name = "demo",
-    actual = select({
-        "@platforms//cpu:wasm32": "//demo:log_runner",
-        "//conditions:default": "//demo:log_demo", 
-    }),
+    actual = "//demo:hello-log",
     visibility = ["//visibility:public"],
 )

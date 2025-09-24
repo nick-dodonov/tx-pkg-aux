@@ -1,4 +1,5 @@
 #include "Log/Log.h"
+#include "Build/Build.h"
 
 #include <format>
 
@@ -14,6 +15,9 @@ int main(int argc, char* argv[])
     for (int i = 0; i < argc; ++i) {
         Log::Info(std::format("  Arg[{}]: {}", i, argv[i]));
     }
+
+    Log::Info(std::format("Build: {}", Build::BuildDescription()));
+
     auto exitCode = argc - 1;
     Log::Info(std::format("Exit: {}", exitCode));
 
