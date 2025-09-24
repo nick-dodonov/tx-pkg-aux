@@ -64,4 +64,3 @@ def tx_test(name, *args, **kwargs):
         size = kwargs.get("size", "small"), #TODO: передать из kwargs
         visibility = ["//visibility:public"],
     )
-
