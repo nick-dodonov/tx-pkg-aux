@@ -1,2 +1,0 @@
-"""Module definition for tx-builder package."""
-module(name = "tx-builder", version = "0.1.0")

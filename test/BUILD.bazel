@@ -1,7 +1,7 @@
-load("//tools/bazel/builder:tx_test.bzl", "tx_test")
+load("@tx-kit-repo//configs/builder:tx_test.bzl", "tx_test")
 
 tx_test(
-    name = "log-test",
+    name = "log",
     srcs = ["log_test.cpp"],
     deps = [
         "//src:pkg-log",
@@ -12,7 +12,7 @@ tx_test(
 )
 
 tx_test(
-    name = "boot-test",
+    name = "boot",
     srcs = ["boot_test.cpp"],
     deps = [
         "//src:pkg-boot",
