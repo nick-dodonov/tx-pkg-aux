@@ -1,7 +1,6 @@
 # Bazel
 /bazel-*
 MODULE.bazel.lock
-profile*.json
 .*.bazelrc
 
 # MacOS Cache

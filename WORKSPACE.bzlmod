@@ -1,2 +1,0 @@
-# An empty WORKSPACE.bzlmod file to prevent fetching any dependencies from the old WORKSPACE system when Bzlmod is enabled.
-# https://github.com/bazelbuild/examples/tree/main/bzlmod
