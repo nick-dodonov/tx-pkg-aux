@@ -8,4 +8,5 @@ profile*.json
 .DS_Store
 
 # CLion
+/.idea/
 /.clwb/
