@@ -5,7 +5,7 @@ tx_binary(
     srcs = ["hello-log/main.cpp"],
     copts = [
         "-std=c++20",
-        #-fno-exceptions
+        "-fno-exceptions",
     ],
     # linkopts = ["-custom-flag"],  # Custom linkopts can be added if needed
     deps = ["//src:pkg-log"],
