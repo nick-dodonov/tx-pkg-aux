@@ -1,13 +1,19 @@
+//TODO: replace w/ something from std or mv -D to BUILD.bazel copts
+#define _POSIX_C_SOURCE 200809L
+#include <unistd.h>
+
 #include "Boot.h"
 #include "Build.h"
 #include "Log/Log.h"
+
 #include <chrono>
 #include <ctime>
 #include <format>
 
 namespace Boot
 {
-    static const char* AppData = "0000"; //TODO: embedded in elf (may be w/ git tag or similar)
+    static const char* AppData = "0001"; //TODO: embedded in elf (may be w/ git tag or similar)
+
     void LogInfo(int argc, char* argv[])
     {
         Log::Info("-=>-=>-=>-=>-=>-=>-=>-=>-=>-=>-=>-=>-=>-=>-=>-=>-=>-=>-=>-=>-=>");
@@ -24,11 +30,17 @@ namespace Boot
             Log::Info("Time: [Error formatting time]");
         }
 
+        char cwd[1024];
+        if (!getcwd(cwd, sizeof(cwd))) {
+            cwd[0] = '\0';
+        }
+        Log::Info(std::format("Directory: {}", cwd));
+
         Log::Info("Command:");
         for (int i = 0; i < argc; ++i) {
             Log::Info(std::format("  [{}] {}", i, argv[i]));
         }
-        //TODO: cwd
+
         Log::Info("<=-<=-<=-<=-<=-<=-<=-<=-<=-<=-<=-<=-<=-<=-<=-<=-<=-<=-<=-<=-<=-");
     }
 }
