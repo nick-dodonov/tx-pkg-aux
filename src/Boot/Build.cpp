@@ -76,6 +76,8 @@ namespace Build
         desc << "Pre-11";
 #endif
 
+        desc << " | " << __DATE__ << " " << __TIME__;
+
         return desc.str();
     }
 }
