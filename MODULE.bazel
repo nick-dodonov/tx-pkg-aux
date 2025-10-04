@@ -18,7 +18,7 @@ git_repository = use_repo_rule("@bazel_tools//tools/build_defs/repo:git.bzl", "g
 git_repository(
     name = "tx-kit-repo",
     remote = "https://github.com/nick-dodonov/tx-kit-repo.git",
-    commit = "7a2a721e0ebc973ba38a47abc70e2501b8db4509",
+    commit = "ebd5ca6c1861b95ae46d0b74a254c5d1996379d8",
 )
 
 # src dependency

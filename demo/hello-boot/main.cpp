@@ -5,6 +5,6 @@ int main(int argc, char* argv[])
 {
     Boot::LogInfo(argc, argv);
 
-    Log::Info("Hello from hello-boot!");
-    return 0;
+    Log::Info("Hello Boot!");
+    return argc - 1;
 }
