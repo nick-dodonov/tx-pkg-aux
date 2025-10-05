@@ -12,16 +12,15 @@ bazel_dep(name = "rules_foreign_cc", version = "0.15.1")
 bazel_dep(name = "emsdk", version = "4.0.15")
 
 # tx useful rules and tools
-bazel_dep(name = "tx-kit-repo")
+bazel_dep(name = "tx-kit-repo")  # not published in private registry yet
 git_override(
-    # tx-kit-repo isn't published in private registry yet
     module_name = "tx-kit-repo",
     remote = "https://github.com/nick-dodonov/tx-kit-repo.git",
     tag = "v/0.1.1-pre.1",
 )
 
 # src dependency
-bazel_dep(name = "lwlog", version = "1.4.0-patch.2")  # in private external repository
+bazel_dep(name = "lwlog", version = "1.4.0-patch.2")  # published in private registry
 
 # test dependency
 bazel_dep(name = "googletest", version = "1.17.0", dev_dependency = True)
