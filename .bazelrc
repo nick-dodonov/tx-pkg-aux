@@ -1,16 +1,9 @@
-# === ГЛАВНАЯ КОНФИГУРАЦИЯ BAZEL ===
-# Модульная система конфигураций с импортами
-
-# === MODULE REGISTRY ===
-# Общие настройки для всех команд (build, query, mod, test, etc.)
 common --registry=https://raw.githubusercontent.com/nick-dodonov/tx-kit-repo/main
 common --registry=https://bcr.bazel.build/
+# https://bazel.build/run/bazelrc#enable_platform_specific_config
+common --enable_platform_specific_config
 
-# === ИМПОРТ МОДУЛЬНЫХ КОНФИГУРАЦИЙ ===
-try-import tools/bazel/configs/common.bazelrc
-try-import tools/bazel/configs/platforms.bazelrc
 try-import tools/bazel/configs/targets.bazelrc
-try-import tools/bazel/configs/modes.bazelrc
 
 # === ПОЛЬЗОВАТЕЛЬСКИЕ НАСТРОЙКИ (не в git) ===
 try-import %workspace%/.dev.bazelrc
