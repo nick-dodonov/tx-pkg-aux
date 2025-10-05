@@ -13,5 +13,5 @@ try-import tools/bazel/configs/targets.bazelrc
 try-import tools/bazel/configs/modes.bazelrc
 
 # === ПОЛЬЗОВАТЕЛЬСКИЕ НАСТРОЙКИ (не в git) ===
-try-import .local.bazelrc
-try-import .user.bazelrc
+try-import %workspace%/.dev.bazelrc
+try-import %workspace%/.user.bazelrc

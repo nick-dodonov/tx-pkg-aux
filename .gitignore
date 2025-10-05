@@ -2,10 +2,18 @@
 /bazel-*
 MODULE.bazel.lock
 .*.bazelrc
-
-# MacOS Cache
-.DS_Store
+/external
 
 # CLion
 /.idea/
 /.clwb/
+
+# Native debugging customizations
+/.lldbinit
+
+# OS/caches/temp files
+.DS_Store
+Thumbs.db
+*.bak
+*.tmp
+*.log
