@@ -1,4 +1,4 @@
-load("@tx-kit-repo//rules/build:tx_test.bzl", "tx_test")
+load("@tx-kit-ext//rules/build:tx_test.bzl", "tx_test")
 
 tx_test(
     name = "log",
