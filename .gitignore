@@ -9,7 +9,7 @@ MODULE.bazel.lock
 /.clwb/
 
 # Native debugging customizations
-/.lldbinit
+/.lldb*
 
 # OS/caches/temp files
 .DS_Store
