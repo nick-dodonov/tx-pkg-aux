@@ -1,4 +1,4 @@
-load("@tx-kit-repo//configs/builder:tx_binary.bzl", "tx_binary")
+load("@tx-kit-repo//rules/build:tx_binary.bzl", "tx_binary")
 
 tx_binary(
     name = "hello-log",
@@ -7,9 +7,8 @@ tx_binary(
         "-std=c++20",
         "-fno-exceptions",
     ],
-    # linkopts = ["-custom-flag"],  # Custom linkopts can be added if needed
     deps = ["//src:pkg-log"],
-    visibility = ["//:internal"],  # Только для внутреннего использования
+    visibility = ["//:internal"],
 )
 
 tx_binary(
@@ -17,5 +16,5 @@ tx_binary(
     srcs = ["hello-boot/main.cpp"],
     copts = ["-std=c++20"],
     deps = ["//src:pkg-boot"],
-    visibility = ["//:internal"],  # Только для внутреннего использования
+    visibility = ["//:internal"],
 )
