@@ -1,4 +1,4 @@
-common --registry=https://raw.githubusercontent.com/nick-dodonov/tx-kit-repo/main
+common --registry=https://raw.githubusercontent.com/nick-dodonov/tx-kit-registry/main
 common --registry=https://bcr.bazel.build/
 common --enable_platform_specific_config
 
