@@ -2,9 +2,7 @@
 package_group(
     name = "internal",
     packages = [
-        "//demo/...",
-        "//test/...",
-        "//tools/...",
+        "//...",  # Include the entire project including root package
     ],
 )
 
@@ -19,5 +17,5 @@ alias(
 alias(
     name = "demo",
     actual = "//demo:hello-log",
-    visibility = [":internal"],  # Только для внутреннего использования
+    visibility = ["//:internal"],
 )
