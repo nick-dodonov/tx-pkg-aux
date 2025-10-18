@@ -7,8 +7,6 @@ tx_test(
         "//src:pkg-log",
         "@googletest//:gtest_main",
     ],
-    copts = ["-std=c++20"],
-    size = "small",
 )
 
 tx_test(
@@ -18,6 +16,4 @@ tx_test(
         "//src:pkg-boot",
         "@googletest//:gtest_main",
     ],
-    copts = ["-std=c++20"],
-    size = "small",
 )
