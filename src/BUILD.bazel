@@ -1,23 +1,25 @@
-load("@rules_cc//cc:defs.bzl", "cc_library")
+load("@tx-kit-ext//rules/build:tx_library.bzl", "tx_library")
 
-cc_library(
+package(
+    default_visibility = ["//visibility:public"],
+    features = [
+        # "thin_lto",  # Enable Thin LTO
+        # "-legacy_whole_archive",  # Disable legacy whole archive
+    ],
+)
+
+tx_library(
     name = "pkg-log",
     srcs = ["Log/Log.cpp"],
     hdrs = ["Log/Log.h"],
     strip_include_prefix = ".",
-    deps = ["@lwlog//:lwlog"],
-    copts = ["-std=c++20"],
-    visibility = ["//visibility:public"],
+    deps = ["@lwlog"],
 )
 
-cc_library(
+tx_library(
     name = "pkg-boot",
     srcs = glob(["Boot/*.cpp"]),
     hdrs = glob(["Boot/*.h"]),
     strip_include_prefix = ".",
-    copts = ["-std=c++20"],
-    deps = [
-        ":pkg-log",
-    ],
-    visibility = ["//visibility:public"],
+    deps = [":pkg-log"],
 )
