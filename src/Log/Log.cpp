@@ -25,7 +25,7 @@ namespace Log
         // TODO: fix bug adding '.' in time crashes (so '·' is used instead)
         // TODO: fix time in emscripten (it shows UTC, not local time)
         // TODO: {thread} depending on platform
-        g_logger->set_pattern("[{%T}·" SUBSECS "] %t :<8%l [%n] %v");
+        g_logger->set_pattern("[%T·" SUBSECS "] %t :<8%l [%n] %v");
 
         //g_logger->debug("Logger initialized");
     }
