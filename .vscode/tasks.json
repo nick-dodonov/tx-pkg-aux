@@ -6,11 +6,11 @@
 		{
 			"type": "shell",
 			"label": "compile_commands :refresh_all",
-			"command": "bazel run @hedron_compile_commands//:refresh_all", // -- --workspace_root=${workspaceFolder} --output_file=${workspaceFolder}/compile_commands.json",
+			"command": "bazel run @hedron_compile_commands//:refresh_all",
 			"group": {
 				"kind": "build",
 				"isDefault": true
-			},
-		},
+			}
+		}
 	]
 }

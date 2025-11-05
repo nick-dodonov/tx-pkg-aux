@@ -24,3 +24,4 @@ PointerAlignment: Left
 SpaceAfterCStyleCast: false
 SpaceBeforeParens: ControlStatements
 FixNamespaceComments: false
+AlwaysBreakTemplateDeclarations: Yes
