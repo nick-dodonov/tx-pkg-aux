@@ -1,0 +1,42 @@
+---
+Checks: >
+  clang-diagnostic-*,
+  clang-analyzer-*,
+  -clang-analyzer-alpha.*,
+  bugprone-*,
+  cppcoreguidelines-*,
+  -cppcoreguidelines-avoid-const-or-ref-data-members,
+  -cppcoreguidelines-avoid-magic-numbers,
+  -cppcoreguidelines-pro-bounds-pointer-arithmetic,
+  -cppcoreguidelines-pro-bounds-array-to-pointer-decay,
+  modernize-*,
+  -modernize-use-trailing-return-type,
+  performance-*,
+  readability-*,
+  -readability-magic-numbers,
+  -readability-convert-member-functions-to-static,
+  -readability-identifier-length
+
+# Disabled checks explanation:
+# - alpha.*: Experimental checks, too many false positives
+# - cppcoreguidelines-avoid-const-or-ref-data-members: Needed for coroutine promises
+# - cppcoreguidelines-avoid-magic-numbers: Acceptable in test code
+# - cppcoreguidelines-pro-bounds-*: Sometimes needed for C interop
+# - modernize-use-trailing-return-type: Verbose for simple functions
+# - readability-magic-numbers: Acceptable in test code
+# - readability-convert-member-functions-to-static: Breaks coroutine awaiter protocol
+# - readability-identifier-length: Conflicts with naming conventions (variable i/j/n are common)
+
+CheckOptions:
+  - key: readability-identifier-naming.VariableCase
+    value: camelCase
+  - key: readability-identifier-naming.FunctionCase
+    value: camelCase
+  - key: readability-identifier-naming.ClassCase
+    value: CamelCase
+  - key: readability-identifier-naming.MemberCase
+    value: camelCase
+
+HeaderFilterRegex: '.*'
+AnalyzeTemporaryDtors: false
+FormatStyle: file
