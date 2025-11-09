@@ -5,12 +5,13 @@
 	"tasks": [
 		{
 			"type": "shell",
-			"label": "compile_commands :refresh_all",
+			"label": "compile_commands :refresh_all (OS)",
 			"command": "bazel run @hedron_compile_commands//:refresh_all",
-			"group": {
-				"kind": "build",
-				"isDefault": true
-			}
-		}
+		},
+		{
+			"type": "shell",
+			"label": "compile_commands :refresh_all (WASM)",
+			"command": "bazel run @hedron_compile_commands//:refresh_all -- --config=wasm",
+		},
 	]
 }
