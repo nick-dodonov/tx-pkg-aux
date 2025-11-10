@@ -4,7 +4,8 @@
 namespace Log {
     static std::shared_ptr<lwlog::basic_logger<lwlog::sinks::stdout_sink>> g_logger;
 
-    void DefaultInit() {
+    void DefaultInit()
+    {
         g_logger = std::make_shared<lwlog::basic_logger<lwlog::sinks::stdout_sink>>("default");
         // g_logger->set_level_filter(lwlog::level::info | lwlog::level::debug | lwlog::level::critical);
 
@@ -27,33 +28,43 @@ namespace Log {
         // g_logger->debug("Logger initialized");
     }
 
-    void Debug(const std::string& message){
-        if (!g_logger)
+    void Debug(const std::string& msg)
+    {
+        if (!g_logger) {
             DefaultInit();
-        g_logger->debug(message.c_str());
+        }
+        g_logger->debug(msg.c_str());
     }
 
-    void Info(const std::string& message) {
-        if (!g_logger)
+    void Info(const std::string& msg)
+    {
+        if (!g_logger) {
             DefaultInit();
-        g_logger->info(message.c_str());
+        }
+        g_logger->info(msg.c_str());
     }
 
-    void Warn(const std::string& message) {
-        if (!g_logger)
+    void Warn(const std::string& msg)
+    {
+        if (!g_logger) {
             DefaultInit();
-        g_logger->warning(message.c_str());
+        }
+        g_logger->warning(msg.c_str());
     }
 
-    void Error(const std::string& message) {
-        if (!g_logger)
+    void Error(const std::string& msg)
+    {
+        if (!g_logger) {
             DefaultInit();
-        g_logger->error(message.c_str());
+        }
+        g_logger->error(msg.c_str());
     }
 
-    void Fatal(const std::string& message) {
-        if (!g_logger)
+    void Fatal(const std::string& msg)
+    {
+        if (!g_logger) {
             DefaultInit();
-        g_logger->critical(message.c_str());
+        }
+        g_logger->critical(msg.c_str());
     }
 }

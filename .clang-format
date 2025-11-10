@@ -4,24 +4,87 @@ BasedOnStyle: LLVM
 IndentWidth: 4
 TabWidth: 4
 UseTab: Never
+ContinuationIndentWidth: 4
 AccessModifierOffset: -4
 NamespaceIndentation: All
 IndentRequires: false
 IndentCaseLabels: true
 IndentPPDirectives: BeforeHash
-AlignAfterOpenBracket: Align
+ColumnLimit: 120
+
+# pointer and reference alignment
+PointerAlignment: Left
+ReferenceAlignment: Left
+
+# arguments formatting
+AlignAfterOpenBracket: BlockIndent
+BinPackArguments: false
+BinPackParameters: false
+ExperimentalAutoDetectBinPacking: false
+AllowAllArgumentsOnNextLine: false
+AllowAllParametersOfDeclarationOnNextLine: false
+
+# close bracket control
+#BreakBeforeCloseBracketBracedList: false
+#BreakBeforeCloseBracketFunction: false
+#BreakBeforeCloseBracketIf: false
+
+# penalties for line breaking
+# PenaltyBreakBeforeFirstCallParameter: 1
+# PenaltyBreakAssignment: 2
+# PenaltyBreakOpenParenthesis: 0
+# PenaltyExcessCharacter: 100
+# PenaltyBreakString: 1000
+# PenaltyBreakComment: 300
+
+# template declarations
+AlwaysBreakTemplateDeclarations: Yes
+#BUG w/ usual params: BreakBeforeTemplateCloser: true
+
+# constructor initializer formatting
+PackConstructorInitializers: Never
+BreakConstructorInitializers: BeforeComma
+
+# brace wrapping
+BreakBeforeBraces: Stroustrup
+# BreakBeforeBraces: Custom
+# BraceWrapping:
+#   AfterClass: false
+#   AfterControlStatement: false
+#   AfterEnum: false
+#   AfterFunction: false
+#   AfterNamespace: false
+#   AfterStruct: false
+#   AfterUnion: false
+#   BeforeCatch: false
+#   BeforeElse: false
+#   AfterCaseLabel: false
+#   AfterExternBlock: false
+#   BeforeLambdaBody: false
+#   BeforeWhile: false
+#   IndentBraces: false
+#   SplitEmptyFunction: false
+#   SplitEmptyRecord: false
+#   SplitEmptyNamespace: false
+#   AfterControlStatement: false
+#   AfterCaseLabel: false
+#   AfterControlStatement: MultiLine
+#   AfterControlStatement: Never
+#   AfterCaseLabel: false
+#   AfterCaseLabel: false
+
+# inline function formatting
+AllowShortFunctionsOnASingleLine: InlineOnly
+AllowShortLambdasOnASingleLine: All
+
+# other settings
 AlignConsecutiveAssignments: false
 AlignConsecutiveDeclarations: false
 AlignOperands: true
 AllowShortBlocksOnASingleLine: false
 AllowShortCaseLabelsOnASingleLine: false
-AllowShortFunctionsOnASingleLine: Inline
 AllowShortIfStatementsOnASingleLine: false
 AllowShortLoopsOnASingleLine: false
-BreakBeforeBraces: Attach
-ColumnLimit: 160
-PointerAlignment: Left
 SpaceAfterCStyleCast: false
 SpaceBeforeParens: ControlStatements
 FixNamespaceComments: false
-AlwaysBreakTemplateDeclarations: Yes
