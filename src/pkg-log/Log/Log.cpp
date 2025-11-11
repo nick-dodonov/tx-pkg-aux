@@ -2,11 +2,12 @@
 #include <lwlog.h>
 
 namespace Log {
-    static std::shared_ptr<lwlog::basic_logger<lwlog::sinks::stdout_sink>> g_logger;
+    using Logger = lwlog::console_logger;
+    static std::shared_ptr<Logger> g_logger;
 
     void DefaultInit()
     {
-        g_logger = std::make_shared<lwlog::basic_logger<lwlog::sinks::stdout_sink>>("default");
+        g_logger = std::make_shared<Logger>("default");
         // g_logger->set_level_filter(lwlog::level::info | lwlog::level::debug | lwlog::level::critical);
 
         // TODO: check/fix in web-tools and emrun
