@@ -8,6 +8,7 @@ tx_library(
     deps = [
         "//:pkg-log",
         "@asio//:asio",
+        "@ada-url//:ada", #TODO: think to replace w/ cxxurl
     ],
     visibility = ["//visibility:public"],
 )

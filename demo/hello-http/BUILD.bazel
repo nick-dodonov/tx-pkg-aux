@@ -4,4 +4,5 @@ tx_binary(
     name = "hello-http",
     srcs = ["main.cpp"],
     deps = ["//src/pkg-http"],
+    cxxopts = ["-std=c++23"],
 )
