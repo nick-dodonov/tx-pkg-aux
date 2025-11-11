@@ -1,0 +1,14 @@
+load("@tx-kit-ext//rules/build:tx_binary.bzl", "tx_binary")
+
+package(
+    features = [
+        # "thin_lto",  # Enable Thin LTO
+        # "-legacy_whole_archive",  # Disable legacy whole archive
+    ],
+)
+
+tx_binary(
+    name = "hello-boot",
+    srcs = ["main.cpp"],
+    deps = ["//:pkg-boot"],
+)

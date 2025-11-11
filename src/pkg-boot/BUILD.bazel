@@ -1,7 +1,7 @@
 load("@tx-kit-ext//rules/build:tx_library.bzl", "tx_library")
 
 tx_library(
-    name = "lib",
+    name = "pkg-boot",
     srcs = glob(["**/*.cpp"]),
     hdrs = glob(["**/*.h"]),
     strip_include_prefix = ".",

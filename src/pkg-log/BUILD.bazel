@@ -1,9 +1,9 @@
 load("@tx-kit-ext//rules/build:tx_library.bzl", "tx_library")
 
 tx_library(
-    name = "lib",
-    srcs = ["Log/Log.cpp"],
-    hdrs = ["Log/Log.h"],
+    name = "pkg-log",
+    srcs = glob(["**/*.cpp"]),
+    hdrs = glob(["**/*.h"]),
     strip_include_prefix = ".",
     deps = ["@lwlog"],
     visibility = ["//visibility:public"],
