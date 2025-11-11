@@ -1,3 +1,4 @@
+try-import %workspace%/.init.bazelrc
 common --registry=https://raw.githubusercontent.com/nick-dodonov/tx-kit-registry/main
 common --registry=https://bcr.bazel.build/
 common --enable_platform_specific_config
