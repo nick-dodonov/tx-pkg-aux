@@ -1,0 +1,7 @@
+load("@tx-kit-ext//rules/build:tx_binary.bzl", "tx_binary")
+
+tx_binary(
+    name = "hello-http",
+    srcs = ["main.cpp"],
+    deps = ["//src/pkg-http"],
+)

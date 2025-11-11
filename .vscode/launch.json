@@ -1,0 +1,22 @@
+{
+    // Use IntelliSense to learn about possible attributes.
+    // Hover to view descriptions of existing attributes.
+    // For more information, visit: https://go.microsoft.com/fwlink/?linkid=830387
+    "version": "0.2.0",
+    "configurations": [
+        // ================ debug demo configurations
+        {
+            "name": "demo <relative> (LLDB)",
+            "type": "lldb",
+            "request": "launch",
+            "program": "${workspaceFolder}/bazel-bin/${relativeFileDirname}",
+            "cwd": "${workspaceFolder}",
+            "initCommands": [
+                "platform setting -w ${workspaceFolder}",
+                "command source ${env:HOME}/.lldbinit",
+                "command source ${workspaceFolder}/.lldbinit",
+            ],
+            "preLaunchTask": "build demo <relative>",
+        },
+    ]
+}

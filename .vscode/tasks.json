@@ -3,6 +3,7 @@
 	// for the documentation about the tasks.json format
 	"version": "2.0.0",
 	"tasks": [
+        // ================ dev environment tasks
 		{
 			"type": "shell",
 			"label": "compile_commands :refresh_all (OS)",
@@ -19,5 +20,27 @@
 				"kind": "build",
 			},
 		},
+        {
+            "type": "shell",
+            "label": "dev:init (force links)",
+            "command": "bazel run @tx-kit-ext//tools/dev:init --override_module=tx-kit-ext=../tx-kit-ext -- -sf",
+            "group": {
+                "kind": "build",
+            },
+        },
+        // ================ build demo tasks
+        {
+            "type": "shell",
+            "label": "build demo <relative>",
+            "command": "bazel build ${relativeFileDirname}",
+            "group": {
+                "kind": "build",
+                "isDefault": true
+            },
+            "presentation": {
+                "focus": true,
+            },
+            "problemMatcher": "$gcc",
+        },		
 	]
 }
