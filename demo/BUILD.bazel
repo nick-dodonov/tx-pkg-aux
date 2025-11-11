@@ -3,13 +3,13 @@ load("@tx-kit-ext//rules/build:tx_binary.bzl", "tx_binary")
 tx_binary(
     name = "hello-log",
     srcs = ["hello-log/main.cpp"],
-    deps = ["//src:pkg-log"],
+    deps = ["//:pkg-log"],
     visibility = ["//:internal"],
 )
 
 tx_binary(
     name = "hello-boot",
     srcs = ["hello-boot/main.cpp"],
-    deps = ["//src:pkg-boot"],
+    deps = ["//:pkg-boot"],
     visibility = ["//:internal"],
 )

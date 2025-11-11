@@ -6,11 +6,24 @@ package_group(
     ],
 )
 
+package(
+    default_visibility = ["//visibility:public"],
+    features = [
+        # "thin_lto",  # Enable Thin LTO
+        # "-legacy_whole_archive",  # Disable legacy whole archive
+    ],
+)
+
 # Public API aliases for external consumption
 alias(
-    name = "log",
-    actual = "//src:pkg-log",
-    visibility = ["//visibility:public"],
+    name = "pkg-log",
+    actual = "//src/pkg-log:lib",
+    #visibility = ["//visibility:public"],
+)
+alias(
+    name = "pkg-boot",
+    actual = "//src/pkg-boot:lib",
+    #visibility = ["//visibility:public"],
 )
 
 # Internal aliases (for development/testing)
