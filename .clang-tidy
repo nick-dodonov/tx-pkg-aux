@@ -38,5 +38,4 @@ CheckOptions:
     value: camelCase
 
 HeaderFilterRegex: '.*'
-AnalyzeTemporaryDtors: false
 FormatStyle: file

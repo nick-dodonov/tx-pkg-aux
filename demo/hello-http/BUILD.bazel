@@ -5,4 +5,11 @@ tx_binary(
     srcs = ["main.cpp"],
     deps = ["//src/pkg-http"],
     cxxopts = ["-std=c++23"],
+    #TODO: release full strip
+    # strip -x hello-http
+    # strip -s /dev/null hello-http
+    # linkopts = [
+    #     "-Wl,-unexported_symbols_list,/dev/null",
+    #     "-Wl,-exported_symbols_list,$(location :exported_symbols.txt)",
+    # ],
 )

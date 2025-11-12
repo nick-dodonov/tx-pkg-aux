@@ -27,7 +27,7 @@ bazel_dep(name = "asio", version = "1.34.2-patch.1")  # private registry
 bazel_dep(name = "ada-url", version = "3.3.0")
 
 # test dependencies
-bazel_dep(name = "googletest", version = "1.17.0", dev_dependency = True)
+bazel_dep(name = "googletest", version = "1.17.0.bcr.2", dev_dependency = True)
 
 # Hedron's Compile Commands Extractor for Bazel
 # - https://github.com/hedronvision/bazel-compile-commands-extractor

@@ -1,6 +1,5 @@
 //#include "Http/SimpleClient.h"
 #include "Log/Log.h"
-#include "src/pkg-log/Log/Log.h"
 #include <asio.hpp>
 #include <ada.h>
 #include <expected>
@@ -19,13 +18,13 @@ public:
     static void Get(
         const asio::any_io_executor& executor,
         const std::string_view url,
-        Callback handler)
+        const Callback& handler)
     {
         asio::co_spawn(
             executor, 
             GetAsync(std::string{url}, handler), 
             //asio::detached
-            [handler](std::exception_ptr e) {
+            [handler](const std::exception_ptr& e) {
                 if (e) {
                     Log::ErrorF("http: exception in co_spawn");
                     handler(std::unexpected(std::make_error_code(std::errc::operation_canceled)));
@@ -78,15 +77,21 @@ private:
         Log::DebugF("http: get_pathname: {}", url_result.get_pathname());
 
 #if !__EMSCRIPTEN__
+        //
+        // DNS resolution
+        //
         auto url_protocol = url_result.get_protocol();
         auto url_port = url_result.get_port();
-        auto url_service = !url_port.empty()
-            ? url_port
-            : !url_protocol.empty() 
-                ? url_protocol.substr(0, url_protocol.size()-1) // resolver supports "http" and "https" services
-                : "80"; // default
+        std::string url_service;
+        if (!url_port.empty()) {
+            url_service = url_port;
+        } else if (!url_protocol.empty()) {
+            url_service = url_protocol.substr(0, url_protocol.size()-1); // resolver supports "http" and "https" services
+        } else {
+            url_service = "80"; // default
+        }
         asio::error_code ec;
-        auto results = co_await resolver.async_resolve(
+        auto dns_results = co_await resolver.async_resolve(
             //"exa mple.org",
             url_result.get_hostname(), 
             url_service, 
@@ -98,11 +103,18 @@ private:
             Log::ErrorF("http: failed to resolved: {}", ec.message());
             co_return;
         }        
-        for (const auto& entry : results) {
+        for (const auto& entry : dns_results) {
             auto endpoint = entry.endpoint();
             Log::DebugF("http: resolved: {}:{}", endpoint.address().to_string(), endpoint.port());
             handler(endpoint.address().to_string());
         }
+
+        //
+        // TCP connection
+        //
+        //asio::ip::tcp::socket socket{executor};
+        //socket.async_connect(dns_results, asio::use_awaitable);
+
 #else
         Log::Error("http: TODO: Emscripten HTTP request");
         handler(std::unexpected(std::make_error_code(std::errc::not_supported)));
@@ -111,13 +123,18 @@ private:
     }
 };
 
-static auto io_context = asio::io_context{};
+static asio::io_context& get_io_context()
+{
+    static asio::io_context ctx;
+    return ctx;
+}
 
 int main()
 {
     Log::Info(">>> starting");
 
     //auto executor = asio::system_executor();
+    auto& io_context = get_io_context();
     auto executor = io_context.get_executor();
 
     auto TryHttp = [&executor](std::string_view url) {
@@ -130,6 +147,7 @@ int main()
         });
     };
     TryHttp("http://ifconfig.io");
+    //TryHttp("https://httpbun.com/status/200");
     //TryHttp("https://httpbin.org/headers");
 
     //asio::detail::global<asio::system_context>().join();
