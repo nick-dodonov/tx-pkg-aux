@@ -90,17 +90,14 @@ private:
         } else {
             url_service = "80"; // default
         }
-        asio::error_code ec;
+        asio::error_code error_code;
         auto dns_results = co_await resolver.async_resolve(
-            //"exa mple.org",
             url_result.get_hostname(), 
             url_service, 
-            //asio::use_awaitable
-            //TODO: try asio::as_tuple(asio::use_awaitable)
-            asio::redirect_error(asio::use_awaitable, ec)
+            asio::redirect_error(asio::use_awaitable, error_code)
         );
-        if (ec) {
-            Log::ErrorF("http: failed to resolved: {}", ec.message());
+        if (error_code) {
+            Log::ErrorF("http: failed to resolved: {}", error_code.message());
             co_return;
         }        
         for (const auto& entry : dns_results) {
@@ -110,10 +107,40 @@ private:
         }
 
         //
-        // TCP connection
+        // TCP connect
         //
-        //asio::ip::tcp::socket socket{executor};
-        //socket.async_connect(dns_results, asio::use_awaitable);
+        asio::ip::tcp::socket socket{executor};
+        
+        for (const auto& entry : dns_results) {
+            auto endpoint = entry.endpoint();
+            std::tie(error_code) = co_await socket.async_connect(
+                endpoint,
+                asio::as_tuple(asio::use_awaitable)
+            );
+            if (!error_code) {
+                Log::DebugF("http: connected to: {}:{}", endpoint.address().to_string(), endpoint.port());
+                break;
+            }
+            Log::DebugF("http: failed to connect to: {}:{}: {}", endpoint.address().to_string(), endpoint.port(), error_code.message());
+        }
+
+        if (error_code) {
+            Log::ErrorF("http: failed to connect to any endpoint: {}", error_code.message());
+            socket.close();
+            co_return;
+        }
+
+        //TODO: 
+        // socket().set_option(boost::asio::ip::tcp::no_delay(true));
+        // do_write();
+        // do_read();
+
+        //
+        // TCP close
+        //
+        //TODO: shutdown?
+        socket.close();
+        Log::DebugF("http: socket closed");
 
 #else
         Log::Error("http: TODO: Emscripten HTTP request");
@@ -146,11 +173,13 @@ int main()
             }
         });
     };
-    TryHttp("http://ifconfig.io");
-    //TryHttp("https://httpbun.com/status/200");
+
+    //TryHttp("http://ifconfig.io");
     //TryHttp("https://httpbin.org/headers");
 
-    //asio::detail::global<asio::system_context>().join();
+    TryHttp("http://httpbun.com/status/200");
+    //TryHttp("https://httpbun.com/status/200");
+
 #if __EMSCRIPTEN__
     emscripten_set_main_loop_arg(
         [](void* arg) {
@@ -173,7 +202,7 @@ int main()
         1
     );
 #else
-    //io_context.run_for(2s);
+    //asio::detail::global<asio::system_context>().join();
     io_context.run();
 #endif
 
