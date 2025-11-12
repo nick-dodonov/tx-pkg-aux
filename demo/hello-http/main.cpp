@@ -1,9 +1,13 @@
 //#include "Http/SimpleClient.h"
 #include "Log/Log.h"
+#include "src/pkg-log/Log/Log.h"
 #include <asio.hpp>
 #include <ada.h>
 #include <expected>
 #include <functional>
+#if __EMSCRIPTEN__
+#include <emscripten.h>
+#endif
 
 using namespace std::chrono_literals;
 
@@ -17,24 +21,40 @@ public:
         const std::string_view url,
         Callback handler)
     {
-        asio::co_spawn(executor, GetAsync(executor, url, std::move(handler)), asio::detached);
+        asio::co_spawn(
+            executor, 
+            GetAsync(std::string{url}, handler), 
+            //asio::detached
+            [handler](std::exception_ptr e) {
+                if (e) {
+                    Log::ErrorF("http: exception in co_spawn");
+                    handler(std::unexpected(std::make_error_code(std::errc::operation_canceled)));
+                }            
+            }
+        );
     }
 
 private:
     static asio::awaitable<void> GetAsync(
-        const asio::any_io_executor& executor,
-        std::string_view url,
+        std::string url,
         Callback handler)
     {
         Log::DebugF("http: query: '{}'", url);
+        //auto executor = asio::get_associated_executor(asio::use_awaitable);
+        auto executor = co_await asio::this_coro::executor;
         asio::ip::tcp::resolver resolver{executor};
 
-        // auto results = resolver.resolve("example.com", {});
+        // asio::error_code ec;
+        // auto results = resolver.resolve("exam ple.com", {}, ec);
+        // if (ec) {
+        //     Log::ErrorF("http: failed to parse: {}", ec.message());
+        //     co_return;
+        // }
         // for (const auto& entry : results) {
         //     auto endpoint = entry.endpoint();
-        //     Log::InfoF("Resolved endpoint: {}:{}", endpoint.address().to_string(), endpoint.port());
+        //     Log::DebugF("http: resolved: {}:{}", endpoint.address().to_string(), endpoint.port());
+        //     handler(endpoint.address().to_string());
         // }
-
         // resolver.async_resolve("google.com", "asdf", [](const std::error_code& ec, const auto& results) {
         //     Log::InfoF("Resolved results: count={} '{}'", results.size(), ec ? ec.message(): "<OK>");
         //     for (const auto& entry : results) {
@@ -65,8 +85,19 @@ private:
             : !url_protocol.empty() 
                 ? url_protocol.substr(0, url_protocol.size()-1) // resolver supports "http" and "https" services
                 : "80"; // default
-        auto results = co_await resolver.async_resolve(url_result.get_hostname(), url_service, asio::use_awaitable);
-        //Log::DebugF("Resolved endpoints: count={} '{}'", results.size(), ec ? ec.message(): "<OK>");
+        asio::error_code ec;
+        auto results = co_await resolver.async_resolve(
+            //"exa mple.org",
+            url_result.get_hostname(), 
+            url_service, 
+            //asio::use_awaitable
+            //TODO: try asio::as_tuple(asio::use_awaitable)
+            asio::redirect_error(asio::use_awaitable, ec)
+        );
+        if (ec) {
+            Log::ErrorF("http: failed to resolved: {}", ec.message());
+            co_return;
+        }        
         for (const auto& entry : results) {
             auto endpoint = entry.endpoint();
             Log::DebugF("http: resolved: {}:{}", endpoint.address().to_string(), endpoint.port());
@@ -80,11 +111,14 @@ private:
     }
 };
 
+static auto io_context = asio::io_context{};
+
 int main()
 {
     Log::Info(">>> starting");
 
-    const asio::any_io_executor executor = asio::system_executor();
+    //auto executor = asio::system_executor();
+    auto executor = io_context.get_executor();
 
     auto TryHttp = [&executor](std::string_view url) {
         SimpleClient::Get(executor, url, [url](auto result) {
@@ -98,7 +132,32 @@ int main()
     TryHttp("http://ifconfig.io");
     //TryHttp("https://httpbin.org/headers");
 
-    asio::detail::global<asio::system_context>().join();
+    //asio::detail::global<asio::system_context>().join();
+#if __EMSCRIPTEN__
+    emscripten_set_main_loop_arg(
+        [](void* arg) {
+            auto io_context = static_cast<asio::io_context*>(arg);
+            auto count = io_context->run_for(16ms);
+            if (io_context->stopped()) {
+                Log::DebugF("emscripten: ran count: {} (cancel)", count);
+                emscripten_cancel_main_loop();
+                Log::Debug("emscripten: exit()");
+                exit(0);
+                Log::Debug("emscripten: emscripten_force_exit()");
+                emscripten_force_exit(0);
+            }
+            else if (count > 0) {
+                Log::DebugF("emscripten: ran count: {} (continue)", count);
+            }
+        },
+        &io_context,
+        0,
+        1
+    );
+#else
+    //io_context.run_for(2s);
+    io_context.run();
+#endif
 
     Log::Info("<<< exiting");
     return 0;
