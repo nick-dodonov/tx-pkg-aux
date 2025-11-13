@@ -5,6 +5,9 @@ tx_library(
     srcs = glob(["**/*.cpp"]),
     hdrs = glob(["**/*.h"]),
     strip_include_prefix = ".",
-    deps = ["//:pkg-log"],
+    deps = [
+        "//:pkg-log",
+        "@boost.throw_exception//:boost.throw_exception",
+    ],
     visibility = ["//visibility:public"],
 )

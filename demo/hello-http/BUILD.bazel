@@ -3,7 +3,10 @@ load("@tx-kit-ext//rules/build:tx_binary.bzl", "tx_binary")
 tx_binary(
     name = "hello-http",
     srcs = ["main.cpp"],
-    deps = ["//src/pkg-http"],
+    deps = [
+        "//:pkg-boot",
+        "//src/pkg-http",
+    ],
     cxxopts = ["-std=c++23"],
     #TODO: release full strip
     # strip -x hello-http

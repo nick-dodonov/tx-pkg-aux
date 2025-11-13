@@ -7,7 +7,7 @@ tx_library(
     strip_include_prefix = ".",
     deps = [
         "//:pkg-log",
-        "@asio//:asio",
+        "@boost.asio//:boost.asio",
         "@ada-url//:ada", #TODO: maybe cxxurl?
     ] + select({
         "//conditions:default": [

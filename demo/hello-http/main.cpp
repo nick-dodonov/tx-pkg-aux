@@ -1,6 +1,7 @@
 //#include "Http/SimpleClient.h"
 #include "Log/Log.h"
-#include <asio.hpp>
+//#include <asio.hpp>
+#include <boost/asio.hpp>
 #include <ada.h>
 #include <expected>
 #if __EMSCRIPTEN__
@@ -10,6 +11,7 @@
 #endif
 
 using namespace std::chrono_literals;
+namespace asio = boost::asio;
 namespace beast = boost::beast;
 namespace http = beast::http;
 
@@ -78,7 +80,7 @@ private:
         } else {
             url_service = "80"; // default
         }
-        asio::error_code ec;
+        boost::system::error_code ec;
         auto dns_results = co_await resolver.async_resolve(
             url_result.get_hostname(), 
             url_service, 
@@ -118,26 +120,26 @@ private:
             co_return;
         }
 
-        //TODO: HTTP request/response
-        // socket().set_option(boost::asio::ip::tcp::no_delay(true));
-        // do_write();
-        // do_read();
-        http::request<beast::http::string_body> req{
-            http::verb::get, 
-            url_result.get_pathname(), 
-            11};
-        req.set(http::field::host, url_result.get_hostname());
-        req.set(http::field::user_agent, "Test/1.0");
+        // //TODO: HTTP request/response
+        // // socket().set_option(boost::asio::ip::tcp::no_delay(true));
+        // // do_write();
+        // // do_read();
+        // http::request<beast::http::string_body> req{
+        //     http::verb::get, 
+        //     url_result.get_pathname(), 
+        //     11};
+        // req.set(http::field::host, url_result.get_hostname());
+        // req.set(http::field::user_agent, "Test/1.0");
 
-        // Send
-        co_await http::async_write(socket, req, asio::use_awaitable);
+        // // Send
+        // co_await http::async_write(socket, req, asio::use_awaitable);
 
-        // Receive
-        beast::flat_buffer buffer;
-        http::response<http::string_body> res;
+        // // Receive
+        // beast::flat_buffer buffer;
+        // http::response<http::string_body> res;
         
-        std::tie(ec) = co_await http::async_read(
-            socket, buffer, res, asio::as_tuple(asio::use_awaitable));
+        // std::tie(ec) = co_await http::async_read(
+        //     socket, buffer, res, asio::as_tuple(asio::use_awaitable));
 
         //// TCP close
         //TODO: shutdown?
@@ -150,7 +152,7 @@ private:
 
     static void socket_close(asio::ip::tcp::socket& socket, bool logSuccess)
     {
-        asio::error_code ec;
+        boost::system::error_code ec;
         if (socket.close(ec)) {
             Log::WarnF("http: socket close failed: {}", ec.message());
         } else if (logSuccess) {
@@ -167,19 +169,19 @@ static asio::io_context& get_io_context()
 
 int main()
 {
-    Log::Info(">>> starting");
+    Log::Info("main: >>>");
 
     //auto executor = asio::system_executor();
     auto& io_context = get_io_context();
     auto executor = io_context.get_executor();
 
     auto TryHttp = [&executor](std::string_view url) {
-        Log::InfoF(">>> TryHttp: request: '{}'", url);
+        Log::InfoF("TryHttp: >>> request: '{}'", url);
         SimpleClient::Get(executor, url, [url](auto result) {
             if (result) {
-                Log::InfoF("<<< TryHttp: succeeded: '{}': {}", url, *result);
+                Log::InfoF("TryHttp: <<< success: '{}': {}", url, *result);
             } else {
-                Log::ErrorF("<<< TryHttp: failed: '{}': \"{}\"", url, result.error().message());
+                Log::ErrorF("TryHttp: <<< failed: '{}': {}", url, result.error().message());
             }
         });
     };
@@ -217,6 +219,6 @@ int main()
     io_context.run();
 #endif
 
-    Log::Info("<<< exiting");
+    Log::Info("main: <<<");
     return 0;
 }
