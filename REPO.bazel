@@ -1,0 +1,6 @@
+"""Module docstring: mark hidden directories to be ignored by the repository rules."""
+
+# instead of .bazelignore w/o glob https://bazel.build/run/bazelrc#bazelignore
+ignore_directories([
+    ".*"
+])
