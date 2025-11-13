@@ -4,4 +4,10 @@ common --registry=https://bcr.bazel.build/
 common --enable_platform_specific_config
 
 try-import %workspace%/.dev.bazelrc
+
+# WASM threading support w/ boost
+#TODO: custom toolchain (tx-kit-ext) for WASM support w/ boost
+build:wasm --copt="-pthread"
+build:wasm --linkopt="-sALLOW_MEMORY_GROWTH=1"
+
 try-import %workspace%/.user.bazelrc

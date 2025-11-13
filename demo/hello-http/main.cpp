@@ -1,6 +1,5 @@
 //#include "Http/SimpleClient.h"
 #include "Log/Log.h"
-//#include <asio.hpp>
 #include <boost/asio.hpp>
 #include <ada.h>
 #include <expected>
@@ -12,8 +11,11 @@
 
 using namespace std::chrono_literals;
 namespace asio = boost::asio;
+
+#if !__EMSCRIPTEN__
 namespace beast = boost::beast;
 namespace http = beast::http;
+#endif
 
 class SimpleClient {
 public:
@@ -202,7 +204,8 @@ int main()
         Log::InfoF("TryHttp: >>> request: '{}'", url);
         SimpleClient::Get(executor, url, [url](auto result) {
             if (result) {
-                Log::InfoF("TryHttp: <<< success: '{}': {}", url, *result);
+                const auto& response = *result;
+                Log::InfoF("TryHttp: <<< success: '{}':\n{}", url, response);
             } else {
                 Log::ErrorF("TryHttp: <<< failed: '{}': {}", url, result.error().message());
             }
@@ -219,7 +222,7 @@ int main()
 #if __EMSCRIPTEN__
     emscripten_set_main_loop_arg(
         [](void* arg) {
-            auto io_context = static_cast<asio::io_context*>(arg);
+            auto* io_context = static_cast<asio::io_context*>(arg);
             auto count = io_context->run_for(16ms);
             if (io_context->stopped()) {
                 Log::DebugF("emscripten: ran count: {} (cancel)", count);
@@ -234,7 +237,7 @@ int main()
         },
         &io_context,
         0,
-        1
+        true
     );
 #else
     //asio::detail::global<asio::system_context>().join();
