@@ -5,6 +5,7 @@ module(
     version = "0.0.0",
 )
 
+#TODO: setup Renovate to auto-update https://github.com/renovatebot/renovate
 bazel_dep(name = "apple_support", version = "1.24.4")
 bazel_dep(name = "platforms", version = "1.0.0")
 bazel_dep(name = "rules_cc", version = "0.2.14")
@@ -34,6 +35,9 @@ bazel_dep(name = "googletest", version = "1.17.0.bcr.2", dev_dependency = True)
 bazel_dep(name = "hedron_compile_commands", dev_dependency = True)
 git_override(
     module_name = "hedron_compile_commands",
-    commit = "abb61a688167623088f8768cc9264798df6a9d10",  #TODO: setup Renovate to update https://github.com/renovatebot/renovate
-    remote = "https://github.com/hedronvision/bazel-compile-commands-extractor.git",
+    # Using forked version to workaround an issue w/ header-only library https://github.com/hedronvision/bazel-compile-commands-extractor/issues/199
+    #commit = "abb61a688167623088f8768cc9264798df6a9d10",
+    #remote = "https://github.com/hedronvision/bazel-compile-commands-extractor.git",
+    commit = "359a657680aa74d2a70240bb310c1636601e0af8",
+    remote = "https://github.com/vimarsh6739/bazel-compile-commands-extractor.git",
 )
