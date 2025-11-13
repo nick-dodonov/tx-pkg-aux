@@ -23,7 +23,7 @@
         {
             "type": "shell",
             "label": "dev:init (force links)",
-            "command": "bazel run @tx-kit-ext//tools/dev:init --override_module=tx-kit-ext=../tx-kit-ext -- -sf",
+            "command": "bazel run @tx-kit-ext//tools/dev:init --override_module=tx-kit-ext=../tx-kit-ext -- -s",
             "group": {
                 "kind": "build",
             },
