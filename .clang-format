@@ -51,6 +51,8 @@ BreakBeforeBraces: Linux
 # BraceWrapping:
 #   AfterClass: false
 #   AfterControlStatement: false
+#   AfterControlStatement: MultiLine
+#   AfterControlStatement: Never
 #   AfterEnum: false
 #   AfterFunction: false
 #   AfterNamespace: false
@@ -66,16 +68,14 @@ BreakBeforeBraces: Linux
 #   SplitEmptyFunction: false
 #   SplitEmptyRecord: false
 #   SplitEmptyNamespace: false
-#   AfterControlStatement: false
 #   AfterCaseLabel: false
-#   AfterControlStatement: MultiLine
-#   AfterControlStatement: Never
 #   AfterCaseLabel: false
 #   AfterCaseLabel: false
 
 # inline function formatting
 AllowShortFunctionsOnASingleLine: InlineOnly
 AllowShortLambdasOnASingleLine: All
+#SplitEmptyFunction: false
 
 # other settings
 AlignConsecutiveAssignments: false

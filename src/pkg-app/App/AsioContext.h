@@ -2,8 +2,10 @@
 #include <boost/asio.hpp>
 #include <boost/core/noncopyable.hpp>
 
-namespace App {
-    class AsioContext : boost::noncopyable {
+namespace App
+{
+    class AsioContext : boost::noncopyable
+    {
     public:
         AsioContext();
         ~AsioContext();
@@ -14,7 +16,6 @@ namespace App {
         AsioContext& operator=(AsioContext&&) = delete;
 
         [[nodiscard]] auto get_executor() { return _io_context.get_executor(); }
-
         [[nodiscard]] int Run();
 
     private:

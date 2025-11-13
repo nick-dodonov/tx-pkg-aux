@@ -2,5 +2,5 @@
 
 namespace Boot
 {
-    void LogInfo(int argc, char *argv[]);
+    void LogInfo(int argc, char** argv);
 }
