@@ -23,25 +23,26 @@ public:
     static void Get(
         const asio::any_io_executor& executor,
         const std::string_view url,
-        const Callback& handler)
+        Callback&& handler)
     {
         asio::co_spawn(
             executor, 
-            GetAsync(std::string{url}, handler), 
+            GetAsync(std::string{url}), 
             //asio::detached
-            [handler](const std::exception_ptr& e) {
+            [handler = std::move(handler)](const std::exception_ptr& e, Result&& result) {
                 if (e) {
-                    Log::ErrorF("http: exception in co_spawn");
+                    Log::ErrorF("http: co_spawn exception");
                     handler(std::unexpected(std::make_error_code(std::errc::operation_canceled)));
-                }            
+                } else {
+                    //Log::DebugF("http: co_spawn succeed");
+                    handler(std::move(result));
+                }
             }
         );
     }
 
 private:
-    static asio::awaitable<void> GetAsync(
-        std::string url,
-        Callback handler)
+    static asio::awaitable<Result> GetAsync(std::string url)
     {
         Log::DebugF("http: query: '{}'", url);
 
@@ -49,8 +50,7 @@ private:
         auto url_ec = ada::parse<ada::url_aggregator>(url);
         if (!url_ec) {
             Log::ErrorF("http: url parse failed: '{}'", url);
-            handler(std::unexpected(std::make_error_code(std::errc::invalid_argument)));
-            co_return;
+            co_return std::unexpected(std::make_error_code(std::errc::invalid_argument));
         }
 
         auto& url_result = url_ec.value();
@@ -63,8 +63,7 @@ private:
 
 #if __EMSCRIPTEN__
         Log::Error("http: TODO: Emscripten HTTP request");
-        handler(std::unexpected(std::make_error_code(std::errc::not_supported)));
-        co_return;
+        co_return std::unexpected(std::make_error_code(std::errc::not_supported));
 #else
         auto executor = co_await asio::this_coro::executor;
         asio::ip::tcp::resolver resolver{executor};
@@ -88,8 +87,7 @@ private:
         );
         if (ec) {
             Log::ErrorF("http: failed to resolved: {}", ec.what());
-            handler(std::unexpected(ec));
-            co_return;
+            co_return std::unexpected(ec);
         }        
         for (const auto& entry : dns_results) {
             auto endpoint = entry.endpoint();
@@ -115,11 +113,13 @@ private:
 
         if (ec) {
             Log::ErrorF("http: connect failed to any endpoint: {}", ec.what());
-            handler(std::unexpected(ec));
-            co_return;
+            co_return std::unexpected(ec);
         }
 
-        //TODO: socket().set_option(boost::asio::ip::tcp::no_delay(true)); and log
+        // TCP connected
+        if (socket.set_option(boost::asio::ip::tcp::no_delay(true), ec)) {
+            Log::WarnF("http: set_option TCP_NODELAY failed: {}", ec.what());
+        }
 
         // HTTP request/response
         http::request<beast::http::string_body> request{
@@ -138,8 +138,7 @@ private:
         if (ec) {
             Log::ErrorF("http: sending failed: {} (count={})", ec.what(), count);
             socket_close(socket, true);
-            handler(std::unexpected(ec));
-            co_return;
+            co_return std::unexpected(ec);
         }
         Log::DebugF("http: sent: {} bytes", count);
 
@@ -154,8 +153,7 @@ private:
         if (ec) {
             Log::ErrorF("http: receive failed: {} (count={})", ec.what(), count);
             socket_close(socket, true);
-            handler(std::unexpected(ec));
-            co_return;
+            co_return std::unexpected(ec);
         }
         Log::DebugF("http: received: {} bytes", count);
 
@@ -171,8 +169,7 @@ private:
         //TODO: shutdown?
         socket_close(socket, true);
 
-        //TODO: actual HTTP request/response handling
-        handler(std::string(body));
+        co_return body;
 #endif
     }
 
@@ -231,8 +228,7 @@ int main()
                 exit(0);
                 Log::Debug("emscripten: emscripten_force_exit(0)");
                 emscripten_force_exit(0);
-            }
-            else if (count > 0) {
+            } else if (count > 0) {
                 Log::DebugF("emscripten: ran count: {} (continue)", count);
             }
         },
