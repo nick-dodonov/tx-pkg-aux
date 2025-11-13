@@ -3,12 +3,15 @@
 #include <asio.hpp>
 #include <ada.h>
 #include <expected>
-#include <functional>
 #if __EMSCRIPTEN__
 #include <emscripten.h>
+#else
+#include <boost/beast.hpp>
 #endif
 
 using namespace std::chrono_literals;
+namespace beast = boost::beast;
+namespace http = beast::http;
 
 class SimpleClient {
 public:
@@ -75,15 +78,15 @@ private:
         } else {
             url_service = "80"; // default
         }
-        asio::error_code error_code;
+        asio::error_code ec;
         auto dns_results = co_await resolver.async_resolve(
             url_result.get_hostname(), 
             url_service, 
-            asio::redirect_error(asio::use_awaitable, error_code)
+            asio::redirect_error(asio::use_awaitable, ec)
         );
-        if (error_code) {
-            Log::ErrorF("http: failed to resolved: {}", error_code.message());
-            handler(std::unexpected(error_code));
+        if (ec) {
+            Log::ErrorF("http: failed to resolved: {}", ec.message());
+            handler(std::unexpected(ec));
             co_return;
         }        
         for (const auto& entry : dns_results) {
@@ -96,31 +99,47 @@ private:
         
         for (const auto& entry : dns_results) {
             auto endpoint = entry.endpoint();
-            std::tie(error_code) = co_await socket.async_connect(
+            std::tie(ec) = co_await socket.async_connect(
                 endpoint,
                 asio::as_tuple(asio::use_awaitable)
             );
-            if (!error_code) {
+            if (!ec) {
                 Log::DebugF("http: connect succeed: {}:{}", endpoint.address().to_string(), endpoint.port());
                 break;
             }
-            Log::DebugF("http: connect failed: {}:{}: {}", endpoint.address().to_string(), endpoint.port(), error_code.message());
+            Log::DebugF("http: connect failed: {}:{}: {}", endpoint.address().to_string(), endpoint.port(), ec.message());
             socket_close(socket, false);
         }
 
-        if (error_code) {
-            Log::ErrorF("http: connect failed to any endpoint: {}", error_code.message());
+        if (ec) {
+            Log::ErrorF("http: connect failed to any endpoint: {}", ec.message());
             socket_close(socket, false);
-            handler(std::unexpected(error_code));
+            handler(std::unexpected(ec));
             co_return;
         }
 
-        //TODO: 
+        //TODO: HTTP request/response
         // socket().set_option(boost::asio::ip::tcp::no_delay(true));
         // do_write();
         // do_read();
+        http::request<beast::http::string_body> req{
+            http::verb::get, 
+            url_result.get_pathname(), 
+            11};
+        req.set(http::field::host, url_result.get_hostname());
+        req.set(http::field::user_agent, "Test/1.0");
 
-        // TCP close
+        // Send
+        co_await http::async_write(socket, req, asio::use_awaitable);
+
+        // Receive
+        beast::flat_buffer buffer;
+        http::response<http::string_body> res;
+        
+        std::tie(ec) = co_await http::async_read(
+            socket, buffer, res, asio::as_tuple(asio::use_awaitable));
+
+        //// TCP close
         //TODO: shutdown?
         socket_close(socket, true);
 
