@@ -39,47 +39,32 @@ private:
         Callback handler)
     {
         Log::DebugF("http: query: '{}'", url);
-        //auto executor = asio::get_associated_executor(asio::use_awaitable);
-        auto executor = co_await asio::this_coro::executor;
-        asio::ip::tcp::resolver resolver{executor};
 
-        // asio::error_code ec;
-        // auto results = resolver.resolve("exam ple.com", {}, ec);
-        // if (ec) {
-        //     Log::ErrorF("http: failed to parse: {}", ec.message());
-        //     co_return;
-        // }
-        // for (const auto& entry : results) {
-        //     auto endpoint = entry.endpoint();
-        //     Log::DebugF("http: resolved: {}:{}", endpoint.address().to_string(), endpoint.port());
-        //     handler(endpoint.address().to_string());
-        // }
-        // resolver.async_resolve("google.com", "asdf", [](const std::error_code& ec, const auto& results) {
-        //     Log::InfoF("Resolved results: count={} '{}'", results.size(), ec ? ec.message(): "<OK>");
-        //     for (const auto& entry : results) {
-        //         auto endpoint = entry.endpoint();
-        //         Log::InfoF("Resolved endpoint: {}:{}", endpoint.address().to_string(), endpoint.port());
-        //     }
-        // });
-
+        // URL parsing
         auto url_ec = ada::parse<ada::url_aggregator>(url);
         if (!url_ec) {
-            auto& error = url_ec.error();
-            Log::ErrorF("http: failed to parse: {}", static_cast<uint8_t>(error));
+            Log::ErrorF("http: url parse failed: '{}'", url);
             handler(std::unexpected(std::make_error_code(std::errc::invalid_argument)));
             co_return;
         }
 
         auto& url_result = url_ec.value();
-        Log::DebugF("http: get_protocol: {}", url_result.get_protocol());
-        Log::DebugF("http: get_hostname: {}", url_result.get_hostname());
-        Log::DebugF("http: get_port: {}", url_result.get_port());
-        Log::DebugF("http: get_pathname: {}", url_result.get_pathname());
+        Log::DebugF("http: url parsed protocol={} host={} port={} path={}", 
+            url_result.get_protocol(),
+            url_result.get_hostname(),
+            url_result.get_port(),
+            url_result.get_pathname()
+        );
 
-#if !__EMSCRIPTEN__
-        //
+#if __EMSCRIPTEN__
+        Log::Error("http: TODO: Emscripten HTTP request");
+        handler(std::unexpected(std::make_error_code(std::errc::not_supported)));
+        co_return;
+#else
+        auto executor = co_await asio::this_coro::executor;
+        asio::ip::tcp::resolver resolver{executor};
+
         // DNS resolution
-        //
         auto url_protocol = url_result.get_protocol();
         auto url_port = url_result.get_port();
         std::string url_service;
@@ -98,17 +83,15 @@ private:
         );
         if (error_code) {
             Log::ErrorF("http: failed to resolved: {}", error_code.message());
+            handler(std::unexpected(error_code));
             co_return;
         }        
         for (const auto& entry : dns_results) {
             auto endpoint = entry.endpoint();
             Log::DebugF("http: resolved: {}:{}", endpoint.address().to_string(), endpoint.port());
-            handler(endpoint.address().to_string());
         }
 
-        //
         // TCP connect
-        //
         asio::ip::tcp::socket socket{executor};
         
         for (const auto& entry : dns_results) {
@@ -118,15 +101,17 @@ private:
                 asio::as_tuple(asio::use_awaitable)
             );
             if (!error_code) {
-                Log::DebugF("http: connected to: {}:{}", endpoint.address().to_string(), endpoint.port());
+                Log::DebugF("http: connect succeed: {}:{}", endpoint.address().to_string(), endpoint.port());
                 break;
             }
-            Log::DebugF("http: failed to connect to: {}:{}: {}", endpoint.address().to_string(), endpoint.port(), error_code.message());
+            Log::DebugF("http: connect failed: {}:{}: {}", endpoint.address().to_string(), endpoint.port(), error_code.message());
+            socket_close(socket, false);
         }
 
         if (error_code) {
-            Log::ErrorF("http: failed to connect to any endpoint: {}", error_code.message());
-            socket.close();
+            Log::ErrorF("http: connect failed to any endpoint: {}", error_code.message());
+            socket_close(socket, false);
+            handler(std::unexpected(error_code));
             co_return;
         }
 
@@ -135,19 +120,24 @@ private:
         // do_write();
         // do_read();
 
-        //
         // TCP close
-        //
         //TODO: shutdown?
-        socket.close();
-        Log::DebugF("http: socket closed");
+        socket_close(socket, true);
 
-#else
-        Log::Error("http: TODO: Emscripten HTTP request");
-        handler(std::unexpected(std::make_error_code(std::errc::not_supported)));
-        co_return;
+        //TODO: actual HTTP request/response handling
+        handler(std::string("HTTP response data placeholder"));
 #endif
     }
+
+    static void socket_close(asio::ip::tcp::socket& socket, bool logSuccess)
+    {
+        asio::error_code ec;
+        if (socket.close(ec)) {
+            Log::WarnF("http: socket close failed: {}", ec.message());
+        } else if (logSuccess) {
+            Log::DebugF("http: socket closed");
+        }
+    }   
 };
 
 static asio::io_context& get_io_context()
@@ -165,11 +155,12 @@ int main()
     auto executor = io_context.get_executor();
 
     auto TryHttp = [&executor](std::string_view url) {
+        Log::InfoF(">>> TryHttp: request: '{}'", url);
         SimpleClient::Get(executor, url, [url](auto result) {
             if (result) {
-                Log::InfoF("TryHttp: succeeded: '{}': {}", url, *result);
+                Log::InfoF("<<< TryHttp: succeeded: '{}': {}", url, *result);
             } else {
-                Log::ErrorF("TryHttp: failed: '{}': \"{}\"", url, result.error().message());
+                Log::ErrorF("<<< TryHttp: failed: '{}': \"{}\"", url, result.error().message());
             }
         });
     };
@@ -177,8 +168,9 @@ int main()
     //TryHttp("http://ifconfig.io");
     //TryHttp("https://httpbin.org/headers");
 
-    TryHttp("http://httpbun.com/status/200");
-    //TryHttp("https://httpbun.com/status/200");
+    TryHttp("http://url error/");
+    TryHttp("http://localhost:12345/connect refused");
+    //TryHttp("http://httpbun.com/status/200");
 
 #if __EMSCRIPTEN__
     emscripten_set_main_loop_arg(
@@ -188,9 +180,9 @@ int main()
             if (io_context->stopped()) {
                 Log::DebugF("emscripten: ran count: {} (cancel)", count);
                 emscripten_cancel_main_loop();
-                Log::Debug("emscripten: exit()");
+                Log::Debug("emscripten: exit(0)");
                 exit(0);
-                Log::Debug("emscripten: emscripten_force_exit()");
+                Log::Debug("emscripten: emscripten_force_exit(0)");
                 emscripten_force_exit(0);
             }
             else if (count > 0) {
