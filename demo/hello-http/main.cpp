@@ -54,7 +54,7 @@ private:
         }
 
         auto& url_result = url_ec.value();
-        Log::DebugF("http: url parsed protocol={} host={} port={} path={}", 
+        Log::DebugF("http: url parsed: protocol={} host={} port={} path={}", 
             url_result.get_protocol(),
             url_result.get_hostname(),
             url_result.get_port(),
@@ -87,7 +87,7 @@ private:
             asio::redirect_error(asio::use_awaitable, ec)
         );
         if (ec) {
-            Log::ErrorF("http: failed to resolved: {}", ec.message());
+            Log::ErrorF("http: failed to resolved: {}", ec.what());
             handler(std::unexpected(ec));
             co_return;
         }        
@@ -109,44 +109,70 @@ private:
                 Log::DebugF("http: connect succeed: {}:{}", endpoint.address().to_string(), endpoint.port());
                 break;
             }
-            Log::DebugF("http: connect failed: {}:{}: {}", endpoint.address().to_string(), endpoint.port(), ec.message());
+            Log::WarnF("http: connect failed: {}:{}: {}", endpoint.address().to_string(), endpoint.port(), ec.what());
             socket_close(socket, false);
         }
 
         if (ec) {
-            Log::ErrorF("http: connect failed to any endpoint: {}", ec.message());
-            socket_close(socket, false);
+            Log::ErrorF("http: connect failed to any endpoint: {}", ec.what());
             handler(std::unexpected(ec));
             co_return;
         }
 
-        // //TODO: HTTP request/response
-        // // socket().set_option(boost::asio::ip::tcp::no_delay(true));
-        // // do_write();
-        // // do_read();
-        // http::request<beast::http::string_body> req{
-        //     http::verb::get, 
-        //     url_result.get_pathname(), 
-        //     11};
-        // req.set(http::field::host, url_result.get_hostname());
-        // req.set(http::field::user_agent, "Test/1.0");
+        //TODO: socket().set_option(boost::asio::ip::tcp::no_delay(true)); and log
 
-        // // Send
-        // co_await http::async_write(socket, req, asio::use_awaitable);
+        // HTTP request/response
+        http::request<beast::http::string_body> request{
+            http::verb::get, 
+            url_result.get_pathname(), 
+            11};
+        request.set(http::field::host, url_result.get_hostname());
+        request.set(http::field::user_agent, "Test/1.0");
 
-        // // Receive
-        // beast::flat_buffer buffer;
-        // http::response<http::string_body> res;
-        
-        // std::tie(ec) = co_await http::async_read(
-        //     socket, buffer, res, asio::as_tuple(asio::use_awaitable));
+        // Send
+        unsigned long count = 0;
+        std::tie(ec, count) = co_await http::async_write(
+            socket, 
+            request, 
+            asio::as_tuple(asio::use_awaitable));
+        if (ec) {
+            Log::ErrorF("http: sending failed: {} (count={})", ec.what(), count);
+            socket_close(socket, true);
+            handler(std::unexpected(ec));
+            co_return;
+        }
+        Log::DebugF("http: sent: {} bytes", count);
 
-        //// TCP close
+        // Receive
+        beast::flat_buffer buffer;
+        http::response<http::string_body> response;
+        std::tie(ec, count) = co_await http::async_read(
+            socket, 
+            buffer, 
+            response, 
+            asio::as_tuple(asio::use_awaitable));
+        if (ec) {
+            Log::ErrorF("http: receive failed: {} (count={})", ec.what(), count);
+            socket_close(socket, true);
+            handler(std::unexpected(ec));
+            co_return;
+        }
+        Log::DebugF("http: received: {} bytes", count);
+
+        // Convert Beast buffer/response to std::string and deliver result.
+        std::string body = !response.body().empty()
+            ? response.body()
+            : beast::buffers_to_string(buffer.data());
+
+        Log::DebugF("http: response status={} reason={} body.size={}",
+            response.result_int(), response.reason(), body.size());
+
+        // TCP close
         //TODO: shutdown?
         socket_close(socket, true);
 
         //TODO: actual HTTP request/response handling
-        handler(std::string("HTTP response data placeholder"));
+        handler(std::string(body));
 #endif
     }
 
@@ -154,7 +180,7 @@ private:
     {
         boost::system::error_code ec;
         if (socket.close(ec)) {
-            Log::WarnF("http: socket close failed: {}", ec.message());
+            Log::WarnF("http: socket close failed: {}", ec.what());
         } else if (logSuccess) {
             Log::DebugF("http: socket closed");
         }
@@ -186,12 +212,12 @@ int main()
         });
     };
 
-    //TryHttp("http://ifconfig.io");
-    //TryHttp("https://httpbin.org/headers");
+    // TryHttp("http://ifconfig.io");
+    // TryHttp("https://httpbin.org/headers");
 
     TryHttp("http://url error/");
-    TryHttp("http://localhost:12345/connect refused");
-    //TryHttp("http://httpbun.com/status/200");
+    // TryHttp("http://localhost:12345/connect refused");
+    TryHttp("http://httpbun.com/status/200");
 
 #if __EMSCRIPTEN__
     emscripten_set_main_loop_arg(
