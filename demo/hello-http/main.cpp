@@ -1,12 +1,14 @@
-//#include "Http/SimpleClient.h"
+// #include "Http/SimpleClient.h"
+#include "App/AsioContext.h"
+#include "Boot/Boot.h"
 #include "Log/Log.h"
-#include <boost/asio.hpp>
 #include <ada.h>
+#include <boost/asio.hpp>
 #include <expected>
 #if __EMSCRIPTEN__
-#include <emscripten.h>
+    #include <emscripten.h>
 #else
-#include <boost/beast.hpp>
+    #include <boost/beast.hpp>
 #endif
 
 using namespace std::chrono_literals;
@@ -175,6 +177,7 @@ private:
 #endif
     }
 
+#if !__EMSCRIPTEN__
     static void socket_close(asio::ip::tcp::socket& socket, bool logSuccess)
     {
         boost::system::error_code ec;
@@ -184,22 +187,15 @@ private:
             Log::DebugF("http: socket closed");
         }
     }   
+#endif
 };
 
-static asio::io_context& get_io_context()
+int main(int argc, char **argv)
 {
-    static asio::io_context ctx;
-    return ctx;
-}
+    Boot::LogInfo(argc, argv);
+    App::AsioContext asio_context;
 
-int main()
-{
-    Log::Info("main: >>>");
-
-    //auto executor = asio::system_executor();
-    auto& io_context = get_io_context();
-    auto executor = io_context.get_executor();
-
+    auto executor = asio_context.get_executor();
     auto TryHttp = [&executor](std::string_view url) {
         Log::InfoF("TryHttp: >>> request: '{}'", url);
         SimpleClient::Get(executor, url, [url](auto result) {
@@ -219,31 +215,5 @@ int main()
     // TryHttp("http://localhost:12345/connect refused");
     TryHttp("http://httpbun.com/status/200");
 
-#if __EMSCRIPTEN__
-    emscripten_set_main_loop_arg(
-        [](void* arg) {
-            auto* io_context = static_cast<asio::io_context*>(arg);
-            auto count = io_context->run_for(16ms);
-            if (io_context->stopped()) {
-                Log::DebugF("emscripten: ran count: {} (cancel)", count);
-                emscripten_cancel_main_loop();
-                Log::Debug("emscripten: exit(0)");
-                exit(0);
-                Log::Debug("emscripten: emscripten_force_exit(0)");
-                emscripten_force_exit(0);
-            } else if (count > 0) {
-                Log::DebugF("emscripten: ran count: {} (continue)", count);
-            }
-        },
-        &io_context,
-        0,
-        true
-    );
-#else
-    //asio::detail::global<asio::system_context>().join();
-    io_context.run();
-#endif
-
-    Log::Info("main: <<<");
-    return 0;
+    return asio_context.Run();
 }

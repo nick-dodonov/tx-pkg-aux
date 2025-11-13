@@ -8,6 +8,7 @@ try-import %workspace%/.dev.bazelrc
 # WASM threading support w/ boost
 #TODO: custom toolchain (tx-kit-ext) for WASM support w/ boost
 build:wasm --copt="-pthread"
-build:wasm --linkopt="-sALLOW_MEMORY_GROWTH=1"
+#TODO: benchmark https://github.com/WebAssembly/design/issues/1271 (-Wpthreads-mem-growth)
+# build:wasm --linkopt="-sALLOW_MEMORY_GROWTH=1"
 
 try-import %workspace%/.user.bazelrc

@@ -46,7 +46,7 @@ PackConstructorInitializers: Never
 BreakConstructorInitializers: BeforeComma
 
 # brace wrapping
-BreakBeforeBraces: Stroustrup
+BreakBeforeBraces: Linux
 # BreakBeforeBraces: Custom
 # BraceWrapping:
 #   AfterClass: false
