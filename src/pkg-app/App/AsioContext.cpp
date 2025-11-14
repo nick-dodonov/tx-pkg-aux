@@ -31,14 +31,14 @@ namespace App
                 auto* io_context = static_cast<boost::asio::io_context*>(arg);
                 auto count = io_context->run_for(kRunFor);
                 if (io_context->stopped()) {
-                    Log::DebugF("emscripten: ran count: {} (cancel)", count);
+                    Log::DebugF("AsioContext: wasm: ran count: {} (stopped)", count);
                     emscripten_cancel_main_loop();
-                    Log::Debug("emscripten: exit(0)");
+                    Log::Debug("AsioContext: wasm: exit(0)");
                     exit(0);
-                    Log::Debug("emscripten: emscripten_force_exit(0)");
+                    Log::Debug("AsioContext: wasm: emscripten_force_exit(0)");
                     emscripten_force_exit(0);
                 } else if (count > 0) {
-                    Log::DebugF("emscripten: ran count: {} (continue)", count);
+                    Log::DebugF("AsioContext: wasm: ran count: {} (continue)", count);
                 }
             },
             &_io_context,

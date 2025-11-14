@@ -6,7 +6,7 @@
 
 namespace Http
 {
-    class ILiteClient
+    class ILiteClient : public std::enable_shared_from_this<ILiteClient>
     {
     public:
         virtual ~ILiteClient() = default;

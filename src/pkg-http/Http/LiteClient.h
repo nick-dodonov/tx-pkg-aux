@@ -1,6 +1,7 @@
 #pragma once
 #include "ILiteClient.h"
 #include <boost/asio/any_io_executor.hpp>
+#include <memory>
 
 namespace Http
 {
@@ -12,6 +13,6 @@ namespace Http
         void Get(std::string_view url, Callback&& handler) override;
 
     private:
-        boost::asio::any_io_executor _executor;
+        std::shared_ptr<ILiteClient> _impl;
     };
 }
