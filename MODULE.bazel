@@ -36,6 +36,7 @@ git_override(
 
 # src dependencies
 bazel_dep(name = "lwlog", version = "1.4.0-patch.2")  # private registry
+bazel_dep(name = "spdlog", version = "1.16.0.bcr.1")
 bazel_dep(name = "asio", version = "1.34.2-patch.1")  # private registry
 bazel_dep(name = "ada-url", version = "3.3.0")
 bazel_dep(name = "boost.throw_exception", version = "1.89.0.bcr.1")

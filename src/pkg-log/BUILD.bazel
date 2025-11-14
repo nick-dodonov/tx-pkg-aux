@@ -5,6 +5,9 @@ tx_library(
     srcs = glob(["**/*.cpp"]),
     hdrs = glob(["**/*.h"]),
     strip_include_prefix = ".",
-    deps = ["@lwlog"],
+    deps = [
+        "@lwlog",
+        "@spdlog//:spdlog", #? @spdlog//:header_only or @spdlog//:header_only_true
+    ],
     visibility = ["//visibility:public"],
 )
