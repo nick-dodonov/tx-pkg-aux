@@ -7,6 +7,15 @@
 
 namespace Http
 {
+    // static boost::asio::awaitable<void> TestAsync()
+    // {
+    //     Log::DebugF("111111111111");
+    //     auto executor = co_await boost::asio::this_coro::executor;
+    //     boost::asio::steady_timer timer{executor, std::chrono::seconds(1)};
+    //     co_await timer.async_wait(boost::asio::use_awaitable);
+    //     Log::DebugF("222222222222");
+    // }
+
     static void SocketClose(boost::asio::ip::tcp::socket& socket, bool logSuccess)
     {
         boost::system::error_code ec;
@@ -20,6 +29,7 @@ namespace Http
     boost::asio::awaitable<ILiteClient::Result> AsioLiteClient::GetAsync(std::string url)
     {
         Log::DebugF("http: async: '{}'", url);
+        //co_await TestAsync();
 
         // URL parsing
         auto url_ec = ada::parse<ada::url_aggregator>(url);

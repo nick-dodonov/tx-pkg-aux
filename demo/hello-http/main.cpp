@@ -2,17 +2,18 @@
 #include "Boot/Boot.h"
 #include "Http/LiteClient.h"
 #include "Log/Log.h"
+#include <memory>
+
+static App::AsioContext asioContext;
 
 int main(int argc, char** argv)
 {
     Boot::LogInfo(argc, argv);
-    App::AsioContext asio_context;
 
-    auto executor = asio_context.get_executor();
-    auto client = Http::LiteClient{std::move(executor)};
-    auto TryHttp = [&client](std::string_view url) {
+    auto client = std::make_shared<Http::LiteClient>(asioContext.get_executor());
+    auto TryHttp = [client](std::string_view url) {
         Log::InfoF("TryHttp: >>> request: '{}'", url);
-        client.Get(url, [url](auto result) {
+        client->Get(url, [url](auto result) {
             if (result) {
                 const auto& response = *result;
                 Log::InfoF("TryHttp: <<< success: '{}':\n{}", url, response);
@@ -24,12 +25,13 @@ int main(int argc, char** argv)
 
     // TryHttp("http://ifconfig.io");
     // TryHttp("https://httpbin.org/headers");
+    TryHttp("http://jsonplaceholder.typicode.com/todos/1");
 
     // TryHttp("url-parse-error");
     // TryHttp("http://localhost:12345/connect-refused");
-    TryHttp("http://httpbun.com/status/200");
+    // TryHttp("http://httpbun.com/status/200");
     // TryHttp("http://httpbun.com/get");
     // TryHttp("https://httpbun.com/get");
 
-    return asio_context.Run();
+    return asioContext.Run();
 }

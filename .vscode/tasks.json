@@ -1,25 +1,25 @@
 {
-	// See https://go.microsoft.com/fwlink/?LinkId=733558
-	// for the documentation about the tasks.json format
-	"version": "2.0.0",
-	"tasks": [
+    // See https://go.microsoft.com/fwlink/?LinkId=733558
+    // for the documentation about the tasks.json format
+    "version": "2.0.0",
+    "tasks": [
         // ================ dev environment tasks
-		{
-			"type": "shell",
-			"label": "compile_commands :refresh_all (OS)",
-			"command": "bazel run @hedron_compile_commands//:refresh_all",
-			"group": {
-				"kind": "build",
-			},
-		},
-		{
-			"type": "shell",
-			"label": "compile_commands :refresh_all (WASM)",
-			"command": "bazel run @hedron_compile_commands//:refresh_all -- --config=wasm",
-			"group": {
-				"kind": "build",
-			},
-		},
+        {
+            "type": "shell",
+            "label": "compile_commands :refresh_all (OS)",
+            "command": "bazel run @hedron_compile_commands//:refresh_all",
+            "group": {
+                "kind": "build",
+            },
+        },
+        {
+            "type": "shell",
+            "label": "compile_commands :refresh_all (WASM)",
+            "command": "bazel run @hedron_compile_commands//:refresh_all -- --config=wasm",
+            "group": {
+                "kind": "build",
+            },
+        },
         {
             "type": "shell",
             "label": "dev:init (force links)",
@@ -29,6 +29,19 @@
             },
         },
         // ================ build demo tasks
+        {
+            "type": "shell",
+            "label": "build demo <user>",
+            "command": "bazel build ${config:tx.debugTaskName}",
+            "group": {
+                "kind": "build",
+                "isDefault": true
+            },
+            "presentation": {
+                "focus": true,
+            },
+            "problemMatcher": "$gcc",
+        },
         {
             "type": "shell",
             "label": "build demo <relative>",
@@ -41,6 +54,6 @@
                 "focus": true,
             },
             "problemMatcher": "$gcc",
-        },		
-	]
+        },
+    ]
 }
