@@ -24,10 +24,21 @@ static void MacroDemo()
 
 struct FeatureDemo
 {
+    static Log::Logger& DefaultLogger()
+    {
+        static Log::Logger logger("FeatureDemo");
+        return logger;
+    }
+
     void DoSomething()
     {
         LogTrace("feature msg (trace)");
         LogDebug("feature msg (debug)");
+        LogInfo("feature msg (info)");
+        LogWarn("feature msg (warn)");
+        LogError("feature msg (error)");
+        LogFatal("feature msg (fatal)");
+        LogDebug("feature formatted: {}", -12345);
     }
 };
 
@@ -38,13 +49,11 @@ int main(int argc, char* argv[])
     FeatureDemo feature;
     feature.DoSomething();
 
-    Log::Info("Command:");
-    for (int i = 0; i < argc; ++i) {
-        Log::Info("  Arg[{}]: {}", i, argv[i]);
-    }
+    // Log::Info("Command:");
+    // for (int i = 0; i < argc; ++i) {
+    //     Log::Info("  Arg[{}]: {}", i, argv[i]);
+    // }
+    // Log::Info("Exit: {}", argc - 1);
 
-    auto exitCode = argc - 1;
-    Log::Info("Exit: {}", exitCode);
-
-    return exitCode; // to check exit code is passed from emrun
+    return argc - 1; // to check exit code is passed from emrun
 }

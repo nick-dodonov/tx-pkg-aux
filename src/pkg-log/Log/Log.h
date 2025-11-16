@@ -5,6 +5,7 @@
 namespace Log::Details
 {
     void DefaultInit();
+
     inline spdlog::logger* DefaultLoggerRaw()
     {
         static spdlog::logger* _logger;
@@ -16,6 +17,8 @@ namespace Log::Details
     }
 
     inline spdlog::level::level_enum ToSpdLevel(Level level);
+
+    static constexpr int AreaLoggerLine = -1;
 }
 
 namespace Log
@@ -101,6 +104,8 @@ namespace Log
 
     struct Logger
     {
+        static Logger Default;
+
         Logger(const char* area = nullptr)
             : _area(area)
         {}
@@ -120,7 +125,7 @@ namespace Log
         {
             if (_area) {
                 loc.filename = _area;
-                loc.line = -1;
+                loc.line = Details::AreaLoggerLine;
             }
             Raw()->log(loc, Details::ToSpdLevel(level), fmt.get(), std::forward<Args>(args)...);
         }
@@ -133,29 +138,12 @@ namespace Log
 
 } // namespace Log
 
-Log::Logger& DefaultLogger();
+inline Log::Logger& DefaultLogger() { return Log::Logger::Default; }
 
-#define LogMsg(level, ...) DefaultLogger().Msg(spdlog::source_loc{__FILE__, __LINE__, SPDLOG_FUNCTION}, level, __VA_ARGS__)
-#define LogTrace(...) LogMsg(Log::Level::Trace, __VA_ARGS__)
-#define LogDebug(...) LogMsg(Log::Level::Debug, __VA_ARGS__)
-#define LogInfo(...) LogMsg(Log::Level::Info, __VA_ARGS__)
-#define LogWarn(...) LogMsg(Log::Level::Warn, __VA_ARGS__)
-#define LogError(...) LogMsg(Log::Level::Error, __VA_ARGS__)
-#define LogFatal(...) LogMsg(Log::Level::Fatal, __VA_ARGS__)
-
-namespace Log::Details
-{
-    inline spdlog::level::level_enum ToSpdLevel(Level level)
-    {
-        switch (level) {
-            case Level::Trace: return spdlog::level::trace;
-            case Level::Debug: return spdlog::level::debug;
-            case Level::Info: return spdlog::level::info;
-            case Level::Warn: return spdlog::level::warn;
-            case Level::Error: return spdlog::level::err;
-            case Level::Fatal: return spdlog::level::critical;
-        }
-        assert(false && "ToSpdLevel: unknown log level");
-        return spdlog::level::info;
-    }
-}
+#define LogMsg(level, ...) DefaultLogger().Msg(spdlog::source_loc{__FILE__, __LINE__, SPDLOG_FUNCTION}, level, __VA_ARGS__) // NOLINT(cppcoreguidelines-macro-usage)
+#define LogTrace(...) LogMsg(Log::Level::Trace, __VA_ARGS__) // NOLINT(cppcoreguidelines-macro-usage)
+#define LogDebug(...) LogMsg(Log::Level::Debug, __VA_ARGS__) // NOLINT(cppcoreguidelines-macro-usage)
+#define LogInfo(...) LogMsg(Log::Level::Info, __VA_ARGS__) // NOLINT(cppcoreguidelines-macro-usage)
+#define LogWarn(...) LogMsg(Log::Level::Warn, __VA_ARGS__) // NOLINT(cppcoreguidelines-macro-usage)
+#define LogError(...) LogMsg(Log::Level::Error, __VA_ARGS__) // NOLINT(cppcoreguidelines-macro-usage)
+#define LogFatal(...) LogMsg(Log::Level::Fatal, __VA_ARGS__) // NOLINT(cppcoreguidelines-macro-usage)
