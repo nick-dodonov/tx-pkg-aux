@@ -93,7 +93,7 @@ namespace Http
                 Log::Debug("http: socket: connected: {}:{}", endpoint.address().to_string(), endpoint.port());
                 break;
             }
-            Log::Warn("http: socket: connect failed: {}:{}: {}", endpoint.address().to_string(), endpoint.port(), ec.what());
+            Log::Warn("http: socket: connect failed: {}:{}: {}", endpoint.address().to_string(), endpoint.port(), ec.message());
             SocketClose(socket, false);
         }
 

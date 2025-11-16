@@ -14,7 +14,7 @@ namespace Boot
 {
     static constexpr const char* AppData = "0001"; // TODO: embedded in elf (may be w/ git tag or similar)
 
-    void LogInfo(int argc, char** argv)
+    void LogHeader(int argc, char** argv)
     {
         Log::Info("-=>-=>-=>-=>-=>-=>-=>-=>-=>-=>-=>-=>");
         Log::Info(std::format("App: {}", AppData));

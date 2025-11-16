@@ -3,7 +3,7 @@
 
 int main(int argc, char* argv[])
 {
-    Boot::LogInfo(argc, argv);
+    Boot::LogHeader(argc, argv);
 
     Log::Info("Hello Boot!");
     return argc - 1;
