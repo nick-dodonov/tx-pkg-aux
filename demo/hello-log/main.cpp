@@ -1,5 +1,4 @@
 #include "Log/Log.h"
-#include <format>
 
 int main(int argc, char* argv[])
 {
@@ -9,15 +8,15 @@ int main(int argc, char* argv[])
     Log::Error("Test message (error)");
     Log::Fatal("Test message (fatal)");
 
-    Log::Fatal(std::format("  DEBUG compile_commands: {}", _LIBCPP_STD_VER));
+    Log::Debug("DEBUG compile_commands: {}", _LIBCPP_STD_VER);
 
     Log::Info("Command:");
     for (int i = 0; i < argc; ++i) {
-        Log::Info(std::format("  Arg[{}]: {}", i, argv[i]));
+        Log::Info("  Arg[{}]: {}", i, argv[i]);
     }
 
     auto exitCode = argc - 1;
-    Log::Info(std::format("Exit: {}", exitCode));
+    Log::Info("Exit: {}", exitCode);
 
     return exitCode; // test exit code is passed from emrun
 }

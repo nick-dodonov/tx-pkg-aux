@@ -73,7 +73,7 @@ BreakBeforeBraces: Linux
 #   AfterCaseLabel: false
 
 # inline function formatting
-AllowShortFunctionsOnASingleLine: InlineOnly
+AllowShortFunctionsOnASingleLine: All
 AllowShortLambdasOnASingleLine: All
 #SplitEmptyFunction: false
 

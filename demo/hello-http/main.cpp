@@ -12,13 +12,13 @@ int main(int argc, char** argv)
 
     auto client = std::make_shared<Http::LiteClient>(asioContext.get_executor());
     auto TryHttp = [client](std::string_view url) {
-        Log::InfoF("TryHttp: >>> request: '{}'", url);
+        Log::Info("TryHttp: >>> request: '{}'", url);
         client->Get(url, [url](auto result) {
             if (result) {
                 const auto& response = *result;
-                Log::InfoF("TryHttp: <<< success: '{}':\n{}", url, response);
+                Log::Info("TryHttp: <<< success: '{}':\n{}", url, response);
             } else {
-                Log::ErrorF("TryHttp: <<< failed: '{}': {}", url, result.error().message());
+                Log::Error("TryHttp: <<< failed: '{}': {}", url, result.error().message());
             }
         });
     };
