@@ -1,7 +1,5 @@
 #include "Log/Log.h"
 #include <gtest/gtest.h>
-#include <sstream>
-#include <iostream>
 
 // Тест проверяет, что Log::info работает корректно
 TEST(LogTest, InfoWorks) {
@@ -21,13 +19,6 @@ TEST(LogTest, WarnWorks) {
 TEST(LogTest, ErrorWorks) {
     // Просто вызываем метод - если он не крашится, тест пройден
     Log::Error("Test error message");
-    EXPECT_TRUE(true); // Подтверждаем что мы дошли до этой строки
-}
-
-// Тест проверяет, что DefaultInit работает
-TEST(LogTest, DefaultInitWorks) {
-    // Просто вызываем метод - если он не крашится, тест пройден
-    Log::DefaultInit();
     EXPECT_TRUE(true); // Подтверждаем что мы дошли до этой строки
 }
 

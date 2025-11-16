@@ -1,72 +1,77 @@
 #include "Log.h"
-#include <lwlog.h>
+#include <spdlog/pattern_formatter.h>
 
 namespace Log
 {
-    using Logger = lwlog::console_logger;
-    static std::shared_ptr<Logger> _logger;
+    Logger Logger::Default;
+}
+
+namespace Log::Details
+{
+    /// Introduce %N custom logger area name formatter or short filename w/ line number.
+    class LoggerFlagFormatter : public spdlog::custom_flag_formatter
+    {
+    public:
+        static constexpr char Flag = 'N';
+
+        void format(const spdlog::details::log_msg& msg, const std::tm& time, spdlog::memory_buf_t& dest) override
+        {
+            const auto& source = msg.source;
+            if (source.line == Details::AreaLoggerLine) {
+                dest.append(source.filename); // filename contains area name
+            } else {
+                shortFilenameFormatter.format(msg, time, dest);
+                if (!source.empty()) {
+                    dest.append(":");
+                    spdlog::details::fmt_helper::append_int(msg.source.line, dest);
+                }
+            }
+        }
+
+        [[nodiscard]] std::unique_ptr<custom_flag_formatter> clone() const override
+        {
+            return spdlog::details::make_unique<LoggerFlagFormatter>();
+        }
+
+    private:
+        using ShortFilenameFormatter = spdlog::details::short_filename_formatter<spdlog::details::null_scoped_padder>;
+        ShortFilenameFormatter shortFilenameFormatter{spdlog::details::padding_info{}};
+    };
+
+    /// Optional function name formatter (%!) w/ suffix only if function name is present.
+    /// Avoids printing empty function names and suffix to prettify output.
+    /// Based on spdlog::details::source_funcname_formatter<spdlog::details::null_scoped_padder>.
+    class FunctionNameFlagFormatter : public spdlog::custom_flag_formatter
+    {
+    public:
+        static constexpr char Flag = '&';
+
+        void format(const spdlog::details::log_msg& msg, const std::tm& time, spdlog::memory_buf_t& dest) override
+        {
+            const auto* funcname = msg.source.funcname;
+            if (funcname) {
+                spdlog::details::fmt_helper::append_string_view(funcname, dest);
+                dest.append(": ");
+            }
+        }
+
+        [[nodiscard]] std::unique_ptr<custom_flag_formatter> clone() const override
+        {
+            return spdlog::details::make_unique<FunctionNameFlagFormatter>();
+        }
+    };
 
     void DefaultInit()
     {
-        _logger = std::make_shared<Logger>("default");
-        // _logger->set_level_filter(lwlog::level::info | lwlog::level::debug | lwlog::level::critical);
+        spdlog::set_level(spdlog::level::trace);
 
-        // TODO: check/fix in web-tools and emrun
-        // _logger->set_pattern("[%T] [%n] [%l]: %v");
-        // _logger->set_pattern("{file} .red([%T] [%n]) .dark_green([:^12{level}]): .cyan(%v) TEXT");
-
-        // https://github.com/ChristianPanov/lwlog/tree/v1.4.0?tab=readme-ov-file#syntax
-#if defined(__EMSCRIPTEN__)
-    #define SUBSECS "%e" // wasm precision isn't good
-#else
-    #define SUBSECS "%f" // microseconds is enough for native
-#endif
-        // TODO: {topic} supported
-        // TODO: fix bug adding '.' in time crashes (so '·' is used instead)
-        // TODO: fix time in emscripten (it shows UTC, not local time)
-        // TODO: {thread} depending on platform
-        _logger->set_pattern("[%T·" SUBSECS "] %t :<8%l [%n] %v");
-
-        // _logger->debug("Logger initialized");
-    }
-
-    void Debug(const std::string& msg)
-    {
-        if (!_logger) {
-            DefaultInit();
-        }
-        _logger->debug(msg.c_str());
-    }
-
-    void Info(const std::string& msg)
-    {
-        if (!_logger) {
-            DefaultInit();
-        }
-        _logger->info(msg.c_str());
-    }
-
-    void Warn(const std::string& msg)
-    {
-        if (!_logger) {
-            DefaultInit();
-        }
-        _logger->warning(msg.c_str());
-    }
-
-    void Error(const std::string& msg)
-    {
-        if (!_logger) {
-            DefaultInit();
-        }
-        _logger->error(msg.c_str());
-    }
-
-    void Fatal(const std::string& msg)
-    {
-        if (!_logger) {
-            DefaultInit();
-        }
-        _logger->critical(msg.c_str());
+        // https://github.com/gabime/spdlog/wiki/Custom-formatting
+        // spdlog::set_pattern("(%T.%f) %t %^[%L]%$ [%s:%#] %!: %v");
+        auto formatter = std::make_unique<spdlog::pattern_formatter>();
+        formatter->add_flag<LoggerFlagFormatter>(LoggerFlagFormatter::Flag);
+        formatter->add_flag<FunctionNameFlagFormatter>(FunctionNameFlagFormatter::Flag);
+        formatter->set_pattern("(%T.%f) %t %^[%L]%$ [%N] %&%v");
+        spdlog::set_formatter(std::move(formatter));
     }
 }
+

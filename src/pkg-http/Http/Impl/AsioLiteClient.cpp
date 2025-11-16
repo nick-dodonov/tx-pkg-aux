@@ -9,37 +9,37 @@ namespace Http
 {
     // static boost::asio::awaitable<void> TestAsync()
     // {
-    //     Log::DebugF("111111111111");
+    //     Log::Debug("111111111111");
     //     auto executor = co_await boost::asio::this_coro::executor;
     //     boost::asio::steady_timer timer{executor, std::chrono::seconds(1)};
     //     co_await timer.async_wait(boost::asio::use_awaitable);
-    //     Log::DebugF("222222222222");
+    //     Log::Debug("222222222222");
     // }
 
     static void SocketClose(boost::asio::ip::tcp::socket& socket, bool logSuccess)
     {
         boost::system::error_code ec;
         if (socket.close(ec)) {
-            Log::WarnF("http: socket: close failed: {}", ec.what());
+            Log::Warn("http: socket: close failed: {}", ec.what());
         } else if (logSuccess) {
-            Log::DebugF("http: socket: closed");
+            Log::Debug("http: socket: closed");
         }
     }
 
     boost::asio::awaitable<ILiteClient::Result> AsioLiteClient::GetAsync(std::string url)
     {
-        Log::DebugF("http: async: '{}'", url);
+        Log::Debug("http: async: '{}'", url);
         //co_await TestAsync();
 
         // URL parsing
         auto url_ec = ada::parse<ada::url_aggregator>(url);
         if (!url_ec) {
-            Log::ErrorF("http: url parse failed: '{}'", url);
+            Log::Error("http: url parse failed: '{}'", url);
             co_return std::unexpected(std::make_error_code(std::errc::invalid_argument));
         }
 
         auto& url_result = url_ec.value();
-        Log::DebugF(
+        Log::Debug(
             "http: url parsed: protocol={} host={} port={} path={}",
             url_result.get_protocol(),
             url_result.get_hostname(),
@@ -72,12 +72,12 @@ namespace Http
             asio::redirect_error(asio::use_awaitable, ec)
         );
         if (ec) {
-            Log::ErrorF("http: failed to resolved: {}", ec.what());
+            Log::Error("http: failed to resolved: {}", ec.what());
             co_return std::unexpected(ec);
         }        
         for (const auto& entry : dns_results) {
             auto endpoint = entry.endpoint();
-            Log::DebugF("http: resolved: {}:{}", endpoint.address().to_string(), endpoint.port());
+            Log::Debug("http: resolved: {}:{}", endpoint.address().to_string(), endpoint.port());
         }
 
         // TCP connect
@@ -90,21 +90,21 @@ namespace Http
                 asio::as_tuple(asio::use_awaitable)
             );
             if (!ec) {
-                Log::DebugF("http: socket: connected: {}:{}", endpoint.address().to_string(), endpoint.port());
+                Log::Debug("http: socket: connected: {}:{}", endpoint.address().to_string(), endpoint.port());
                 break;
             }
-            Log::WarnF("http: socket: connect failed: {}:{}: {}", endpoint.address().to_string(), endpoint.port(), ec.what());
+            Log::Warn("http: socket: connect failed: {}:{}: {}", endpoint.address().to_string(), endpoint.port(), ec.message());
             SocketClose(socket, false);
         }
 
         if (ec) {
-            Log::ErrorF("http: socket: connect failed to any endpoint: {}", ec.what());
+            Log::Error("http: socket: connect failed to any endpoint: {}", ec.what());
             co_return std::unexpected(ec);
         }
 
         // TCP connected
         if (socket.set_option(boost::asio::ip::tcp::no_delay(true), ec)) {
-            Log::WarnF("http: socket: set_option TCP_NODELAY failed: {}", ec.what());
+            Log::Warn("http: socket: set_option TCP_NODELAY failed: {}", ec.what());
         }
 
         // HTTP request/response
@@ -122,11 +122,11 @@ namespace Http
             request, 
             asio::as_tuple(asio::use_awaitable));
         if (ec) {
-            Log::ErrorF("http: sending failed: {} (count={})", ec.what(), count);
+            Log::Error("http: sending failed: {} (count={})", ec.what(), count);
             SocketClose(socket, true);
             co_return std::unexpected(ec);
         }
-        Log::DebugF("http: sent: {} bytes", count);
+        Log::Debug("http: sent: {} bytes", count);
 
         // Receive
         beast::flat_buffer buffer;
@@ -137,18 +137,18 @@ namespace Http
             response, 
             asio::as_tuple(asio::use_awaitable));
         if (ec) {
-            Log::ErrorF("http: receive failed: {} (count={})", ec.what(), count);
+            Log::Error("http: receive failed: {} (count={})", ec.what(), count);
             SocketClose(socket, true);
             co_return std::unexpected(ec);
         }
-        Log::DebugF("http: received: {} bytes", count);
+        Log::Debug("http: received: {} bytes", count);
 
         // Convert Beast buffer/response to std::string and deliver result.
         std::string body = !response.body().empty()
             ? response.body()
             : beast::buffers_to_string(buffer.data());
 
-        Log::DebugF("http: response: {} ({}) body.size={}",
+        Log::Debug("http: response: {} ({}) body.size={}",
             response.result_int(), response.reason(), body.size());
 
         // TCP close

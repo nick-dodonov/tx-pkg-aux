@@ -1,23 +1,60 @@
 #include "Log/Log.h"
-#include <format>
+
+static void FuncDemo()
+{
+    Log::Trace("func message (trace)");
+    Log::Debug("func message (debug)");
+    Log::Info("func message (info)");
+    Log::Warn("func message (warning)");
+    Log::Error("func message (error)");
+    Log::Fatal("func message (fatal)");
+    Log::Debug("func formatted: {} '{}'", _LIBCPP_STD_VER, "demo");
+}
+
+static void MacroDemo()
+{
+    LogTrace("macro msg (trace)");
+    LogDebug("macro msg (debug)");
+    LogInfo("macro msg (info)");
+    LogWarn("macro msg (warn)");
+    LogError("macro msg (error)");
+    LogFatal("macro msg (fatal)");
+    LogDebug("macro formatted: {}", 12345);
+}
+
+struct FeatureDemo
+{
+    static Log::Logger& DefaultLogger()
+    {
+        static Log::Logger logger("Feature");
+        return logger;
+    }
+
+    void DoSomething()
+    {
+        LogTrace("feature msg (trace)");
+        LogDebug("feature msg (debug)");
+        LogInfo("feature msg (info)");
+        LogWarn("feature msg (warn)");
+        LogError("feature msg (error)");
+        LogFatal("feature msg (fatal)");
+        LogDebug("feature formatted: {}", -12345);
+    }
+};
+
+static void MacroWithLoggerDemo(Log::Logger& logger)
+{
+    LogTrace(logger, "macro w/ logger msg (trace)");
+    LogDebug(logger, "macro w/ logger formatted: {}", 12345);
+}
 
 int main(int argc, char* argv[])
 {
-    Log::Debug("Test message (debug)");
-    Log::Info("Test message (info)");
-    Log::Warn("Test message (warning)");
-    Log::Error("Test message (error)");
-    Log::Fatal("Test message (fatal)");
+    FuncDemo();
+    MacroDemo();
+    FeatureDemo feature;
+    feature.DoSomething();
+    MacroWithLoggerDemo(FeatureDemo::DefaultLogger());
 
-    Log::Fatal(std::format("  DEBUG compile_commands: {}", _LIBCPP_STD_VER));
-
-    Log::Info("Command:");
-    for (int i = 0; i < argc; ++i) {
-        Log::Info(std::format("  Arg[{}]: {}", i, argv[i]));
-    }
-
-    auto exitCode = argc - 1;
-    Log::Info(std::format("Exit: {}", exitCode));
-
-    return exitCode; // test exit code is passed from emrun
+    return argc - 1; // to check exit code is passed from emrun
 }

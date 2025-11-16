@@ -6,12 +6,13 @@ namespace boost
 {
     BOOST_NORETURN void throw_exception(std::exception const& e)
     {
-        Log::FatalF("boost::throw_exception - {}", e.what());
+        spdlog::critical("boost::throw_exception - {}", e.what());
+        Log::Fatal("boost::throw_exception - {}", e.what());
         std::abort();
     }
     BOOST_NORETURN void throw_exception(std::exception const& e, boost::source_location const& loc)
     {
-        Log::FatalF("boost::throw_exception - {} at {}:{}:{}", e.what(), loc.file_name(), loc.line(), loc.column());
+        Log::Fatal("boost::throw_exception - {} at {}:{}:{}", e.what(), loc.file_name(), loc.line(), loc.column());
         std::abort();
     }
 }
