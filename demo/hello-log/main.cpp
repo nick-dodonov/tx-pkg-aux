@@ -42,18 +42,19 @@ struct FeatureDemo
     }
 };
 
+static void MacroWithLoggerDemo(Log::Logger& logger)
+{
+    LogTrace(logger, "macro w/ logger msg (trace)");
+    LogDebug(logger, "macro w/ logger formatted: {}", 12345);
+}
+
 int main(int argc, char* argv[])
 {
     FuncDemo();
     MacroDemo();
     FeatureDemo feature;
     feature.DoSomething();
-
-    // Log::Info("Command:");
-    // for (int i = 0; i < argc; ++i) {
-    //     Log::Info("  Arg[{}]: {}", i, argv[i]);
-    // }
-    // Log::Info("Exit: {}", argc - 1);
+    MacroWithLoggerDemo(FeatureDemo::DefaultLogger());
 
     return argc - 1; // to check exit code is passed from emrun
 }

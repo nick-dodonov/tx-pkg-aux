@@ -106,7 +106,7 @@ namespace Log
     {
         static Logger Default;
 
-        Logger(const char* area = nullptr)
+        explicit Logger(const char* area = nullptr)
             : _area(area)
         {}
 
@@ -128,6 +128,19 @@ namespace Log
                 loc.line = Details::AreaLoggerLine;
             }
             Raw()->log(loc, Details::ToSpdLevel(level), fmt.get(), std::forward<Args>(args)...);
+        }
+
+        // helpers allowing to use macro w/ passing logger instance as 1st argument
+        template <typename T>
+        void Msg(spdlog::source_loc loc, Log::Level level, Logger& logger, T&& msg)
+        {
+            logger.Msg(loc, level, std::forward<T>(msg));
+        }
+
+        template <typename... Args>
+        void Msg(spdlog::source_loc loc, Log::Level level, Logger& logger, std::format_string<Args...> fmt, Args&&... args)
+        {
+            logger.Msg(loc, level, fmt, std::forward<Args>(args)...);
         }
 
     private:
