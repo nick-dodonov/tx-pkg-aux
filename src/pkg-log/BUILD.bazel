@@ -6,8 +6,8 @@ tx_library(
     hdrs = glob(["**/*.h"]),
     strip_include_prefix = ".",
     deps = [
-        "@lwlog",
-        "@spdlog//:spdlog", #? @spdlog//:header_only or @spdlog//:header_only_true
+        #TODO: spdlog w/ SPDLOG_USE_STD_FORMAT and SPDLOG_NO_EXCEPTIONS
+        "@spdlog//:spdlog",
     ],
     visibility = ["//visibility:public"],
 )

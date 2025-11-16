@@ -1,33 +1,18 @@
 #include "Log.h"
-#include <lwlog.h>
+#include <spdlog/spdlog.h>
 
 namespace Log
 {
-    using Logger = lwlog::console_logger;
-    static std::shared_ptr<Logger> _logger;
+    static std::shared_ptr<spdlog::logger> _logger;
 
     void DefaultInit()
     {
-        _logger = std::make_shared<Logger>("default");
-        // _logger->set_level_filter(lwlog::level::info | lwlog::level::debug | lwlog::level::critical);
+        spdlog::set_level(spdlog::level::trace);
 
-        // TODO: check/fix in web-tools and emrun
-        // _logger->set_pattern("[%T] [%n] [%l]: %v");
-        // _logger->set_pattern("{file} .red([%T] [%n]) .dark_green([:^12{level}]): .cyan(%v) TEXT");
+        // https://github.com/gabime/spdlog/wiki/Custom-formatting
+        spdlog::set_pattern("(%T.%f) %t %^[%L]%$ [%n] {%!} %v");
 
-        // https://github.com/ChristianPanov/lwlog/tree/v1.4.0?tab=readme-ov-file#syntax
-#if defined(__EMSCRIPTEN__)
-    #define SUBSECS "%e" // wasm precision isn't good
-#else
-    #define SUBSECS "%f" // microseconds is enough for native
-#endif
-        // TODO: {topic} supported
-        // TODO: fix bug adding '.' in time crashes (so '·' is used instead)
-        // TODO: fix time in emscripten (it shows UTC, not local time)
-        // TODO: {thread} depending on platform
-        _logger->set_pattern("[%T·" SUBSECS "] %t :<8%l [%n] %v");
-
-        // _logger->debug("Logger initialized");
+        _logger = spdlog::default_logger();
     }
 
     void Debug(const std::string& msg)
@@ -51,7 +36,7 @@ namespace Log
         if (!_logger) {
             DefaultInit();
         }
-        _logger->warning(msg.c_str());
+        _logger->warn(msg.c_str());
     }
 
     void Error(const std::string& msg)

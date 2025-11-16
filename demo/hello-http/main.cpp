@@ -30,7 +30,7 @@ int main(int argc, char** argv)
     // TryHttp("url-parse-error");
     // TryHttp("http://localhost:12345/connect-refused");
     // TryHttp("http://httpbun.com/status/200");
-    // TryHttp("http://httpbun.com/get");
+    TryHttp("http://httpbun.com/get");
     // TryHttp("https://httpbun.com/get");
 
     return asioContext.Run();
