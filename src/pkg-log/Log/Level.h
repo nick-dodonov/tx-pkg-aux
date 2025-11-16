@@ -10,3 +10,4 @@ namespace Log
         Fatal
     };
 }
+

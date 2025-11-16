@@ -29,9 +29,8 @@ namespace Log
     template <typename... Args>
     void Msg(Level level, std::format_string<Args...> fmt, Args&&... args)
     {
-        // Convert std::format_string to string_view for spdlog
-        auto spdfmt = fmt.get(); //TODO: static_cast<spdlog::format_string_t<Args...>&>(fmt);
-        Details::DefaultLoggerRaw()->log(Details::ToSpdLevel(level), spdfmt, std::forward<Args>(args)...);
+        //TODO: static_cast<spdlog::format_string_t<Args...>&>(fmt);
+        Details::DefaultLoggerRaw()->log(Details::ToSpdLevel(level), fmt.get(), std::forward<Args>(args)...);
     }
 
     template <typename T>
@@ -99,7 +98,50 @@ namespace Log
     {
         Msg(Level::Fatal, fmt, std::forward<Args>(args)...);
     }
-}
+
+    struct Logger
+    {
+        Logger(const char* area = nullptr)
+            : _area(area)
+        {}
+
+        template <typename T>
+        void Msg(spdlog::source_loc loc, Log::Level level, T&& msg)
+        {
+            if (_area) {
+                loc.filename = _area;
+                loc.line = -1;
+            }
+            Raw()->log(loc, Details::ToSpdLevel(level), std::forward<T>(msg));
+        }
+
+        template <typename... Args>
+        void Msg(spdlog::source_loc loc, Log::Level level, std::format_string<Args...> fmt, Args&&... args)
+        {
+            if (_area) {
+                loc.filename = _area;
+                loc.line = -1;
+            }
+            Raw()->log(loc, Details::ToSpdLevel(level), fmt.get(), std::forward<Args>(args)...);
+        }
+
+    private:
+        spdlog::logger* Raw() { return Details::DefaultLoggerRaw(); }
+
+        const char* _area{};
+    };
+
+} // namespace Log
+
+Log::Logger& DefaultLogger();
+
+#define LogMsg(level, ...) DefaultLogger().Msg(spdlog::source_loc{__FILE__, __LINE__, SPDLOG_FUNCTION}, level, __VA_ARGS__)
+#define LogTrace(...) LogMsg(Log::Level::Trace, __VA_ARGS__)
+#define LogDebug(...) LogMsg(Log::Level::Debug, __VA_ARGS__)
+#define LogInfo(...) LogMsg(Log::Level::Info, __VA_ARGS__)
+#define LogWarn(...) LogMsg(Log::Level::Warn, __VA_ARGS__)
+#define LogError(...) LogMsg(Log::Level::Error, __VA_ARGS__)
+#define LogFatal(...) LogMsg(Log::Level::Fatal, __VA_ARGS__)
 
 namespace Log::Details
 {
