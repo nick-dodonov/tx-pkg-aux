@@ -38,6 +38,29 @@ namespace Log::Details
         ShortFilenameFormatter shortFilenameFormatter{spdlog::details::padding_info{}};
     };
 
+    /// Optional function name formatter (%!) w/ suffix only if function name is present.
+    /// Avoids printing empty function names and suffix to prettify output.
+    /// Based on spdlog::details::source_funcname_formatter<spdlog::details::null_scoped_padder>.
+    class FunctionNameFlagFormatter : public spdlog::custom_flag_formatter
+    {
+    public:
+        static constexpr char Flag = '&';
+
+        void format(const spdlog::details::log_msg& msg, const std::tm& time, spdlog::memory_buf_t& dest) override
+        {
+            const auto* funcname = msg.source.funcname;
+            if (funcname) {
+                spdlog::details::fmt_helper::append_string_view(funcname, dest);
+                dest.append(": ");
+            }
+        }
+
+        [[nodiscard]] std::unique_ptr<custom_flag_formatter> clone() const override
+        {
+            return spdlog::details::make_unique<FunctionNameFlagFormatter>();
+        }
+    };
+
     void DefaultInit()
     {
         spdlog::set_level(spdlog::level::trace);
@@ -45,7 +68,9 @@ namespace Log::Details
         // https://github.com/gabime/spdlog/wiki/Custom-formatting
         // spdlog::set_pattern("(%T.%f) %t %^[%L]%$ [%s:%#] %!: %v");
         auto formatter = std::make_unique<spdlog::pattern_formatter>();
-        formatter->add_flag<LoggerFlagFormatter>(LoggerFlagFormatter::Flag).set_pattern("(%T.%f) %t %^[%L]%$ [%N] %!: %v");
+        formatter->add_flag<LoggerFlagFormatter>(LoggerFlagFormatter::Flag);
+        formatter->add_flag<FunctionNameFlagFormatter>(FunctionNameFlagFormatter::Flag);
+        formatter->set_pattern("(%T.%f) %t %^[%L]%$ [%N] %&%v");
         spdlog::set_formatter(std::move(formatter));
     }
 }

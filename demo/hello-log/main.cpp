@@ -8,7 +8,7 @@ static void FuncDemo()
     Log::Warn("func message (warning)");
     Log::Error("func message (error)");
     Log::Fatal("func message (fatal)");
-    Log::Debug("func formatted: {} ''", _LIBCPP_STD_VER, "demo");
+    Log::Debug("func formatted: {} '{}'", _LIBCPP_STD_VER, "demo");
 }
 
 static void MacroDemo()
@@ -26,7 +26,7 @@ struct FeatureDemo
 {
     static Log::Logger& DefaultLogger()
     {
-        static Log::Logger logger("FeatureDemo");
+        static Log::Logger logger("Feature");
         return logger;
     }
 
