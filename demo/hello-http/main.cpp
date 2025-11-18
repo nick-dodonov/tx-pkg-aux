@@ -23,14 +23,14 @@ int main(int argc, char** argv)
     };
 
     // TryHttp("url-parse-error");
-    TryHttp("http://localhost:12345/connect-refused");
+    // TryHttp("http://localhost:12345/connect-refused");
 
     // TryHttp("http://ifconfig.io/ip");
     // TryHttp("http://httpbin.org/headers");
     // TryHttp("http://jsonplaceholder.typicode.com/todos/1");
 
     // TryHttp("http://httpbun.com/status/200");
-    // TryHttp("http://httpbun.com/get");
+    TryHttp("http://httpbun.com/get");
     // TryHttp("https://httpbun.com/get");
 
     return asioContext.Run();
