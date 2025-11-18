@@ -1,6 +1,7 @@
 #if !__EMSCRIPTEN__
 #include "AsioLiteClient.h"
 #include "Log/Log.h"
+#include <format>
 #include <ada.h>
 #include <boost/asio.hpp>
 #include <boost/beast.hpp>
@@ -11,7 +12,7 @@ namespace Http
     {
         boost::system::error_code ec;
         if (socket.close(ec)) {
-            Log::Warn("http: socket: close failed: {}", ec.what());
+            Log::Warn("http: socket: close failed: {}", ec.message());
         } else if (logSuccess) {
             Log::Debug("http: socket: closed");
         }
@@ -26,7 +27,10 @@ namespace Http
         auto url_ec = ada::parse<ada::url_aggregator>(url);
         if (!url_ec) {
             Log::Error("http: url parse failed: '{}'", url);
-            co_return std::unexpected(std::make_error_code(std::errc::invalid_argument));
+            co_return std::unexpected(std::system_error{
+                std::make_error_code(std::errc::invalid_argument), 
+                std::format("Failed to parse URL: '{}'", url)
+            });
         }
 
         auto& url_result = url_ec.value();
@@ -63,9 +67,11 @@ namespace Http
             asio::redirect_error(asio::use_awaitable, ec)
         );
         if (ec) {
-            Log::Error("http: failed to resolved: {}", ec.what());
-            co_return std::unexpected(ec);
-        }        
+            Log::Error("http: failed to resolved: {}", ec.message());
+            co_return std::unexpected(std::system_error{
+                ec, std::format("DNS resolution failed: '{}'", url_result.get_hostname())
+            });
+        }
         for (const auto& entry : dns_results) {
             auto endpoint = entry.endpoint();
             Log::Debug("http: resolved: {}:{}", endpoint.address().to_string(), endpoint.port());
@@ -89,13 +95,15 @@ namespace Http
         }
 
         if (ec) {
-            Log::Error("http: socket: connect failed to any endpoint: {}", ec.what());
-            co_return std::unexpected(ec);
+            Log::Error("http: socket: connect failed to any endpoint: {}", ec.message());
+            co_return std::unexpected(std::system_error{
+                ec, std::format("Failed to connect to host: '{}'", url_result.get_hostname())
+            });
         }
 
         // TCP connected
         if (socket.set_option(boost::asio::ip::tcp::no_delay(true), ec)) {
-            Log::Warn("http: socket: set_option TCP_NODELAY failed: {}", ec.what());
+            Log::Warn("http: socket: set_option TCP_NODELAY failed: {}", ec.message());
         }
 
         // HTTP request/response
@@ -113,9 +121,12 @@ namespace Http
             request, 
             asio::as_tuple(asio::use_awaitable));
         if (ec) {
-            Log::Error("http: sending failed: {} (count={})", ec.what(), count);
+            Log::Error("http: sending failed: {} (count={})", ec.message(), count);
             SocketClose(socket, true);
-            co_return std::unexpected(ec);
+            co_return std::unexpected(std::system_error{
+                ec, std::format("Failed to send HTTP request: '{}' {} {}", 
+                    url_result.get_hostname(), request.method_string(), request.target())
+            });
         }
         Log::Debug("http: sent: {} bytes", count);
 
@@ -127,10 +138,16 @@ namespace Http
             buffer, 
             response, 
             asio::as_tuple(asio::use_awaitable));
+        // beast::string_view differs from std::string_view and isn't formatted well
+        auto reason_view = std::string_view(response.reason().data(), response.reason().size());
         if (ec) {
-            Log::Error("http: receive failed: {} (count={})", ec.what(), count);
+            Log::Error("http: receive failed: {} (count={})", ec.message(), count);
             SocketClose(socket, true);
-            co_return std::unexpected(ec);
+            co_return std::unexpected(std::system_error{
+                ec, 
+                std::format("Failed to receive HTTP response: {} ({})", 
+                    response.result_int(), reason_view)
+            });
         }
         Log::Debug("http: received: {} bytes", count);
 
@@ -140,7 +157,7 @@ namespace Http
             : beast::buffers_to_string(buffer.data());
 
         Log::Debug("http: response: {} ({}) body.size={}",
-            response.result_int(), response.reason(), body.size());
+            response.result_int(), reason_view, body.size());
 
         // TCP close
         //TODO: shutdown?

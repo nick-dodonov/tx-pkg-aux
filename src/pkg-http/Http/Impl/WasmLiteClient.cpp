@@ -34,7 +34,7 @@ namespace Http
                 attr.userData = &ctx;
 
                 attr.onsuccess = [](emscripten_fetch_t* fetch) {
-                    Log::Debug("http: onsuccess: {} ({}) numBytes={}", fetch->status, fetch->statusText, fetch->numBytes);
+                    Log::Debug("http: onsuccess: {} ({}) numBytes={}", fetch->status, std::string_view(fetch->statusText), fetch->numBytes);
                     auto* ctx = static_cast<FetchContext*>(fetch->userData);
                     std::move(ctx->handler)(ILiteClient::Response{
                         .statusCode = static_cast<int>(fetch->status),
@@ -44,9 +44,12 @@ namespace Http
                 };
 
                 attr.onerror = [](emscripten_fetch_t* fetch) {
-                    Log::Debug("http: onerror: {} ({})", fetch->status, fetch->statusText);
+                    Log::Debug("http: onerror: {} ({})", fetch->status, std::string_view(fetch->statusText));
                     auto* ctx = static_cast<FetchContext*>(fetch->userData);
-                    std::move(ctx->handler)(std::unexpected(std::make_error_code(std::errc::connection_aborted)));
+                    std::move(ctx->handler)(std::unexpected(std::system_error{
+                        std::make_error_code(std::errc::not_connected),
+                        std::format("emscripten_fetch: onerror: {} ({})", fetch->status, std::string_view(fetch->statusText))
+                    }));
                     emscripten_fetch_close(fetch);
                 };
 

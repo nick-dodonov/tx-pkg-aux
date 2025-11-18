@@ -17,7 +17,8 @@ int main(int argc, char** argv)
                 const auto& response = *result;
                 Log::Info("TryHttp: <<< success: '{}': {} \n{}", url, response.statusCode, response.body);
             } else {
-                Log::Error("TryHttp: <<< failed: '{}': {}", url, result.error().message());
+                const auto& error = result.error();
+                Log::Error("TryHttp: <<< failed: '{}': {}", url, error.what());
             }
         });
     };
@@ -29,8 +30,8 @@ int main(int argc, char** argv)
     // TryHttp("http://httpbin.org/headers");
     // TryHttp("http://jsonplaceholder.typicode.com/todos/1");
 
-    // TryHttp("http://httpbun.com/status/200");
-    TryHttp("http://httpbun.com/get");
+    TryHttp("http://httpbun.com/status/400");
+    // TryHttp("http://httpbun.com/get");
     // TryHttp("https://httpbun.com/get");
 
     return asioContext.Run();

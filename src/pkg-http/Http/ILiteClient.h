@@ -15,7 +15,7 @@ namespace Http
             int statusCode;
             std::string body;
         };
-        using Result = std::expected<Response, std::error_code>;
+        using Result = std::expected<Response, std::system_error>;
         using Callback = std::function<void(Result result)>;
 
         virtual void Get(std::string_view url, Callback&& handler) = 0;
