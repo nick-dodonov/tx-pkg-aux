@@ -7,19 +7,12 @@
 
 namespace Http
 {
-    LiteClient::LiteClient(boost::asio::any_io_executor executor)
-        : _impl(
+    std::shared_ptr<ILiteClient> LiteClient::MakeDefault(boost::asio::any_io_executor executor)
+    {
 #if __EMSCRIPTEN__
-              std::make_shared<WasmLiteClient>(std::move(executor))
+        return std::make_shared<WasmLiteClient>(std::move(executor));
 #else
-              std::make_shared<AsioLiteClient>(std::move(executor))
+        return std::make_shared<AsioLiteClient>(std::move(executor));
 #endif
-          )
-    {
-    }
-
-    void LiteClient::Get(const std::string_view url, Callback&& handler)
-    {
-        _impl->Get(url, std::move(handler));
     }
 }

@@ -2,7 +2,6 @@
 #include "Boot/Boot.h"
 #include "Http/LiteClient.h"
 #include "Log/Log.h"
-#include <memory>
 
 static App::AsioContext asioContext;
 
@@ -10,7 +9,7 @@ int main(int argc, char** argv)
 {
     Boot::LogHeader(argc, argv);
 
-    auto client = std::make_shared<Http::LiteClient>(asioContext.get_executor());
+    auto client = Http::LiteClient::MakeDefault(asioContext.get_executor());
     auto TryHttp = [client](std::string_view url) {
         Log::Info("TryHttp: >>> request: '{}'", url);
         client->Get(url, [url](auto result) {
@@ -24,14 +23,14 @@ int main(int argc, char** argv)
     };
 
     // TryHttp("url-parse-error");
-    // TryHttp("http://localhost:12345/connect-refused");
+    TryHttp("http://localhost:12345/connect-refused");
 
     // TryHttp("http://ifconfig.io/ip");
     // TryHttp("http://httpbin.org/headers");
     // TryHttp("http://jsonplaceholder.typicode.com/todos/1");
 
     // TryHttp("http://httpbun.com/status/200");
-    TryHttp("http://httpbun.com/get");
+    // TryHttp("http://httpbun.com/get");
     // TryHttp("https://httpbun.com/get");
 
     return asioContext.Run();

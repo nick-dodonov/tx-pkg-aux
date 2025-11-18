@@ -5,14 +5,9 @@
 
 namespace Http
 {
-    class LiteClient final : public ILiteClient
+    class LiteClient
     {
     public:
-        explicit LiteClient(boost::asio::any_io_executor executor);
-
-        void Get(std::string_view url, Callback&& handler) override;
-
-    private:
-        std::shared_ptr<ILiteClient> _impl;
+        static std::shared_ptr<ILiteClient> MakeDefault(boost::asio::any_io_executor executor);
     };
 }
