@@ -3,6 +3,13 @@ load("@tx-kit-ext//rules/build:tx_binary.bzl", "tx_binary")
 tx_binary(
     name = "hello-http",
     srcs = glob(["**/*.cpp"]),
+    #TODO: find a way to specify linkopts by pkg-http dependecy usage
+    linkopts = select({
+        "@platforms//cpu:wasm32": [
+            "-sFETCH=1",
+        ],
+        "//conditions:default": [],
+    }),
     deps = [
         "//:pkg-app",
         "//src/pkg-http",
