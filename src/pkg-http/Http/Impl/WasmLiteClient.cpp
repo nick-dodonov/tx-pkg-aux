@@ -34,22 +34,37 @@ namespace Http
                 attr.userData = &ctx;
 
                 attr.onsuccess = [](emscripten_fetch_t* fetch) {
-                    Log::Debug("http: onsuccess: {} ({}) numBytes={}", fetch->status, std::string_view(fetch->statusText), fetch->numBytes);
                     auto* ctx = static_cast<FetchContext*>(fetch->userData);
+                    auto status = fetch->status;
+                    auto numBytes = fetch->numBytes;
+                    Log::Debug("http: onsuccess: {} ({}) bytes={}", status, std::string_view(fetch->statusText), numBytes);
                     std::move(ctx->handler)(ILiteClient::Response{
-                        .statusCode = static_cast<int>(fetch->status),
-                        .body = std::string(fetch->data, fetch->numBytes),
+                        .statusCode = static_cast<int>(status),
+                        .body = std::string(fetch->data, numBytes),
                     });
                     emscripten_fetch_close(fetch);
                 };
 
                 attr.onerror = [](emscripten_fetch_t* fetch) {
-                    Log::Debug("http: onerror: {} ({})", fetch->status, std::string_view(fetch->statusText));
                     auto* ctx = static_cast<FetchContext*>(fetch->userData);
-                    std::move(ctx->handler)(std::unexpected(std::system_error{
-                        std::make_error_code(std::errc::not_connected),
-                        std::format("emscripten_fetch: onerror: {} ({})", fetch->status, std::string_view(fetch->statusText))
-                    }));
+                    auto status = fetch->status;
+                    auto statusView = std::string_view(fetch->statusText); // otherwise std::format fails
+                    auto numBytes = fetch->numBytes;
+                    Log::Debug("http: onerror: {} ({}) bytes={} ready={} responseUrl={}", 
+                        status, statusView, numBytes, fetch->readyState, fetch->responseUrl ? fetch->responseUrl : "<null>");
+                    if (status > 0 && fetch->responseUrl) {
+                        // HTTP error statuses are reported with their response body allowing to inspect error details in user code
+                        std::move(ctx->handler)(ILiteClient::Response{
+                            .statusCode = static_cast<int>(status),
+                            .body = std::string(fetch->data, numBytes),
+                        });
+                    } else {
+                        // Otherwise it's a network or other error
+                        std::move(ctx->handler)(std::unexpected(std::system_error{
+                            std::make_error_code(std::errc::not_connected),
+                            std::format("emscripten_fetch: onerror: {} ({})", status, statusView)
+                        }));
+                    }
                     emscripten_fetch_close(fetch);
                 };
 
