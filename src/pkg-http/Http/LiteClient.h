@@ -8,6 +8,12 @@ namespace Http
     class LiteClient
     {
     public:
-        static std::shared_ptr<ILiteClient> MakeDefault(boost::asio::any_io_executor executor);
+        struct Options {
+            boost::asio::any_io_executor executor;
+            struct {
+                bool useJsFetchClient = false; // use JsFetchLiteClient instead of EmFetchLiteClient
+            } wasm;
+        };
+        static std::shared_ptr<ILiteClient> MakeDefault(Options options);
     };
 }

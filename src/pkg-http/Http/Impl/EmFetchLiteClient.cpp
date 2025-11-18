@@ -1,5 +1,5 @@
 #if __EMSCRIPTEN__
-#include "WasmLiteClient.h"
+#include "EmFetchLiteClient.h"
 #include "Log/Log.h"
 #include <emscripten/fetch.h>
 #include <boost/asio.hpp>
@@ -75,7 +75,7 @@ namespace Http
         );
     }
 
-    boost::asio::awaitable<ILiteClient::Result> WasmLiteClient::GetAsync(std::string url)
+    boost::asio::awaitable<ILiteClient::Result> EmFetchLiteClient::GetAsync(std::string url)
     {
         Log::Debug("http: async: '{}'", url);
         FetchContext ctx{std::move(url), co_await boost::asio::this_coro::executor};
