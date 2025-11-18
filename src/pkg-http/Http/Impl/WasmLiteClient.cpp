@@ -6,12 +6,6 @@
 
 namespace Http
 {
-    struct FetchResult {
-        int status {};
-        std::string data;
-        std::string error;
-    };
-
     template <typename CompletionToken>
     auto FetchAsync(std::string url, CompletionToken&& token)
     {
@@ -56,11 +50,11 @@ namespace Http
             std::forward<CompletionToken>(token)
         );
     }
+
     boost::asio::awaitable<ILiteClient::Result> WasmLiteClient::GetAsync(std::string url)
     {
         Log::Debug("http: async: '{}'", url);
-        auto result = co_await FetchAsync(url, boost::asio::use_awaitable);
-        co_return result;
+        return FetchAsync(url, boost::asio::use_awaitable);
     }
 }
 #endif
