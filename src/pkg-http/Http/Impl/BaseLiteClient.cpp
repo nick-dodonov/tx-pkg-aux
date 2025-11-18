@@ -20,7 +20,11 @@ namespace Http
                     Log::Error("http: query: exception");
                     handler(std::unexpected(std::make_error_code(std::errc::operation_canceled)));
                 } else {
-                    Log::Debug("http: query: succeed"); //TODO: response info?
+                    if (result) {
+                        Log::Debug("http: query: succeed: size={}", result->size());
+                    } else {
+                        Log::Error("http: query: failed: {}", result.error().message());
+                    }
                     handler(std::move(result));
                 }
             }
