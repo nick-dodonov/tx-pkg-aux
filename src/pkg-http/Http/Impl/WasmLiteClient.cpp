@@ -36,7 +36,10 @@ namespace Http
                 attr.onsuccess = [](emscripten_fetch_t* fetch) {
                     Log::Debug("http: onsuccess: {} ({}) numBytes={}", fetch->status, fetch->statusText, fetch->numBytes);
                     auto* ctx = static_cast<FetchContext*>(fetch->userData);
-                    std::move(ctx->handler)(std::string(fetch->data, fetch->numBytes));
+                    std::move(ctx->handler)(ILiteClient::Response{
+                        .statusCode = static_cast<int>(fetch->status),
+                        .body = std::string(fetch->data, fetch->numBytes),
+                    });
                     emscripten_fetch_close(fetch);
                 };
 

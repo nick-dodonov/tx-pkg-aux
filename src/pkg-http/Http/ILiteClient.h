@@ -11,7 +11,11 @@ namespace Http
     public:
         virtual ~ILiteClient() = default;
 
-        using Result = std::expected<std::string, std::error_code>;
+        struct Response {
+            int statusCode;
+            std::string body;
+        };
+        using Result = std::expected<Response, std::error_code>;
         using Callback = std::function<void(Result result)>;
 
         virtual void Get(std::string_view url, Callback&& handler) = 0;

@@ -7,15 +7,6 @@
 
 namespace Http
 {
-    // static boost::asio::awaitable<void> TestAsync()
-    // {
-    //     Log::Debug("111111111111");
-    //     auto executor = co_await boost::asio::this_coro::executor;
-    //     boost::asio::steady_timer timer{executor, std::chrono::seconds(1)};
-    //     co_await timer.async_wait(boost::asio::use_awaitable);
-    //     Log::Debug("222222222222");
-    // }
-
     static void SocketClose(boost::asio::ip::tcp::socket& socket, bool logSuccess)
     {
         boost::system::error_code ec;
@@ -155,7 +146,10 @@ namespace Http
         //TODO: shutdown?
         SocketClose(socket, true);
 
-        co_return body;        
+        co_return Response {
+            .statusCode = static_cast<int>(response.result_int()),
+            .body = std::move(body),
+        };
     }
 }
 #endif

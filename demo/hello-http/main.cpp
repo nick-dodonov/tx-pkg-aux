@@ -15,7 +15,7 @@ int main(int argc, char** argv)
         client->Get(url, [url](auto result) {
             if (result) {
                 const auto& response = *result;
-                Log::Info("TryHttp: <<< success: '{}':\n{}", url, response);
+                Log::Info("TryHttp: <<< success: '{}': {} \n{}", url, response.statusCode, response.body);
             } else {
                 Log::Error("TryHttp: <<< failed: '{}': {}", url, result.error().message());
             }

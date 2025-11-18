@@ -21,7 +21,8 @@ namespace Http
                     handler(std::unexpected(std::make_error_code(std::errc::operation_canceled)));
                 } else {
                     if (result) {
-                        Log::Debug("http: query: succeed: size={}", result->size());
+                        const auto& response = *result;
+                        Log::Debug("http: query: succeed: {} size={}", response.statusCode, response.body.size());
                     } else {
                         Log::Error("http: query: failed: {}", result.error().message());
                     }
