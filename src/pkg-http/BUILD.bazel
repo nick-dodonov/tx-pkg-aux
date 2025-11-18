@@ -12,6 +12,7 @@ tx_library(
         "//:pkg-log",
         "@boost.asio//:boost.asio",
         "@ada-url//:ada", #TODO: maybe cxxurl?
+        "@gsl//:gsl",
     ] + select({
         "//conditions:default": [
             "@boost.beast//:boost.beast",
