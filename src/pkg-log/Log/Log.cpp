@@ -70,8 +70,13 @@ namespace Log::Details
         auto formatter = std::make_unique<spdlog::pattern_formatter>();
         formatter->add_flag<LoggerFlagFormatter>(LoggerFlagFormatter::Flag);
         formatter->add_flag<FunctionNameFlagFormatter>(FunctionNameFlagFormatter::Flag);
-        formatter->set_pattern("(%T.%f) %t %^[%L]%$ [%N] %&%v");
+#if defined(__EMSCRIPTEN__)
+        // emscripten timer accuracy is limited to milliseconds
+    #define SEC_FRAC_FORMAT "%e" // NOLINT(cppcoreguidelines-macro-usage)
+#else
+    #define SEC_FRAC_FORMAT "%f" // NOLINT(cppcoreguidelines-macro-usage)
+#endif
+        formatter->set_pattern("(%T." SEC_FRAC_FORMAT ") %t %^[%L]%$ [%N] %&%v");
         spdlog::set_formatter(std::move(formatter));
     }
 }
-
