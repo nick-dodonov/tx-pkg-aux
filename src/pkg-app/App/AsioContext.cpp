@@ -8,16 +8,16 @@ namespace App
 {
     AsioContext::AsioContext()
     {
-        Log::Debug("AsioContext: initializing");
+        Log::Trace("AsioContext: initializing");
 
-        // TODO: runtime selector for executors strategy
+        // TODO: selector for executors strategy, i.e. support system_executor (thread pool)
         // auto executor = asio::system_executor();
         // auto& io_context = get_io_context();
     }
 
     AsioContext::~AsioContext()
     {
-        Log::Debug("AsioContext: destroyed");
+        Log::Trace("AsioContext: destroyed");
     }
 
     [[nodiscard]] int AsioContext::Run()
@@ -26,19 +26,19 @@ namespace App
 #if __EMSCRIPTEN__
         emscripten_set_main_loop_arg(
             [](void* arg) {
-                constexpr auto kRunFor = std::chrono::milliseconds(16);
-
                 auto* io_context = static_cast<boost::asio::io_context*>(arg);
-                auto count = io_context->run_for(kRunFor);
-                if (io_context->stopped()) {
-                    Log::Debug("AsioContext: wasm: ran count: {} (stopped)", count);
+                if (!io_context->stopped()) {
+                    auto count = io_context->poll();
+                    if (count > 0) {
+                        Log::Trace("AsioContext: wasm: polled {} tasks", count);
+                    }
+                } else {
+                    Log::Debug("AsioContext: wasm: stopped, exiting main loop");
                     emscripten_cancel_main_loop();
-                    Log::Debug("AsioContext: wasm: exit(0)");
+                    Log::Trace("AsioContext: wasm: exit(0)");
                     exit(0);
-                    Log::Debug("AsioContext: wasm: emscripten_force_exit(0)");
+                    Log::Trace("AsioContext: wasm: emscripten_force_exit(0)");
                     emscripten_force_exit(0);
-                } else if (count > 0) {
-                    Log::Debug("AsioContext: wasm: ran count: {} (continue)", count);
                 }
             },
             &_io_context,
