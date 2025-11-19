@@ -14,10 +14,10 @@ static bool HasCommandLineFlag(int argc, char** argv, std::string_view flag)
     );
 }
 
-static bool TakeJsFetchClientFlag(int argc, char** argv)
+static bool TakeJsFlag(int argc, char** argv)
 {
     bool flag = HasCommandLineFlag(argc, argv, "--js");
-    Log::Info("TakeJsFetchClientFlag: {}", flag);
+    Log::Info("JsFetchLiteClient: {}", flag);
     return flag;
 }
 
@@ -27,7 +27,7 @@ int main(int argc, char** argv)
 
     auto client = Http::LiteClient::MakeDefault({
         .executor = asioContext.get_executor(), 
-        .wasm = {.useJsFetchClient = TakeJsFetchClientFlag(argc, argv)}
+        .wasm = {.useJsFetchClient = TakeJsFlag(argc, argv)}
     });
 
     auto TryHttp = [client](std::string_view url) {

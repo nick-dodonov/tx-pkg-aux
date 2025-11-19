@@ -6,7 +6,9 @@ tx_binary(
     #TODO: find a way to specify linkopts by pkg-http dependecy usage
     linkopts = select({
         "@platforms//cpu:wasm32": [
-            "-sFETCH=1",
+            "-sFETCH=1", # Emscripten Fetch API for EmFetchLiteClient
+            "-sASYNCIFY", # Asyncify for JsFetchLiteClient
+            #"-sEXPORTED_RUNTIME_METHODS=lengthBytesUTF8,stringToUTF8,UTF8ToString",
         ],
         "//conditions:default": [],
     }),
