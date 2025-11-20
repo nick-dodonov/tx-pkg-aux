@@ -8,22 +8,22 @@
 namespace Http
 {
     // clang-format off
-    EM_JS(void, js_fetch, (const char* ptrUrl, void* callback, void* userData), {
+    EM_JS(void, js_fetch, (const char* urlPtr, void* callback, void* userData), {
         (async () => {
             try {
-                const url = UTF8ToString(ptrUrl);
+                const url = UTF8ToString(urlPtr);
                 out("http: js_fetch: fetching URL: " + url);
-                // emulate fetch with sleep
-                await new Promise(resolve => setTimeout(resolve, 500));
-                const text = "Simulated fetch result for URL: " + url;
-                out("http: js_fetch: fetch complete, size=" + text.length);
-                //const response = await fetch(UTF8ToString(url));
-                //const text = await response.text();
-                const ptr = stringToNewUTF8(text);
-                out("http: js_fetch: result:", ptr.toString(16));
-                dynCall('vpp', callback, [ptr, userData]);
+                // await new Promise(resolve => setTimeout(resolve, 500)); // emulate fetch /w sleep
+                const response = await fetch(url);
+                // console.log("http: js_fetch: fetch response:", response);
+                const bodyText = await response.text();
+                // out("http: js_fetch: fetch response text:", bodyText);
+                const bodyTextPtr = stringToNewUTF8(bodyText);
+                dynCall('vpp', callback, [bodyTextPtr, userData]);
             } catch (error) {
-                out("http: js_fetch: error:", error);
+                out("http: js_fetch: error:", error?.message); //JSON.stringify(error, Object.getOwnPropertyNames(error)));
+                // out("http: js_fetch: error message: " + (error?.message || String(error)));
+                // out("http: js_fetch: error stack: " + (error?.stack || "no stack"));
                 dynCall('vpp', callback, [null, userData]);
             }
         })();
