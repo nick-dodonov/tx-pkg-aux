@@ -7,8 +7,9 @@ tx_binary(
     linkopts = select({
         "@platforms//cpu:wasm32": [
             "-sFETCH=1", # Emscripten Fetch API for EmFetchLiteClient
-            "-sASYNCIFY", # Asyncify for JsFetchLiteClient
-            #"-sEXPORTED_RUNTIME_METHODS=lengthBytesUTF8,stringToUTF8,UTF8ToString",
+            "-sDEFAULT_LIBRARY_FUNCS_TO_INCLUDE='$dynCall'", # Enable dynCall for calling C++ callbacks from JS in EM_JS functions
+            # "-sASYNCIFY", # Asyncify for JsFetchLiteClient https://emscripten.org/docs/porting/asyncify.html
+            # "-sALLOW_TABLE_GROWTH", # Calling JavaScript functions as function pointers from C https://emscripten.org/docs/porting/connecting_cpp_and_javascript/Interacting-with-code.html#calling-javascript-functions-as-function-pointers-from-c
         ],
         "//conditions:default": [],
     }),
