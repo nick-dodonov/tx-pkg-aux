@@ -14,10 +14,11 @@ tx_library(
         "@ada-url//:ada", #TODO: maybe cxxurl?
         "@gsl//:gsl",
     ] + select({
+        "@platforms//cpu:wasm32": [],
         "//conditions:default": [
             "@boost.beast//:boost.beast",
+            "@boringssl//:ssl",
         ],
-        "@platforms//cpu:wasm32": [],
     }),
     visibility = ["//visibility:public"],
 )

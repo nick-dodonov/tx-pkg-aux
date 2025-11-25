@@ -42,6 +42,7 @@ bazel_dep(name = "ada-url", version = "3.3.0")
 bazel_dep(name = "boost.throw_exception", version = "1.89.0.bcr.1")
 bazel_dep(name = "boost.asio", version = "1.89.0.bcr.1.1-tx.1")  # private registry
 bazel_dep(name = "boost.beast", version = "1.89.0.bcr.1")
+bazel_dep(name = "boringssl", version = "0.20251124.0")
 bazel_dep(name = "gsl", version = "4.0.0")
 
 # test dependencies

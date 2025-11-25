@@ -23,6 +23,10 @@ namespace Log::Details
 
 namespace Log
 {
+    inline bool Enabled(Level level) {
+        return Details::DefaultLoggerRaw()->should_log(Details::ToSpdLevel(level));
+    }
+
     template <typename T>
     void Msg(Level level, T&& msg)
     {
@@ -109,6 +113,10 @@ namespace Log
         explicit Logger(const char* area = nullptr)
             : _area(area)
         {}
+
+        inline bool Enabled(Level level) {
+            return Raw()->should_log(Details::ToSpdLevel(level));
+        }
 
         template <typename T>
         void Msg(spdlog::source_loc loc, Log::Level level, T&& msg)
