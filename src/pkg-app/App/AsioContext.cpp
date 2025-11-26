@@ -33,12 +33,16 @@ namespace App
                         Log::Trace("AsioContext: wasm: polled {} tasks", count);
                     }
                 } else {
-                    Log::Debug("AsioContext: wasm: stopped, exiting main loop");
+                    Log::Debug("AsioContext: wasm: stopped, cancelling main loop");
                     emscripten_cancel_main_loop();
-                    Log::Trace("AsioContext: wasm: exit(0)");
-                    exit(0);
-                    Log::Trace("AsioContext: wasm: emscripten_force_exit(0)");
-                    emscripten_force_exit(0);
+                    emscripten_async_call(
+                        [](void*) {
+                            Log::Trace("AsioContext: wasm: emscripten_force_exit(0)");
+                            emscripten_force_exit(0);
+                        },
+                        nullptr,
+                        0
+                    );
                 }
             },
             &_io_context,

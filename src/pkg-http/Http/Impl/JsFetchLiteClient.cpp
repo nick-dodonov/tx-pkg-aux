@@ -18,7 +18,7 @@ namespace Http
             try {
                 // await new Promise(resolve => setTimeout(resolve, 500)); // emulate fetch /w sleep
                 const response = await fetch(url);
-                console.log("http: js_fetch: fetch response:", response);
+                // console.log("http: js_fetch: fetch response:", response);
 
                 const bodyText = await response.text();
                 // out("http: js_fetch: result: status: " + response.status);
@@ -27,7 +27,7 @@ namespace Http
                 const bodyTextPtr = stringToUTF8OnStack(bodyText);
                 _JsFetchContext_OnFetchResult(ctx, response.status, bodyTextPtr);
             } catch (error) {
-                console.warn("http: js_fetch: fetch error:", error);
+                console.warn("http: js_fetch: error: ", error);
                 const errorMessage = error?.message || String(error); //JSON.stringify(error, Object.getOwnPropertyNames(error)));
                 // out("http: js_fetch: error: message: " + errorMessage);
                 // out("http: js_fetch: error: stack: " + (error?.stack || "<no stack>"));

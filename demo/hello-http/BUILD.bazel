@@ -8,7 +8,7 @@ tx_binary(
         "@platforms//cpu:wasm32": [
             "-sFETCH=1", # Emscripten Fetch API for EmFetchLiteClient
             # https://emscripten.org/docs/porting/connecting_cpp_and_javascript/Interacting-with-code.html#calling-compiled-c-functions-from-javascript-using-ccall-cwrap
-            "-sDEFAULT_LIBRARY_FUNCS_TO_INCLUDE='$dynCall,$ccall,$cwrap,$UTF8ToString'", # Enable for calling C++ from EM_JS
+            # "-sDEFAULT_LIBRARY_FUNCS_TO_INCLUDE='$dynCall,$ccall,$cwrap,$UTF8ToString'", # Enable for calling C++ from EM_JS
             # "-sEXPORTED_FUNCTIONS='_main,_c_test'", # Export c_test function for calling from JS
             # Enable Embind for emscripten::val https://emscripten.org/docs/porting/connecting_cpp_and_javascript/embind.html#using-val-to-transliterate-javascript-to-c
             # "-lembind", #TODO: maybe w/ "-sEMBIND_AOT=1"

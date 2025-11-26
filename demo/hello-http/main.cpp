@@ -52,7 +52,7 @@ int main(int argc, char** argv)
 
     // TryHttp("http://httpbun.com/status/400");
     // TryHttp("http://httpbun.com/get");
-    TryHttp("https://httpbun.com/get");
+    // TryHttp("https://httpbun.com/get");
 
     return asioContext.Run();
 }
