@@ -15,11 +15,11 @@ namespace Http
                 out("http: js_fetch: fetching URL: " + url);
                 // await new Promise(resolve => setTimeout(resolve, 500)); // emulate fetch /w sleep
                 const response = await fetch(url);
-                // console.log("http: js_fetch: fetch response:", response);
+                console.log("http: js_fetch: fetch response:", response);
                 const bodyText = await response.text();
                 // out("http: js_fetch: fetch response text:", bodyText);
-                const bodyTextPtr = stringToNewUTF8(bodyText);
-                dynCall('vpp', callback, [bodyTextPtr, userData]);
+                const bodyTextPtr = stringToUTF8OnStack(bodyText);
+                dynCall('vipp', callback, [response.status, bodyTextPtr, userData]);
             } catch (error) {
                 out("http: js_fetch: error:", error?.message); //JSON.stringify(error, Object.getOwnPropertyNames(error)));
                 // out("http: js_fetch: error message: " + (error?.message || String(error)));
@@ -40,30 +40,6 @@ namespace Http
             , work(boost::asio::make_work_guard(executor))
         {}
 
-        static void OnFetchCompleteImpl(char* resultPtr, void* userData)
-        {
-            auto* self = static_cast<JsFetchContext*>(userData);
-            self->OnFetchComplete(resultPtr);
-        }
-
-        void OnFetchComplete(char* resultPtr)
-        {
-            if (resultPtr) {
-                std::unique_ptr<char, decltype(&free)> result(resultPtr, &free);
-                Log::Trace("http: fetch result: ptr={} size={} '{}'", (void*)result.get(), strlen(result.get()), result.get());
-                std::move(handler)(ILiteClient::Response{
-                    .statusCode = 333, // simulated status code
-                    .body = std::string(result.get()),
-                });
-            } else {
-                Log::Trace("http: fetch failed: ptr=<null>");
-                std::move(handler)(std::unexpected(std::system_error{
-                    std::make_error_code(std::errc::not_connected),
-                    "TODO: provide error details from JS side"
-                }));
-            }
-        }
-
         template <typename CompletionToken>
         auto FetchAsync(CompletionToken&& token)
         {
@@ -80,6 +56,37 @@ namespace Http
                 },
                 std::forward<CompletionToken>(token)
             );
+        }
+
+    private:
+        static void OnFetchCompleteImpl(int status, const char* resultPtr, void* userData)
+        {
+            auto* self = static_cast<JsFetchContext*>(userData);
+            self->OnFetchComplete(status, resultPtr);
+        }
+
+        void OnFetchComplete(int status, const char* resultPtr)
+        {
+            if (resultPtr) {
+                //std::unique_ptr<char, decltype(&free)> result(resultPtr, &free); // when stringToUTF8 is used with _malloc
+                Log::Trace("http: fetch result: status={} '{}'", status, resultPtr);
+                CompleteHandler(ILiteClient::Response{
+                    .statusCode = status,
+                    .body = std::string(resultPtr),
+                });
+            } else {
+                Log::Trace("http: fetch failed: ptr=<null>");
+                CompleteHandler(std::unexpected(std::system_error{
+                    std::make_error_code(std::errc::not_connected),
+                    "TODO: provide error details from JS side"
+                }));
+            }
+        }
+
+        void CompleteHandler(ILiteClient::Result&& result)
+        {
+            Log::Debug("SKIP COMPLETION FOR DEBUGGING: {}", std::move(result).has_value());
+            //std::move(handler)(std::move(result));
         }
     };
 
