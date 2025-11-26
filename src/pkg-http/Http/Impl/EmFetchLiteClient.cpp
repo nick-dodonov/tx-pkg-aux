@@ -20,10 +20,10 @@ namespace Http
         template <typename CompletionToken>
         auto FetchAsync(CompletionToken&& token)
         {
-            Log::Debug("http: async initiate: '{}'", url);
+            Log::Debug("http: async initiate: {}", url);
             return boost::asio::async_initiate<CompletionToken, void(ILiteClient::Result)>(
                 [this](auto handler) {
-                    Log::Debug("http: async initiator: '{}'", url);
+                    Log::Debug("http: async initiator: {}", url);
                     this->handler = std::move(handler);
 
                     emscripten_fetch_attr_t attr;
@@ -67,7 +67,7 @@ namespace Http
                         emscripten_fetch_close(fetch);
                     };
 
-                    Log::Debug("http: emscripten_fetch: '{}'", url);
+                    Log::Debug("http: emscripten_fetch: {}", url);
                     emscripten_fetch(&attr, url.c_str());
                 },
                 std::forward<CompletionToken>(token)
@@ -77,7 +77,7 @@ namespace Http
 
     boost::asio::awaitable<ILiteClient::Result> EmFetchLiteClient::GetAsync(std::string url)
     {
-        Log::Debug("http: async: '{}'", url);
+        Log::Debug("http: async: {}", url);
         EmFetchContext ctx{std::move(url), co_await boost::asio::this_coro::executor};
         auto result = co_await ctx.FetchAsync(boost::asio::use_awaitable);
         co_return result;

@@ -7,24 +7,31 @@
 
 namespace Http
 {
+    struct JsFetchContext;
+
     // clang-format off
-    EM_JS(void, js_fetch, (const char* urlPtr, void* callback, void* userData), {
+    EM_JS(void, JsFetchContext_Fetch, (JsFetchContext* ctx, const char* urlPtr), {
         (async () => {
+            const url = UTF8ToString(urlPtr);
+            out("http: js_fetch: " + url);
+
             try {
-                const url = UTF8ToString(urlPtr);
-                out("http: js_fetch: fetching URL: " + url);
                 // await new Promise(resolve => setTimeout(resolve, 500)); // emulate fetch /w sleep
                 const response = await fetch(url);
                 console.log("http: js_fetch: fetch response:", response);
+
                 const bodyText = await response.text();
-                // out("http: js_fetch: fetch response text:", bodyText);
+                // out("http: js_fetch: result: status: " + response.status);
+                // out("http: js_fetch: result: body:", bodyText);
+
                 const bodyTextPtr = stringToUTF8OnStack(bodyText);
-                dynCall('vipp', callback, [response.status, bodyTextPtr, userData]);
+                _JsFetchContext_OnFetchResult(ctx, response.status, bodyTextPtr);
             } catch (error) {
-                out("http: js_fetch: error:", error?.message); //JSON.stringify(error, Object.getOwnPropertyNames(error)));
-                // out("http: js_fetch: error message: " + (error?.message || String(error)));
-                // out("http: js_fetch: error stack: " + (error?.stack || "no stack"));
-                dynCall('vpp', callback, [null, userData]);
+                console.warn("http: js_fetch: fetch error:", error);
+                const errorMessage = error?.message || String(error); //JSON.stringify(error, Object.getOwnPropertyNames(error)));
+                // out("http: js_fetch: error: message: " + errorMessage);
+                // out("http: js_fetch: error: stack: " + (error?.stack || "<no stack>"));
+                _JsFetchContext_OnFetchError(ctx, stringToUTF8OnStack(errorMessage));
             }
         })();
     });
@@ -43,56 +50,60 @@ namespace Http
         template <typename CompletionToken>
         auto FetchAsync(CompletionToken&& token)
         {
-            Log::Debug("http: async initiate: '{}'", url);
+            //Log::Debug("http: async initiate: {}", url);
             return boost::asio::async_initiate<CompletionToken, void(ILiteClient::Result)>(
                 [this](auto handler) {
-                    Log::Debug("http: async initiator: '{}'", url);
+                    //Log::Debug("http: async initiator: {}", url);
                     this->handler = std::move(handler);
-                    js_fetch(
-                        url.c_str(),
-                        (void*)&JsFetchContext::OnFetchCompleteImpl,
-                        (void*)this
+                    JsFetchContext_Fetch(
+                        this,
+                        url.c_str()
                     );
                 },
                 std::forward<CompletionToken>(token)
             );
         }
 
-    private:
-        static void OnFetchCompleteImpl(int status, const char* resultPtr, void* userData)
+        void OnFetchResult(int status, const char* body)
         {
-            auto* self = static_cast<JsFetchContext*>(userData);
-            self->OnFetchComplete(status, resultPtr);
+            //std::unique_ptr<char, decltype(&free)> result(resultPtr, &free); // when stringToUTF8 is used with _malloc
+            Log::Trace("http: fetch result: status={} '{}'", status, body);
+            CompleteHandler(ILiteClient::Response{
+                .statusCode = status,
+                .body = body ? std::string(body) : std::string{},
+            });
         }
 
-        void OnFetchComplete(int status, const char* resultPtr)
+        void OnFetchError(const char* error)
         {
-            if (resultPtr) {
-                //std::unique_ptr<char, decltype(&free)> result(resultPtr, &free); // when stringToUTF8 is used with _malloc
-                Log::Trace("http: fetch result: status={} '{}'", status, resultPtr);
-                CompleteHandler(ILiteClient::Response{
-                    .statusCode = status,
-                    .body = std::string(resultPtr),
-                });
-            } else {
-                Log::Trace("http: fetch failed: ptr=<null>");
-                CompleteHandler(std::unexpected(std::system_error{
-                    std::make_error_code(std::errc::not_connected),
-                    "TODO: provide error details from JS side"
-                }));
-            }
+            Log::Trace("http: fetch error: {}", error);
+            CompleteHandler(std::unexpected(std::system_error{
+                std::make_error_code(std::errc::not_connected),
+                error
+            }));
         }
 
         void CompleteHandler(ILiteClient::Result&& result)
         {
-            Log::Debug("SKIP COMPLETION FOR DEBUGGING: {}", std::move(result).has_value());
-            //std::move(handler)(std::move(result));
+            //Log::Debug("(debug) skip completion w/ {}", std::move(result).has_value() ? "success" : "error");
+            std::move(handler)(std::move(result));
         }
     };
 
+    extern "C" {
+        EMSCRIPTEN_KEEPALIVE void JsFetchContext_OnFetchResult(JsFetchContext* ctx, int status, const char* body)
+        {
+            ctx->OnFetchResult(status, body);
+        }
+        EMSCRIPTEN_KEEPALIVE void JsFetchContext_OnFetchError(JsFetchContext* ctx, const char* error)
+        {
+            ctx->OnFetchError(error);
+        }
+    }
+
     boost::asio::awaitable<ILiteClient::Result> JsFetchLiteClient::GetAsync(std::string url)
     {
-        Log::Debug("http: async: '{}'", url);
+        Log::Debug("http: async: {}", url);
         JsFetchContext ctx{std::move(url), co_await boost::asio::this_coro::executor};
         auto result = co_await ctx.FetchAsync(boost::asio::use_awaitable);
         co_return result;

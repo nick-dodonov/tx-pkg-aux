@@ -20,16 +20,16 @@ namespace Http
 
     boost::asio::awaitable<ILiteClient::Result> AsioLiteClient::GetAsync(std::string url)
     {
-        Log::Debug("http: async: '{}'", url);
+        Log::Debug("http: async: {}", url);
         //co_await TestAsync();
 
         // URL parsing
         auto url_ec = ada::parse<ada::url_aggregator>(url);
         if (!url_ec) {
-            Log::Error("http: url parse failed: '{}'", url);
+            Log::Error("http: url parse failed: {}", url);
             co_return std::unexpected(std::system_error{
                 std::make_error_code(std::errc::invalid_argument), 
-                std::format("Failed to parse URL: '{}'", url)
+                std::format("Failed to parse URL: {}", url)
             });
         }
 

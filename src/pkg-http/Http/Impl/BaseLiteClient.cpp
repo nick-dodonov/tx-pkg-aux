@@ -10,7 +10,7 @@ namespace Http
 
     void BaseLiteClient::Get(std::string_view url, Callback&& handler)
     {
-        Log::Debug("http: query: '{}'", url);
+        Log::Debug("http: query: {}", url);
         boost::asio::co_spawn(
             _executor,
             GetAsync(std::string{url}),

@@ -31,20 +31,20 @@ int main(int argc, char** argv)
     });
 
     auto TryHttp = [client](std::string_view url) {
-        Log::Info("TryHttp: >>> request: '{}'", url);
+        Log::Info("TryHttp: >>> request: {}", url);
         client->Get(url, [url](auto result) {
             if (result) {
                 const auto& response = *result;
-                Log::Info("TryHttp: <<< success: '{}': {} \n{}", url, response.statusCode, response.body);
+                Log::Info("TryHttp: <<< success: {}: {} \n{}", url, response.statusCode, response.body);
             } else {
                 const auto& error = result.error();
-                Log::Error("TryHttp: <<< failed: '{}': {}", url, error.what());
+                Log::Error("TryHttp: <<< failed: {}: {}", url, error.what());
             }
         });
     };
 
     // TryHttp("url-parse-error");
-    // TryHttp("http://localhost:12345/connect-refused");
+    TryHttp("http://localhost:12345/connect-refused");
 
     // TryHttp("http://ifconfig.io/ip");
     // TryHttp("http://httpbin.org/headers");
