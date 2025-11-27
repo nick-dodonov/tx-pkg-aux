@@ -1,4 +1,3 @@
-#include <string_view>
 #if !__EMSCRIPTEN__
 #include "AsioLiteClient.h"
 #include "Log/Log.h"
@@ -86,7 +85,7 @@ namespace Http
         }
     }
 
-    boost::asio::awaitable<ILiteClient::Result> AsioLiteClient::GetAsync(std::string url)
+    static boost::asio::awaitable<ILiteClient::Result> GetAsyncImpl(std::string url)
     {
         Log::Trace("http: async: {}", url);
 
@@ -132,6 +131,7 @@ namespace Http
         auto dns_results = co_await resolver.async_resolve(
             url_result.get_hostname(), 
             url_service, 
+            // https://think-async.com/Asio/asio-1.36.0/doc/asio/overview/composition/token_adapters.html
             asio::redirect_error(asio::use_awaitable, ec)
         );
         if (ec) {
@@ -294,10 +294,55 @@ namespace Http
         //TODO: shutdown?
         SocketClose(socket, true);
 
-        co_return Response {
+        co_return ILiteClient::Response {
             .statusCode = static_cast<int>(response.result_int()),
             .body = std::move(body),
         };
+    }
+
+    struct BeastRequestContext {
+        std::string url;
+        boost::asio::any_io_executor executor;
+
+        explicit BeastRequestContext(std::string url_, boost::asio::any_io_executor executor)
+            : url(std::move(url_))
+            , executor(std::move(executor))
+        {}
+
+        template <typename CompletionToken>
+        auto GetAsync(CompletionToken&& token) // NOLINT(cppcoreguidelines-missing-std-forward)
+        {
+            namespace asio = boost::asio;
+            return asio::async_initiate<CompletionToken, void(ILiteClient::Result)>(
+                [&](auto&& handler) {
+                    asio::co_spawn(
+                        asio::get_associated_executor(handler),//, executor),
+                        GetAsyncImpl(std::move(url)),
+                        [handler = std::forward<decltype(handler)>(handler)](const std::exception_ptr& ex, ILiteClient::Result&& result) mutable {
+                            if (!ex) {
+                                std::move(handler)(std::move(result));
+                            } else {
+                                std::move(handler)(std::unexpected(
+                                    std::system_error{
+                                        std::make_error_code(std::errc::io_error),
+                                        "Unknown error in co_spawn"
+                                    }
+                                ));
+                            }
+                        }
+                    );
+                },
+                token
+            );
+        }
+    };
+
+    boost::asio::awaitable<ILiteClient::Result> AsioLiteClient::GetAsync(std::string url)
+    {
+        Log::Trace("http: async: {}", url);
+        BeastRequestContext ctx{std::move(url), co_await boost::asio::this_coro::executor};
+        auto result = co_await ctx.GetAsync(boost::asio::use_awaitable);
+        co_return result;
     }
 }
 #endif
