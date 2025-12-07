@@ -1,18 +1,11 @@
-// TODO: replace w/ something from std or mv -D to BUILD.bazel copts
-#define _POSIX_C_SOURCE 200809L
-#include <unistd.h>
-
 #include "Boot.h"
 #include "Build.h"
 #include "Log/Log.h"
-
-#include <chrono>
-#include <format>
+#include <iomanip>
+#include <Log/Path.h>
 
 namespace Boot
 {
-    static constexpr auto AppData = "0001"; // TODO: embedded in elf (may be w/ git tag or similar)
-
     template <typename... Args>
     static void Line(Log::FmtMsg<std::type_identity_t<Args>...> fmt, Args&&... args)
     {
@@ -20,33 +13,36 @@ namespace Boot
         Log::Info(fmt, std::forward<Args>(args)...);
     }
 
+    static std::string_view GetAppName(int argc, const char** argv)
+    {
+        if (argc <= 0) {
+            return "<unknown>";
+        }
+        const auto* path = argv[0];
+        return Log::Path::GetWithoutExtension(Log::Path::GetBasename(path));
+    }
+
     void LogHeader(const int argc, const char** argv)
     {
-        Line("-=>-=>-=>-=>-=>-=>-=>-=>-=>-=>-=>-=>");
-        Line("App: {}", AppData);
-        Line("Build: {}", Build::BuildDescription());
+        const auto appName = GetAppName(argc, argv);
+        Line("║ App: {}", appName);
+        Line("║ Build: {}", Build::BuildDescription());
 
         // startup time
-        const auto now = std::chrono::system_clock::now();
-        const auto now_c = std::chrono::system_clock::to_time_t(now);
-        std::array<char, 20> buffer = {};
-        if (std::strftime(buffer.data(), buffer.size(), "%Y-%m-%d %H:%M:%S", std::localtime(&now_c))) {
-            Line("Runtime: {}", buffer.data());
-        } else {
-            Line("Time: [Error formatting time]");
-        }
+        const auto tm = spdlog::details::os::localtime();
+        std::ostringstream oss;
+        oss << std::put_time(&tm, "%Y-%m-%d %H:%M:%S");
+        Line("║ Runtime: {}", oss.view());
 
         std::array<char, 1024> cwd = {};
         if (!getcwd(cwd.data(), cwd.size())) {
             cwd[0] = '\0';
         }
-        Line("Directory: {}", cwd.data());
+        Line("║ Directory: {}", cwd.data());
 
-        Line("Command:");
+        Line("║ Command:");
         for (auto i = 0; i < argc; ++i) {
-            Line("  [{}] {}", i, argv[i]);
+            Line("║  [{}] {}", i, argv[i]);
         }
-
-        Line("<=-<=-<=-<=-<=-<=-<=-<=-<=-<=-<=-<=-");
     }
 }
