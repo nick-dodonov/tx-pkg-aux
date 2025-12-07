@@ -4,24 +4,62 @@
 namespace asio = boost::asio;
 static App::AsioContext asioContext;
 
+namespace Log
+{
+    struct Scope : MsgBase
+    {
+        Level level;
+        Src src;
+        std::string msg;
+
+        // ReSharper disable CppNonExplicitConvertingConstructor
+        constexpr Scope(const Level level, const Src src = {})
+            : level{level}
+            , src{src}
+        {
+            Msg(src, level, ">>>");
+        }
+
+        template <typename... Args>
+        constexpr Scope( // NOLINT(*-explicit-constructor)
+            const Level level,
+            FmtMsg<std::type_identity_t<Args>...> fmt,
+            Args&&... args) // NOLINT(cppcoreguidelines-missing-std-forward)
+            : level{level}
+            , src{std::move(fmt.src)}
+            , msg{std::vformat(fmt.get(), std::make_format_args(args...))}
+        {
+            Msg(src, level, ">>> {}", msg);
+        }
+        // ReSharper restore CppNonExplicitConvertingConstructor
+
+        ~Scope() noexcept
+        {
+            Msg(src, level, "<<< {}", msg);
+        }
+
+        Scope(const Scope&) = delete;
+        Scope& operator=(const Scope&) = delete;
+        Scope(Scope&&) = delete;
+        Scope& operator=(Scope&&) = delete;
+    };
+}
+
 static asio::awaitable<void> Sub()
 {
-    Log::Info("started");
+    auto _ = Log::Scope{Log::Level::Info};
 
     auto timer = asio::steady_timer(co_await asio::this_coro::executor);
     timer.expires_after(std::chrono::milliseconds(300));
     co_await timer.async_wait(asio::use_awaitable);
-
-    Log::Info("finished");
 }
 
 static asio::awaitable<std::string> FooImpl(int input)
 {
-    Log::Info("started: {}", input);
+    auto _ = Log::Scope{Log::Level::Info, "({})", input};
 
     co_await Sub(); // emulation for async work
 
-    Log::Info("finished: {}", input);
     co_return "Foo emulated result on input " + std::to_string(input);
 }
 
@@ -55,7 +93,8 @@ auto FooAsync(int input, CompletionToken&& token) // NOLINT(cppcoreguidelines-mi
 
 static asio::awaitable<int> CoroMain()
 {
-    Log::Info("started");
+    auto _ = Log::Scope{Log::Level::Info};
+
     {
         auto awaitable = FooAsync(1, asio::use_awaitable);
         auto result = co_await std::move(awaitable);
@@ -72,7 +111,6 @@ static asio::awaitable<int> CoroMain()
         auto [result] = co_await std::move(awaitable);
         Log::Info("FooAsync(3) result: {}", result);
     }
-    Log::Info("finished");
     co_return 111;
 }
 

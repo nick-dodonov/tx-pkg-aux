@@ -33,24 +33,20 @@ namespace Log
         // ReSharper disable CppNonExplicitConvertingConstructor
         template <class Tp>
           requires std::convertible_to<const Tp&, std::basic_string_view<char>>
-        constexpr FmtMsg(const Tp& str, const Src src = {}) // NOLINT(*-explicit-constructor)
+        constexpr FmtMsg(const Tp& str, const Src src = {}) noexcept // NOLINT(*-explicit-constructor)
             : MsgBase{src}
             , std::format_string<Args...>{str}
         {}
-
-        constexpr FmtMsg(std::format_string<Args...>&& fmt, const Src src = {}) // NOLINT(*-explicit-constructor)
-            : MsgBase{src}
-            , std::format_string<Args...>{std::move(fmt)}
-        {}
+        // ReSharper restore CppNonExplicitConvertingConstructor
     };
 
     template <>
     struct FmtMsg<> : MsgBase, std::string_view
     {
-        // ReSharper disable once CppNonExplicitConvertingConstructor
         template <typename T>
             requires (!std::same_as<std::decay_t<T>, FmtMsg> && std::constructible_from<std::string_view, T>)
-        constexpr FmtMsg(T&& msg, const Src src = {}) // NOLINT(*-explicit-constructor)
+        // ReSharper disable once CppNonExplicitConvertingConstructor
+        constexpr FmtMsg(T&& msg, const Src src = {}) noexcept // NOLINT(*-explicit-constructor)
             : MsgBase{src}
             , std::string_view{std::forward<T>(msg)}
         {}
@@ -64,47 +60,53 @@ namespace Log
     }
 
     template <typename... Args>
-    void Msg(const Level level, FmtMsg<Args...> fmt, Args&&... args)
+    void Msg(const Src src, const Level level, std::string_view fmt, Args&&... args) noexcept
     {
         Detail::DefaultLoggerRaw()->log(
-            Detail::ToSpdLoc(fmt.src),
+            Detail::ToSpdLoc(src),
             Detail::ToSpdLevel(level),
-            fmt.get(),
+            fmt,
             std::forward<Args>(args)...);
     }
 
     template <typename... Args>
-    void Trace(FmtMsg<std::type_identity_t<Args>...> fmt, Args&&... args)
+    void Msg(const Level level, FmtMsg<Args...> fmt, Args&&... args) noexcept
+    {
+        Msg(fmt.src, level, fmt.get(), std::forward<Args>(args)...);
+    }
+
+    template <typename... Args>
+    void Trace(FmtMsg<std::type_identity_t<Args>...> fmt, Args&&... args) noexcept
     {
         Msg(Level::Trace, std::move(fmt), std::forward<Args>(args)...);
     }
 
     template <typename... Args>
-    void Debug(FmtMsg<std::type_identity_t<Args>...> fmt, Args&&... args)
+    void Debug(FmtMsg<std::type_identity_t<Args>...> fmt, Args&&... args) noexcept
     {
         Msg(Level::Debug, std::move(fmt), std::forward<Args>(args)...);
     }
 
     template <typename... Args>
-    void Info(FmtMsg<std::type_identity_t<Args>...> fmt, Args&&... args)
+    void Info(FmtMsg<std::type_identity_t<Args>...> fmt, Args&&... args) noexcept
     {
         Msg(Level::Info, std::move(fmt), std::forward<Args>(args)...);
     }
 
     template <typename... Args>
-    void Warn(FmtMsg<std::type_identity_t<Args>...> fmt, Args&&... args)
+    void Warn(FmtMsg<std::type_identity_t<Args>...> fmt, Args&&... args) noexcept
     {
         Msg(Level::Warn, std::move(fmt), std::forward<Args>(args)...);
     }
 
     template <typename... Args>
-    void Error(FmtMsg<std::type_identity_t<Args>...> fmt, Args&&... args)
+    void Error(FmtMsg<std::type_identity_t<Args>...> fmt, Args&&... args) noexcept
     {
         Msg(Level::Error, std::move(fmt), std::forward<Args>(args)...);
     }
 
     template <typename... Args>
-    void Fatal(FmtMsg<std::type_identity_t<Args>...> fmt, Args&&... args)
+    void Fatal(FmtMsg<std::type_identity_t<Args>...> fmt, Args&&... args) noexcept
     {
         Msg(Level::Fatal, std::move(fmt), std::forward<Args>(args)...);
     }
