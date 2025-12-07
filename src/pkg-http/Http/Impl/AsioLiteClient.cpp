@@ -282,7 +282,7 @@ namespace Http
             Log::Debug("http: received: {} bytes", count);
 
             // Convert Beast buffer/response to std::string and deliver result.
-            std::string body = !response.body().empty()
+            body = !response.body().empty()
                 ? response.body()
                 : beast::buffers_to_string(buffer.data());
 
@@ -302,11 +302,9 @@ namespace Http
 
     struct BeastRequestContext {
         std::string url;
-        boost::asio::any_io_executor executor;
 
-        explicit BeastRequestContext(std::string url_, boost::asio::any_io_executor executor)
+        explicit BeastRequestContext(std::string url_)
             : url(std::move(url_))
-            , executor(std::move(executor))
         {}
 
         template <typename CompletionToken>
@@ -314,22 +312,24 @@ namespace Http
         {
             namespace asio = boost::asio;
             return asio::async_initiate<CompletionToken, void(ILiteClient::Result)>(
-                [&](auto&& handler) {
+                [&]<typename T0>(T0&& handler) {
                     asio::co_spawn(
-                        asio::get_associated_executor(handler),//, executor),
+                        asio::get_associated_executor(handler),
                         GetAsyncImpl(std::move(url)),
-                        [handler = std::forward<decltype(handler)>(handler)](const std::exception_ptr& ex, ILiteClient::Result&& result) mutable {
-                            if (!ex) {
-                                std::move(handler)(std::move(result));
-                            } else {
-                                std::move(handler)(std::unexpected(
-                                    std::system_error{
-                                        std::make_error_code(std::errc::io_error),
-                                        "Unknown error in co_spawn"
-                                    }
-                                ));
-                            }
-                        }
+                        asio::bind_cancellation_slot(
+                            asio::get_associated_cancellation_slot(handler),
+                            [handler = std::forward<T0>(handler)](const std::exception_ptr& ex, ILiteClient::Result&& result) mutable {
+                                if (!ex) {
+                                    std::move(handler)(std::move(result));
+                                } else {
+                                    std::move(handler)(std::unexpected(
+                                        std::system_error{
+                                            std::make_error_code(std::errc::io_error),
+                                            "Unknown error in co_spawn"
+                                        }
+                                    ));
+                                }
+                            })
                     );
                 },
                 token
@@ -340,7 +340,7 @@ namespace Http
     boost::asio::awaitable<ILiteClient::Result> AsioLiteClient::GetAsync(std::string url)
     {
         Log::Trace("http: async: {}", url);
-        BeastRequestContext ctx{std::move(url), co_await boost::asio::this_coro::executor};
+        BeastRequestContext ctx{std::move(url)};
         auto result = co_await ctx.GetAsync(boost::asio::use_awaitable);
         co_return result;
     }
