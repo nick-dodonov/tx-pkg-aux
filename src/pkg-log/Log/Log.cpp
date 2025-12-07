@@ -10,6 +10,7 @@ namespace Log
 namespace Log::Detail
 {
     /// Introduce %N custom logger area name formatter or short filename w/ line number.
+    /// Based on spdlog::details::short_filename_formatter
     class LoggerFlagFormatter final : public spdlog::custom_flag_formatter
     {
     public:
@@ -19,6 +20,7 @@ namespace Log::Detail
         {
             const auto& source = msg.source;
             if (source.line == AreaLoggerLine) {
+                spdlog::details::scoped_padder p{padinfo_.enabled() ? std::char_traits<char>::length(source.filename): 0, padinfo_, dest};
                 dest.append(source.filename); // filename contains area name
             } else {
                 // Skip append basename
@@ -26,6 +28,8 @@ namespace Log::Detail
 
                 const auto basename = FileBasename(source.filename);
                 const auto area = RemoveExtension(basename);
+
+                spdlog::details::scoped_padder p{padinfo_.enabled() ? area.size(): 0, padinfo_, dest};
                 spdlog::details::fmt_helper::append_string_view(area, dest);
 
                 // Skip line number output
@@ -160,7 +164,7 @@ namespace Log::Detail
 #else
     #define SEC_FRAC_FORMAT "%f" // NOLINT(cppcoreguidelines-macro-usage)
 #endif
-        formatter->set_pattern("(%T." SEC_FRAC_FORMAT ") %t %^[%L]%$ [%N] %&%v");
+        formatter->set_pattern("(%T." SEC_FRAC_FORMAT ") %t %^[%L]%$ %16!N: %&%v");
         spdlog::set_formatter(std::move(formatter));
     }
 }

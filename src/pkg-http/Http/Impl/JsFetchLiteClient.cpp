@@ -67,10 +67,13 @@ namespace Http
         void OnFetchResult(int status, const char* body)
         {
             //std::unique_ptr<char, decltype(&free)> result(resultPtr, &free); // when stringToUTF8 is used with _malloc
-            Log::Trace("http: fetch result: status={} '{}'", status, body);
+            //Log::Trace("http: fetch result: status={} '{}'", status, body);
+
+            auto bodyStr = body ? std::string(body) : std::string{};
+            Log::Trace("http: fetch result: status={} body.size={}", status, bodyStr.size());
             CompleteHandler(ILiteClient::Response{
                 .statusCode = status,
-                .body = body ? std::string(body) : std::string{},
+                .body = std::move(bodyStr),
             });
         }
 
