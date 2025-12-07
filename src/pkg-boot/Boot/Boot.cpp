@@ -7,14 +7,13 @@
 #include "Log/Log.h"
 
 #include <chrono>
-#include <ctime>
 #include <format>
 
 namespace Boot
 {
-    static constexpr const char* AppData = "0001"; // TODO: embedded in elf (may be w/ git tag or similar)
+    static constexpr auto AppData = "0001"; // TODO: embedded in elf (may be w/ git tag or similar)
 
-    void LogHeader(int argc, char** argv)
+    void LogHeader(const int argc, const char** argv)
     {
         Log::Info("-=>-=>-=>-=>-=>-=>-=>-=>-=>-=>-=>-=>");
         Log::Info(std::format("App: {}", AppData));

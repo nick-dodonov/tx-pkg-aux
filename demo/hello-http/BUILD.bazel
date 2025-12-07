@@ -19,7 +19,7 @@ tx_binary(
     }),
     deps = [
         "//:pkg-app",
-        "//src/pkg-http",
+        "//:pkg-http",
     ],
     cxxopts = ["-std=c++23"],
 )

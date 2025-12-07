@@ -9,7 +9,7 @@ AccessModifierOffset: -4
 NamespaceIndentation: All
 IndentRequires: false
 IndentCaseLabels: true
-IndentPPDirectives: BeforeHash
+IndentPPDirectives: None # BeforeHash
 IndentExternBlock: Indent
 ColumnLimit: 120
 

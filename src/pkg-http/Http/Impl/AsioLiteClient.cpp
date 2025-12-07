@@ -87,7 +87,7 @@ namespace Http
 
     static boost::asio::awaitable<ILiteClient::Result> GetAsyncImpl(std::string url)
     {
-        Log::Trace("http: async: {}", url);
+        Log::Trace("http: coro: {}", url);
 
         // URL parsing
         auto url_ec = ada::parse<ada::url_aggregator>(url);
