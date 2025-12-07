@@ -6,7 +6,6 @@ namespace boost
 {
     BOOST_NORETURN void throw_exception(std::exception const& e)
     {
-        spdlog::critical("boost::throw_exception - {}", e.what());
         Log::Fatal("boost::throw_exception - {}", e.what());
         std::abort();
     }

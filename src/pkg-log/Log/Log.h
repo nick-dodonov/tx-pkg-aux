@@ -1,8 +1,9 @@
 #pragma once
 #include "Level.h"
+#include "Src.h"
 #include <spdlog/spdlog.h>
 
-namespace Log::Details
+namespace Log::Detail
 {
     void DefaultInit();
 
@@ -16,93 +17,114 @@ namespace Log::Details
         return _logger = spdlog::default_logger_raw();
     }
 
-    static constexpr int AreaLoggerLine = -1;
+    static constexpr auto AreaLoggerLine = -1;
 }
 
 namespace Log
 {
+    template <class... Args>
+    struct FmtMsg : std::format_string<Args...>
+    {
+        Src src;
+
+        // ReSharper disable once CppNonExplicitConvertingConstructor
+        template <class Tp>
+          requires std::convertible_to<const Tp&, std::basic_string_view<char>>
+        consteval FmtMsg(const Tp& str, const Src src = Src::current()) // NOLINT(*-explicit-constructor)
+            : std::format_string<Args...>{str}
+            , src{src}
+        {}
+    };
+
     inline bool Enabled(const Level level)
     {
-        return Details::DefaultLoggerRaw()->should_log(Details::ToSpdLevel(level));
+        return Detail::DefaultLoggerRaw()->should_log(Detail::ToSpdLevel(level));
     }
 
     template <typename T>
-    void Msg(const Level level, T&& msg)
+    void Msg(const Level level, T&& msg, const Src src = Src::current())
     {
-        Details::DefaultLoggerRaw()->log(Details::ToSpdLevel(level), std::forward<T>(msg));
+        Detail::DefaultLoggerRaw()->log(
+            Detail::ToSpdLoc(src),
+            Detail::ToSpdLevel(level),
+            std::forward<T>(msg));
     }
 
     template <typename... Args>
-    void Msg(const Level level, std::format_string<Args...> fmt, Args&&... args)
+    void Msg(const Level level, FmtMsg<Args...> fmt, Args&&... args)
     {
         //TODO: static_cast<spdlog::format_string_t<Args...>&>(fmt);
-        Details::DefaultLoggerRaw()->log(Details::ToSpdLevel(level), fmt.get(), std::forward<Args>(args)...);
+        Detail::DefaultLoggerRaw()->log(
+            Detail::ToSpdLoc(fmt.src),
+            Detail::ToSpdLevel(level),
+            fmt.get(),
+            std::forward<Args>(args)...);
     }
 
     template <typename T>
-    void Trace(T&& msg)
+    void Trace(T&& msg, const Src src = Src::current())
     {
-        Msg(Level::Trace, std::forward<T>(msg));
+        Msg(Level::Trace, std::forward<T>(msg), src);
     }
     template <typename... Args>
-    void Trace(std::format_string<Args...> fmt, Args&&... args)
+    void Trace(FmtMsg<std::type_identity_t<Args>...> fmt, Args&&... args)
     {
-        Msg(Level::Trace, fmt, std::forward<Args>(args)...);
+        Msg(Level::Trace, std::move(fmt), std::forward<Args>(args)...);
     }
 
     template <typename T>
-    void Debug(T&& msg)
+    void Debug(T&& msg, const Src src = Src::current())
     {
-        Msg(Level::Debug, std::forward<T>(msg));
+        Msg(Level::Debug, std::forward<T>(msg), src);
     }
     template <typename... Args>
-    void Debug(std::format_string<Args...> fmt, Args&&... args)
+    void Debug(FmtMsg<std::type_identity_t<Args>...> fmt, Args&&... args)
     {
-        Msg(Level::Debug, fmt, std::forward<Args>(args)...);
+        Msg(Level::Debug, std::move(fmt), std::forward<Args>(args)...);
     }
 
     template <typename T>
-    void Info(T&& msg)
+    void Info(T&& msg, const Src src = Src::current())
     {
-        Msg(Level::Info, std::forward<T>(msg));
+        Msg(Level::Info, std::forward<T>(msg), src);
     }
     template <typename... Args>
-    void Info(std::format_string<Args...> fmt, Args&&... args)
+    void Info(FmtMsg<std::type_identity_t<Args>...> fmt, Args&&... args)
     {
-        Msg(Level::Info, fmt, std::forward<Args>(args)...);
+        Msg(Level::Info, std::move(fmt), std::forward<Args>(args)...);
     }
 
     template <typename T>
-    void Warn(T&& msg)
+    void Warn(T&& msg, const Src src = Src::current())
     {
-        Msg(Level::Warn, std::forward<T>(msg));
+        Msg(Level::Warn, std::forward<T>(msg), src);
     }
     template <typename... Args>
-    void Warn(std::format_string<Args...> fmt, Args&&... args)
+    void Warn(FmtMsg<std::type_identity_t<Args>...> fmt, Args&&... args)
     {
-        Msg(Level::Warn, fmt, std::forward<Args>(args)...);
+        Msg(Level::Warn, std::move(fmt), std::forward<Args>(args)...);
     }
 
     template <typename T>
-    void Error(T&& msg)
+    void Error(T&& msg, const Src src = Src::current())
     {
-        Msg(Level::Error, std::forward<T>(msg));
+        Msg(Level::Error, std::forward<T>(msg), src);
     }
     template <typename... Args>
-    void Error(std::format_string<Args...> fmt, Args&&... args)
+    void Error(FmtMsg<std::type_identity_t<Args>...> fmt, Args&&... args)
     {
-        Msg(Level::Error, fmt, std::forward<Args>(args)...);
+        Msg(Level::Error, std::move(fmt), std::forward<Args>(args)...);
     }
 
     template <typename T>
-    void Fatal(T&& msg)
+    void Fatal(T&& msg, const Src src = Src::current())
     {
-        Msg(Level::Fatal, std::forward<T>(msg));
+        Msg(Level::Fatal, std::forward<T>(msg), src);
     }
     template <typename... Args>
-    void Fatal(std::format_string<Args...> fmt, Args&&... args)
+    void Fatal(FmtMsg<std::type_identity_t<Args>...> fmt, Args&&... args)
     {
-        Msg(Level::Fatal, fmt, std::forward<Args>(args)...);
+        Msg(Level::Fatal, std::move(fmt), std::forward<Args>(args)...);
     }
 
     struct Logger
@@ -114,7 +136,7 @@ namespace Log
         {}
 
         bool Enabled(const Level level) {
-            return Raw()->should_log(Details::ToSpdLevel(level));
+            return Raw()->should_log(Detail::ToSpdLevel(level));
         }
 
         template <typename T>
@@ -124,7 +146,7 @@ namespace Log
                 loc.filename = _area;
                 loc.line = -1;
             }
-            Raw()->log(loc, Details::ToSpdLevel(level), std::forward<T>(msg));
+            Raw()->log(loc, Detail::ToSpdLevel(level), std::forward<T>(msg));
         }
 
         template <typename... Args>
@@ -132,9 +154,9 @@ namespace Log
         {
             if (_area) {
                 loc.filename = _area;
-                loc.line = Details::AreaLoggerLine;
+                loc.line = Detail::AreaLoggerLine;
             }
-            Raw()->log(loc, Details::ToSpdLevel(level), fmt.get(), std::forward<Args>(args)...);
+            Raw()->log(loc, Detail::ToSpdLevel(level), fmt.get(), std::forward<Args>(args)...);
         }
 
         // helpers allowing to use macro w/ passing logger instance as the 1st argument
@@ -151,7 +173,7 @@ namespace Log
         }
 
     private:
-        static spdlog::logger* Raw() { return Details::DefaultLoggerRaw(); }
+        spdlog::logger* Raw() { return Detail::DefaultLoggerRaw(); }
 
         const char* _area{};
     };

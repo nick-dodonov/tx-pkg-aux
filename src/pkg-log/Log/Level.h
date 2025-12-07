@@ -14,7 +14,7 @@ namespace Log
     };
 }
 
-namespace Log::Details
+namespace Log::Detail
 {
     inline spdlog::level::level_enum ToSpdLevel(const Level level)
     {
