@@ -9,10 +9,10 @@ namespace Log
 namespace Log::Details
 {
     /// Introduce %N custom logger area name formatter or short filename w/ line number.
-    class LoggerFlagFormatter : public spdlog::custom_flag_formatter
+    class LoggerFlagFormatter final : public spdlog::custom_flag_formatter
     {
     public:
-        static constexpr char Flag = 'N';
+        static constexpr auto Flag = 'N';
 
         void format(const spdlog::details::log_msg& msg, const std::tm& time, spdlog::memory_buf_t& dest) override
         {
@@ -41,10 +41,10 @@ namespace Log::Details
     /// Optional function name formatter (%!) w/ suffix only if function name is present.
     /// Avoids printing empty function names and suffix to prettify output.
     /// Based on spdlog::details::source_funcname_formatter<spdlog::details::null_scoped_padder>.
-    class FunctionNameFlagFormatter : public spdlog::custom_flag_formatter
+    class FunctionNameFlagFormatter final : public spdlog::custom_flag_formatter
     {
     public:
-        static constexpr char Flag = '&';
+        static constexpr auto Flag = '&';
 
         void format(const spdlog::details::log_msg& msg, const std::tm& time, spdlog::memory_buf_t& dest) override
         {
@@ -70,6 +70,7 @@ namespace Log::Details
         auto formatter = std::make_unique<spdlog::pattern_formatter>();
         formatter->add_flag<LoggerFlagFormatter>(LoggerFlagFormatter::Flag);
         formatter->add_flag<FunctionNameFlagFormatter>(FunctionNameFlagFormatter::Flag);
+
 #if defined(__EMSCRIPTEN__)
         // emscripten timer accuracy is limited to milliseconds
     #define SEC_FRAC_FORMAT "%e" // NOLINT(cppcoreguidelines-macro-usage)

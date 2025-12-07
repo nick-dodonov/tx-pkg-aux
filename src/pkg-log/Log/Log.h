@@ -16,25 +16,24 @@ namespace Log::Details
         return _logger = spdlog::default_logger_raw();
     }
 
-    inline spdlog::level::level_enum ToSpdLevel(Level level);
-
     static constexpr int AreaLoggerLine = -1;
 }
 
 namespace Log
 {
-    inline bool Enabled(Level level) {
+    inline bool Enabled(const Level level)
+    {
         return Details::DefaultLoggerRaw()->should_log(Details::ToSpdLevel(level));
     }
 
     template <typename T>
-    void Msg(Level level, T&& msg)
+    void Msg(const Level level, T&& msg)
     {
         Details::DefaultLoggerRaw()->log(Details::ToSpdLevel(level), std::forward<T>(msg));
     }
 
     template <typename... Args>
-    void Msg(Level level, std::format_string<Args...> fmt, Args&&... args)
+    void Msg(const Level level, std::format_string<Args...> fmt, Args&&... args)
     {
         //TODO: static_cast<spdlog::format_string_t<Args...>&>(fmt);
         Details::DefaultLoggerRaw()->log(Details::ToSpdLevel(level), fmt.get(), std::forward<Args>(args)...);
@@ -114,12 +113,12 @@ namespace Log
             : _area(area)
         {}
 
-        inline bool Enabled(Level level) {
+        bool Enabled(const Level level) {
             return Raw()->should_log(Details::ToSpdLevel(level));
         }
 
         template <typename T>
-        void Msg(spdlog::source_loc loc, Log::Level level, T&& msg)
+        void Msg(spdlog::source_loc loc, const Level level, T&& msg)
         {
             if (_area) {
                 loc.filename = _area;
@@ -129,7 +128,7 @@ namespace Log
         }
 
         template <typename... Args>
-        void Msg(spdlog::source_loc loc, Log::Level level, std::format_string<Args...> fmt, Args&&... args)
+        void Msg(spdlog::source_loc loc, const Level level, std::format_string<Args...> fmt, Args&&... args)
         {
             if (_area) {
                 loc.filename = _area;
@@ -138,21 +137,21 @@ namespace Log
             Raw()->log(loc, Details::ToSpdLevel(level), fmt.get(), std::forward<Args>(args)...);
         }
 
-        // helpers allowing to use macro w/ passing logger instance as 1st argument
+        // helpers allowing to use macro w/ passing logger instance as the 1st argument
         template <typename T>
-        void Msg(spdlog::source_loc loc, Log::Level level, Logger& logger, T&& msg)
+        void Msg(const spdlog::source_loc loc, const Level level, Logger& logger, T&& msg)
         {
             logger.Msg(loc, level, std::forward<T>(msg));
         }
 
         template <typename... Args>
-        void Msg(spdlog::source_loc loc, Log::Level level, Logger& logger, std::format_string<Args...> fmt, Args&&... args)
+        void Msg(const spdlog::source_loc loc, const Level level, Logger& logger, std::format_string<Args...> fmt, Args&&... args)
         {
             logger.Msg(loc, level, fmt, std::forward<Args>(args)...);
         }
 
     private:
-        spdlog::logger* Raw() { return Details::DefaultLoggerRaw(); }
+        static spdlog::logger* Raw() { return Details::DefaultLoggerRaw(); }
 
         const char* _area{};
     };

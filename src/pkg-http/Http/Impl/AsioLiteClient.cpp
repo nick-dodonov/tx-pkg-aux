@@ -16,7 +16,7 @@ namespace Http
     {
         boost::system::error_code ec;
         if (socket.close(ec)) {
-            Log::Warn("http: socket: close failed: {}", ec.message());
+            Log::Debug("http: socket: close failed: {}", ec.message());
         } else if (logSuccess) {
             Log::Trace("http: socket: closed");
         }
@@ -92,7 +92,7 @@ namespace Http
         // URL parsing
         auto url_ec = ada::parse<ada::url_aggregator>(url);
         if (!url_ec) {
-            Log::Error("http: url parse failed: {}", url);
+            Log::Debug("http: url parse failed: {}", url);
             co_return std::unexpected(std::system_error{
                 std::make_error_code(std::errc::invalid_argument), 
                 std::format("Failed to parse URL: {}", url)
@@ -142,7 +142,7 @@ namespace Http
         }
         for (const auto& entry : dns_results) {
             auto endpoint = entry.endpoint();
-            Log::Debug("http: resolved: {}:{}", endpoint.address().to_string(), endpoint.port());
+            Log::Trace("http: resolved: {}:{}", endpoint.address().to_string(), endpoint.port());
         }
 
         // TCP connect
@@ -155,23 +155,23 @@ namespace Http
                 asio::as_tuple(asio::use_awaitable)
             );
             if (!ec) {
-                Log::Debug("http: socket: connected: {}:{}", endpoint.address().to_string(), endpoint.port());
+                Log::Trace("http: socket: connected: {}:{}", endpoint.address().to_string(), endpoint.port());
                 break;
             }
-            Log::Warn("http: socket: connect failed: {}:{}: {}", endpoint.address().to_string(), endpoint.port(), ec.message());
+            Log::Trace("http: socket: connect failed: {}:{}: {}", endpoint.address().to_string(), endpoint.port(), ec.message());
             SocketClose(socket, false);
         }
 
         if (ec) {
-            Log::Error("http: socket: connect failed to any endpoint: {}", ec.message());
+            Log::Debug("http: socket: connect failed to any endpoint: {}", ec.message());
             co_return std::unexpected(std::system_error{
                 ec, std::format("Failed to connect to host: '{}'", url_result.get_hostname())
             });
         }
 
         // TCP connected
-        if (socket.set_option(boost::asio::ip::tcp::no_delay(true), ec)) {
-            Log::Warn("http: socket: set_option TCP_NODELAY failed: {}", ec.message());
+        if (socket.set_option(asio::ip::tcp::no_delay(true), ec)) {
+            Log::Debug("http: socket: set_option TCP_NODELAY failed: {}", ec.message());
         }
 
         http::response<http::string_body> response;
@@ -187,7 +187,7 @@ namespace Http
             ssl::stream<asio::ip::tcp::socket> sslStream{std::move(socket), sslContext};
             String::CstrView cstrHostName{url_result.get_hostname()};
             if (!SSL_set_tlsext_host_name(sslStream.native_handle(), cstrHostName.c_str())) {
-                Log::Error("http: tls: failed to set SNI");
+                Log::Debug("http: tls: failed to set SNI");
                 auto& underlying_socket = sslStream.lowest_layer();
                 SocketClose(underlying_socket, true);
                 co_return std::unexpected(std::system_error{
@@ -200,7 +200,7 @@ namespace Http
                 ssl::stream_base::client, 
                 asio::as_tuple(asio::use_awaitable));
             if (ec) {
-                Log::Error("http: tls: handshaking failed: {}", ec.message());
+                Log::Debug("http: tls: handshaking failed: {}", ec.message());
 
                 // НЕ делаем async_shutdown - handshake не прошел
                 // Просто закрываем underlying socket
@@ -212,7 +212,7 @@ namespace Http
                 });
             }
 
-            Log::Debug("http: tls: handshake successful");
+            Log::Trace("http: tls: handshake successful");
             if (Log::Enabled(Log::Level::Trace)) {
                 LogTraceTls(sslStream.native_handle());
             }
@@ -222,7 +222,7 @@ namespace Http
             std::tie(ec) = co_await sslStream.async_shutdown(asio::as_tuple(asio::use_awaitable));
             if (ec && ec != asio::error::eof) {
                 // EOF is expected - server closed connection after shutdown
-                Log::Warn("http: tls: shutdown warning: {}", ec.message());
+                Log::Debug("http: tls: shutdown warning: {}", ec.message());
             }
 
             // Closing underlying TCP socket
@@ -252,14 +252,14 @@ namespace Http
                 request, 
                 asio::as_tuple(asio::use_awaitable));
             if (ec) {
-                Log::Error("http: sending failed: {} (count={})", ec.message(), count);
+                Log::Debug("http: sending failed: {} (count={})", ec.message(), count);
                 SocketClose(socket, true);
                 co_return std::unexpected(std::system_error{
                     ec, std::format("Failed to send HTTP request: '{}' {} {}", 
                         url_result.get_hostname(), request.method_string(), request.target())
                 });
             }
-            Log::Debug("http: sent: {} bytes", count);
+            Log::Trace("http: sent: {} bytes", count);
 
             // Receive
             beast::flat_buffer buffer;
@@ -271,7 +271,7 @@ namespace Http
             // beast::string_view differs from std::string_view and isn't formatted well
             auto reason_view = std::string_view(response.reason().data(), response.reason().size());
             if (ec) {
-                Log::Error("http: receive failed: {} (count={})", ec.message(), count);
+                Log::Debug("http: receive failed: {} (count={})", ec.message(), count);
                 SocketClose(socket, true);
                 co_return std::unexpected(std::system_error{
                     ec, 
@@ -279,14 +279,14 @@ namespace Http
                         response.result_int(), reason_view)
                 });
             }
-            Log::Debug("http: received: {} bytes", count);
+            Log::Trace("http: received: {} bytes", count);
 
-            // Convert Beast buffer/response to std::string and deliver result.
+            // Convert Beast buffer/response to std::string and deliver a result.
             body = !response.body().empty()
                 ? response.body()
                 : beast::buffers_to_string(buffer.data());
 
-            Log::Debug("http: response: {} ({}) body.size={}",
+            Log::Trace("http: response: {} ({}) body.size={}",
                 response.result_int(), reason_view, body.size());
         }
 

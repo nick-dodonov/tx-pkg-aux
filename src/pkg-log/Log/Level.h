@@ -1,3 +1,4 @@
+#pragma once
 #include <spdlog/common.h>
 
 namespace Log
@@ -15,7 +16,7 @@ namespace Log
 
 namespace Log::Details
 {
-    inline spdlog::level::level_enum ToSpdLevel(Level level)
+    inline spdlog::level::level_enum ToSpdLevel(const Level level)
     {
         // switch (level) {
         //     case Level::Trace: return spdlog::level::trace;
