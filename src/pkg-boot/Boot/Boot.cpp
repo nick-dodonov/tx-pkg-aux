@@ -13,18 +13,11 @@ namespace Boot
 {
     static constexpr auto AppData = "0001"; // TODO: embedded in elf (may be w/ git tag or similar)
 
-    template <typename T>
-    static void Line(T&& msg)
-    {
-        using namespace Log;
-        Info(std::forward<T>(msg), Src{Src::NoFunc});
-    }
-
     template <typename... Args>
-    static void Line(std::format_string<Args...>&& fmt, Args&&... args)
+    static void Line(Log::FmtMsg<std::type_identity_t<Args>...> fmt, Args&&... args)
     {
-        using namespace Log;
-        Info({std::move(fmt), Src{Src::NoFunc}}, std::forward<Args>(args)...);
+        fmt.src.mode = Log::Src::NoFunc;
+        Log::Info(fmt, std::forward<Args>(args)...);
     }
 
     void LogHeader(const int argc, const char** argv)

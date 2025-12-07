@@ -22,24 +22,40 @@ namespace Log::Detail
 
 namespace Log
 {
-    template <class... Args>
-    struct FmtMsg : std::format_string<Args...>
+    struct MsgBase
     {
         Src src;
+    };
 
+    template <class... Args>
+    struct FmtMsg : MsgBase, std::format_string<Args...>
+    {
         // ReSharper disable CppNonExplicitConvertingConstructor
         template <class Tp>
           requires std::convertible_to<const Tp&, std::basic_string_view<char>>
         constexpr FmtMsg(const Tp& str, const Src src = {}) // NOLINT(*-explicit-constructor)
-            : std::format_string<Args...>{str}
-            , src{src}
+            : MsgBase{src}
+            , std::format_string<Args...>{str}
         {}
 
         constexpr FmtMsg(std::format_string<Args...>&& fmt, const Src src = {}) // NOLINT(*-explicit-constructor)
-            : std::format_string<Args...>{std::move(fmt)}
-            , src{src}
+            : MsgBase{src}
+            , std::format_string<Args...>{std::move(fmt)}
         {}
-        // ReSharper restore CppNonExplicitConvertingConstructor
+    };
+
+    template <>
+    struct FmtMsg<> : MsgBase, std::string_view
+    {
+        // ReSharper disable once CppNonExplicitConvertingConstructor
+        template <typename T>
+            requires (!std::same_as<std::decay_t<T>, FmtMsg> && std::constructible_from<std::string_view, T>)
+        constexpr FmtMsg(T&& msg, const Src src = {}) // NOLINT(*-explicit-constructor)
+            : MsgBase{src}
+            , std::string_view{std::forward<T>(msg)}
+        {}
+
+        [[nodiscard]] constexpr std::string_view get() const noexcept { return {data(), size()}; }
     };
 
     inline bool Enabled(const Level level)
@@ -47,19 +63,9 @@ namespace Log
         return Detail::DefaultLoggerRaw()->should_log(Detail::ToSpdLevel(level));
     }
 
-    template <typename T>
-    void Msg(const Level level, T&& msg, const Src src = {})
-    {
-        Detail::DefaultLoggerRaw()->log(
-            Detail::ToSpdLoc(src),
-            Detail::ToSpdLevel(level),
-            std::forward<T>(msg));
-    }
-
     template <typename... Args>
     void Msg(const Level level, FmtMsg<Args...> fmt, Args&&... args)
     {
-        //TODO: static_cast<spdlog::format_string_t<Args...>&>(fmt);
         Detail::DefaultLoggerRaw()->log(
             Detail::ToSpdLoc(fmt.src),
             Detail::ToSpdLevel(level),
@@ -67,66 +73,36 @@ namespace Log
             std::forward<Args>(args)...);
     }
 
-    template <typename T>
-    void Trace(T&& msg, const Src src = {})
-    {
-        Msg(Level::Trace, std::forward<T>(msg), src);
-    }
     template <typename... Args>
     void Trace(FmtMsg<std::type_identity_t<Args>...> fmt, Args&&... args)
     {
         Msg(Level::Trace, std::move(fmt), std::forward<Args>(args)...);
     }
 
-    template <typename T>
-    void Debug(T&& msg, const Src src = {})
-    {
-        Msg(Level::Debug, std::forward<T>(msg), src);
-    }
     template <typename... Args>
     void Debug(FmtMsg<std::type_identity_t<Args>...> fmt, Args&&... args)
     {
         Msg(Level::Debug, std::move(fmt), std::forward<Args>(args)...);
     }
 
-    template <typename T>
-    void Info(T&& msg, const Src src = {})
-    {
-        Msg(Level::Info, std::forward<T>(msg), src);
-    }
     template <typename... Args>
     void Info(FmtMsg<std::type_identity_t<Args>...> fmt, Args&&... args)
     {
         Msg(Level::Info, std::move(fmt), std::forward<Args>(args)...);
     }
 
-    template <typename T>
-    void Warn(T&& msg, const Src src = {})
-    {
-        Msg(Level::Warn, std::forward<T>(msg), src);
-    }
     template <typename... Args>
     void Warn(FmtMsg<std::type_identity_t<Args>...> fmt, Args&&... args)
     {
         Msg(Level::Warn, std::move(fmt), std::forward<Args>(args)...);
     }
 
-    template <typename T>
-    void Error(T&& msg, const Src src = {})
-    {
-        Msg(Level::Error, std::forward<T>(msg), src);
-    }
     template <typename... Args>
     void Error(FmtMsg<std::type_identity_t<Args>...> fmt, Args&&... args)
     {
         Msg(Level::Error, std::move(fmt), std::forward<Args>(args)...);
     }
 
-    template <typename T>
-    void Fatal(T&& msg, const Src src = {})
-    {
-        Msg(Level::Fatal, std::forward<T>(msg), src);
-    }
     template <typename... Args>
     void Fatal(FmtMsg<std::type_identity_t<Args>...> fmt, Args&&... args)
     {
