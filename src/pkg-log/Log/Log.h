@@ -27,13 +27,19 @@ namespace Log
     {
         Src src;
 
-        // ReSharper disable once CppNonExplicitConvertingConstructor
+        // ReSharper disable CppNonExplicitConvertingConstructor
         template <class Tp>
           requires std::convertible_to<const Tp&, std::basic_string_view<char>>
-        consteval FmtMsg(const Tp& str, const Src src = Src::current()) // NOLINT(*-explicit-constructor)
+        constexpr FmtMsg(const Tp& str, const Src src = {}) // NOLINT(*-explicit-constructor)
             : std::format_string<Args...>{str}
             , src{src}
         {}
+
+        constexpr FmtMsg(std::format_string<Args...>&& fmt, const Src src = {}) // NOLINT(*-explicit-constructor)
+            : std::format_string<Args...>{std::move(fmt)}
+            , src{src}
+        {}
+        // ReSharper restore CppNonExplicitConvertingConstructor
     };
 
     inline bool Enabled(const Level level)
@@ -42,7 +48,7 @@ namespace Log
     }
 
     template <typename T>
-    void Msg(const Level level, T&& msg, const Src src = Src::current())
+    void Msg(const Level level, T&& msg, const Src src = {})
     {
         Detail::DefaultLoggerRaw()->log(
             Detail::ToSpdLoc(src),
@@ -62,7 +68,7 @@ namespace Log
     }
 
     template <typename T>
-    void Trace(T&& msg, const Src src = Src::current())
+    void Trace(T&& msg, const Src src = {})
     {
         Msg(Level::Trace, std::forward<T>(msg), src);
     }
@@ -73,7 +79,7 @@ namespace Log
     }
 
     template <typename T>
-    void Debug(T&& msg, const Src src = Src::current())
+    void Debug(T&& msg, const Src src = {})
     {
         Msg(Level::Debug, std::forward<T>(msg), src);
     }
@@ -84,7 +90,7 @@ namespace Log
     }
 
     template <typename T>
-    void Info(T&& msg, const Src src = Src::current())
+    void Info(T&& msg, const Src src = {})
     {
         Msg(Level::Info, std::forward<T>(msg), src);
     }
@@ -95,7 +101,7 @@ namespace Log
     }
 
     template <typename T>
-    void Warn(T&& msg, const Src src = Src::current())
+    void Warn(T&& msg, const Src src = {})
     {
         Msg(Level::Warn, std::forward<T>(msg), src);
     }
@@ -106,7 +112,7 @@ namespace Log
     }
 
     template <typename T>
-    void Error(T&& msg, const Src src = Src::current())
+    void Error(T&& msg, const Src src = {})
     {
         Msg(Level::Error, std::forward<T>(msg), src);
     }
@@ -117,7 +123,7 @@ namespace Log
     }
 
     template <typename T>
-    void Fatal(T&& msg, const Src src = Src::current())
+    void Fatal(T&& msg, const Src src = {})
     {
         Msg(Level::Fatal, std::forward<T>(msg), src);
     }

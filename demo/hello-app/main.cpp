@@ -6,29 +6,29 @@ static App::AsioContext asioContext;
 
 static asio::awaitable<void> Sub()
 {
-    Log::Info("Sub started");
+    Log::Info("started");
 
     auto timer = asio::steady_timer(co_await asio::this_coro::executor);
     timer.expires_after(std::chrono::milliseconds(300));
     co_await timer.async_wait(asio::use_awaitable);
 
-    Log::Info("Sub finished");
+    Log::Info("finished");
 }
 
 static asio::awaitable<std::string> FooImpl(int input)
 {
-    Log::Info("Foo started: {}", input);
+    Log::Info("started: {}", input);
 
     co_await Sub(); // emulation for async work
 
-    Log::Info("Foo finished: {}", input);
+    Log::Info("finished: {}", input);
     co_return "Foo emulated result on input " + std::to_string(input);
 }
 
 template <typename CompletionToken>
 auto FooAsync(int input, CompletionToken&& token) // NOLINT(cppcoreguidelines-missing-std-forward)
 {
-    Log::Info("FooAsync request: {}", input);
+    Log::Info("request: {}", input);
     return asio::async_initiate<CompletionToken, void(std::string)>(
         []<typename T0>(T0&& handler, const int input_) {
             auto exec = asio::get_associated_executor(handler);
@@ -55,24 +55,24 @@ auto FooAsync(int input, CompletionToken&& token) // NOLINT(cppcoreguidelines-mi
 
 static asio::awaitable<int> CoroMain()
 {
-    Log::Info("CoroMain started");
+    Log::Info("started");
     {
         auto awaitable = FooAsync(1, asio::use_awaitable);
         auto result = co_await std::move(awaitable);
-        Log::Info("CoroMain: FooAsync(1) result: {}", result);
+        Log::Info("FooAsync(1) result: {}", result);
     }
     {
         boost::system::error_code ec;
         auto awaitable = FooAsync(2, asio::redirect_error(asio::use_awaitable, ec));
         auto result = co_await std::move(awaitable);
-        Log::Info("CoroMain: FooAsync(2) result: {}", result);
+        Log::Info("FooAsync(2) result: {}", result);
     }
     {
         auto awaitable = FooAsync(3, asio::as_tuple(asio::use_awaitable));
         auto [result] = co_await std::move(awaitable);
-        Log::Info("CoroMain: FooAsync(3) result: {}", result);
+        Log::Info("FooAsync(3) result: {}", result);
     }
-    Log::Info("CoroMain finished");
+    Log::Info("finished");
     co_return 111;
 }
 

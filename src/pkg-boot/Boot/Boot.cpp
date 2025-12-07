@@ -13,33 +13,47 @@ namespace Boot
 {
     static constexpr auto AppData = "0001"; // TODO: embedded in elf (may be w/ git tag or similar)
 
+    template <typename T>
+    static void Line(T&& msg)
+    {
+        using namespace Log;
+        Info(std::forward<T>(msg), Src{Src::NoFunc});
+    }
+
+    template <typename... Args>
+    static void Line(std::format_string<Args...>&& fmt, Args&&... args)
+    {
+        using namespace Log;
+        Info({std::move(fmt), Src{Src::NoFunc}}, std::forward<Args>(args)...);
+    }
+
     void LogHeader(const int argc, const char** argv)
     {
-        Log::Info("-=>-=>-=>-=>-=>-=>-=>-=>-=>-=>-=>-=>");
-        Log::Info("App: {}", AppData);
-        Log::Info("Build: {}", Build::BuildDescription());
+        Line("-=>-=>-=>-=>-=>-=>-=>-=>-=>-=>-=>-=>");
+        Line("App: {}", AppData);
+        Line("Build: {}", Build::BuildDescription());
 
         // startup time
-        auto now = std::chrono::system_clock::now();
-        std::time_t now_c = std::chrono::system_clock::to_time_t(now);
+        const auto now = std::chrono::system_clock::now();
+        const auto now_c = std::chrono::system_clock::to_time_t(now);
         std::array<char, 20> buffer = {};
         if (std::strftime(buffer.data(), buffer.size(), "%Y-%m-%d %H:%M:%S", std::localtime(&now_c))) {
-            Log::Info("Runtime: {}", buffer.data());
+            Line("Runtime: {}", buffer.data());
         } else {
-            Log::Info("Time: [Error formatting time]");
+            Line("Time: [Error formatting time]");
         }
 
         std::array<char, 1024> cwd = {};
         if (!getcwd(cwd.data(), cwd.size())) {
             cwd[0] = '\0';
         }
-        Log::Info("Directory: {}", cwd.data());
+        Line("Directory: {}", cwd.data());
 
-        Log::Info("Command:");
-        for (int i = 0; i < argc; ++i) {
-            Log::Info("  [{}] {}", i, argv[i]);
+        Line("Command:");
+        for (auto i = 0; i < argc; ++i) {
+            Line("  [{}] {}", i, argv[i]);
         }
 
-        Log::Info("<=-<=-<=-<=-<=-<=-<=-<=-<=-<=-<=-<=-");
+        Line("<=-<=-<=-<=-<=-<=-<=-<=-<=-<=-<=-<=-");
     }
 }

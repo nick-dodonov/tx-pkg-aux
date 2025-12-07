@@ -10,7 +10,7 @@ namespace App
 {
     AsioContext::AsioContext()
     {
-        Log::Trace("AsioContext: initializing");
+        Log::Trace("initializing");
 
         // TODO: selector for executors strategy, i.e. support system_executor (thread pool)
         // auto executor = asio::system_executor();
@@ -19,12 +19,11 @@ namespace App
 
     AsioContext::~AsioContext()
     {
-        Log::Trace("AsioContext: destroyed");
+        Log::Trace("destroyed");
     }
 
     void AsioContext::Run()
     {
-        Log::Debug("AsioContext: Run");
 #if __EMSCRIPTEN__
         emscripten_set_main_loop_arg(
             [](void* arg) {
@@ -32,14 +31,14 @@ namespace App
                 if (!io_context->stopped()) {
                     auto count = io_context->poll();
                     if (count > 0) {
-                        Log::Trace("AsioContext: wasm: polled {} tasks", count);
+                        Log::Trace("wasm: polled {} tasks", count);
                     }
                 } else {
-                    Log::Debug("AsioContext: wasm: stopped, cancelling main loop");
+                    Log::Debug("wasm: stopped, cancelling main loop");
                     emscripten_cancel_main_loop();
                     // emscripten_async_call(
                     //     [](void*) {
-                    //         Log::Trace("AsioContext: wasm: emscripten_force_exit(0)");
+                    //         Log::Trace("wasm: emscripten_force_exit(0)");
                     //         emscripten_force_exit(0);
                     //     },
                     //     nullptr,
@@ -61,20 +60,20 @@ namespace App
     {
         Boot::LogHeader(argc, argv);
 
-        Log::Trace("AsioContext: RunCoroMain: starting");
+        Log::Trace("starting");
         boost::asio::co_spawn(
             _io_context,
             std::move(coroMain),
             [this](const std::exception_ptr& ex, const int exitCode) {
                 if (!ex) {
-                    Log::Trace("AsioContext: RunCoroMain: finished: {}", exitCode);
+                    Log::Trace("finished: {}", exitCode);
                     _exitCode = exitCode;
 #if __EMSCRIPTEN__
-                    Log::Trace("AsioContext: RunCoroMain: emscripten_force_exit: {}", exitCode);
+                    Log::Trace("wasm: emscripten_force_exit: {}", exitCode);
                     emscripten_force_exit(_exitCode);
 #endif
                 } else {
-                    Log::Error("AsioContext: RunCoroMain: finished w/ unhandled exception");
+                    Log::Fatal("finished w/ unhandled exception");
                     std::rethrow_exception(ex);
                 }
             });
