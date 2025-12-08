@@ -1,48 +1,7 @@
 #include "App/AsioContext.h"
-#include "Log/Log.h"
+#include "Log/Scope.h"
 
 namespace asio = boost::asio;
-
-namespace Log
-{
-    struct Scope : MsgBase
-    {
-        Level level;
-        Src src;
-        std::string msg;
-
-        // ReSharper disable CppNonExplicitConvertingConstructor
-        constexpr Scope(const Level level, const Src src = {})
-            : level{level}
-            , src{src}
-        {
-            Msg(src, level, ">>>");
-        }
-
-        template <typename... Args>
-        constexpr Scope( // NOLINT(*-explicit-constructor)
-            const Level level,
-            FmtMsg<std::type_identity_t<Args>...> fmt,
-            Args&&... args) // NOLINT(cppcoreguidelines-missing-std-forward)
-            : level{level}
-            , src{std::move(fmt.src)}
-            , msg{std::vformat(fmt.get(), std::make_format_args(args...))}
-        {
-            Msg(src, level, ">>> {}", msg);
-        }
-        // ReSharper restore CppNonExplicitConvertingConstructor
-
-        ~Scope() noexcept
-        {
-            Msg(src, level, "<<< {}", msg);
-        }
-
-        Scope(const Scope&) = delete;
-        Scope& operator=(const Scope&) = delete;
-        Scope(Scope&&) = delete;
-        Scope& operator=(Scope&&) = delete;
-    };
-}
 
 static asio::awaitable<void> Sub()
 {
@@ -58,7 +17,6 @@ static asio::awaitable<std::string> FooImpl(int input)
     auto _ = Log::Scope{Log::Level::Info, "({})", input};
 
     co_await Sub(); // emulation for async work
-
     co_return "Foo emulated result on input " + std::to_string(input);
 }
 
@@ -97,18 +55,18 @@ static asio::awaitable<int> CoroMain()
     {
         auto awaitable = FooAsync(1, asio::use_awaitable);
         auto result = co_await std::move(awaitable);
-        Log::Info("FooAsync(1) result: {}", result);
+        Log::Info("FooAsync(1): {}", result);
     }
     {
         boost::system::error_code ec;
         auto awaitable = FooAsync(2, asio::redirect_error(asio::use_awaitable, ec));
         auto result = co_await std::move(awaitable);
-        Log::Info("FooAsync(2) result: {}", result);
+        Log::Info("FooAsync(2): {}", result);
     }
     {
         auto awaitable = FooAsync(3, asio::as_tuple(asio::use_awaitable));
         auto [result] = co_await std::move(awaitable);
-        Log::Info("FooAsync(3) result: {}", result);
+        Log::Info("FooAsync(3): {}", result);
     }
     co_return 111;
 }
