@@ -11,9 +11,12 @@
 
 namespace App
 {
-    AsioContext::AsioContext()
+    AsioContext::AsioContext(const int argc, const char** argv)
+        : _argc{argc}
+        , _argv{argv}
     {
-        Log::Trace("initializing");
+        Boot::LogHeader(argc, argv);
+        Log::Trace("initialize");
         // TODO: selector for executors strategy, i.e. support system_executor (thread pool)
         // auto executor = asio::system_executor();
         // auto& io_context = get_io_context();
@@ -21,10 +24,10 @@ namespace App
 
     AsioContext::~AsioContext()
     {
-        Log::Trace("destroyed");
+        Log::Trace("destroy");
     }
 
-    void AsioContext::Run()
+    void AsioContext::RunUntilStopped()
     {
         // _io_context.run();
         // asio::detail::global<asio::system_context>().join();
@@ -47,10 +50,8 @@ namespace App
         });
     }
 
-    int AsioContext::RunCoroMain(const int argc, const char** argv, boost::asio::awaitable<int> coroMain)
+    int AsioContext::RunCoroMain(boost::asio::awaitable<int> coroMain)
     {
-        Boot::LogHeader(argc, argv);
-
         Log::Trace("starting");
         boost::asio::co_spawn(
             _io_context,
@@ -69,7 +70,8 @@ namespace App
                     std::rethrow_exception(ex);
                 }
             });
-        Run();
+
+        RunUntilStopped();
         return _exitCode;
     }
 }

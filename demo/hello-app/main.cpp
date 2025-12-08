@@ -69,6 +69,6 @@ static asio::awaitable<int> CoroMain()
 
 int main(const int argc, const char* argv[])
 {
-    App::AsioContext asioContext;
-    return asioContext.RunCoroMain(argc, argv, CoroMain());
+    App::AsioContext asioContext{argc, argv};
+    return asioContext.RunCoroMain(CoroMain());
 }

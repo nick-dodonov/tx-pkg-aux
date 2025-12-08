@@ -10,7 +10,7 @@ namespace Log::Time
         std::format_to_n_result<char*> result{};
         if (us >= 1'000'000) {
             // >= 1 second - output seconds
-            double sec = static_cast<double>(us) / 1'000'000.0;
+            auto sec = static_cast<double>(us) / 1'000'000.0;
             if (sec >= 100.0) {
                 result = std::format_to_n(buf.data(), static_cast<std::ptrdiff_t>(buf.size()), "{:.0f} sec", sec);
             }
@@ -20,7 +20,7 @@ namespace Log::Time
         }
         else if (us >= 1'000) {
             // >= 1 millisecond - output milliseconds
-            double ms = static_cast<double>(us) / 1'000.0;
+            auto ms = static_cast<double>(us) / 1'000.0;
             if (ms >= 100.0) {
                 result = std::format_to_n(buf.data(), static_cast<std::ptrdiff_t>(buf.size()), "{:.0f} ms", ms);
             }

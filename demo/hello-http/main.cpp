@@ -4,8 +4,6 @@
 #include <span>
 #include <boost/asio/experimental/channel.hpp>
 
-static App::AsioContext asioContext;
-
 // ReSharper disable once CppDFAConstantParameter
 static bool HasCommandLineFlag(const int argc, const char** argv, std::string_view flag)
 {
@@ -95,5 +93,6 @@ static boost::asio::awaitable<int> CoroMain(const int argc, const char** argv)
 
 int main(const int argc, const char* argv[])
 {
-    return asioContext.RunCoroMain(argc, argv, CoroMain(argc, argv));
+    static App::AsioContext asioContext{argc, argv};
+    return asioContext.RunCoroMain(CoroMain(argc, argv));
 }

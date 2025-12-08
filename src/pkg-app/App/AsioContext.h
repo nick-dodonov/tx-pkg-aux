@@ -7,15 +7,18 @@ namespace App
     class AsioContext : boost::noncopyable
     {
     public:
-        AsioContext();
+        AsioContext(int argc, const char** argv);
         ~AsioContext();
 
-        [[nodiscard]] auto get_executor() { return _io_context.get_executor(); }
+        [[nodiscard]] auto GetExecutor() { return _io_context.get_executor(); }
+        void RunUntilStopped();
 
-        void Run();
-        int RunCoroMain(int argc, const char** argv, boost::asio::awaitable<int> coroMain);
+        int RunCoroMain(boost::asio::awaitable<int> coroMain);
 
     private:
+        int _argc;
+        const char** _argv;
+
         boost::asio::io_context _io_context;
         int _exitCode{};
     };
