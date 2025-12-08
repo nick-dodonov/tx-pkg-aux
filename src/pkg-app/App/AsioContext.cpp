@@ -30,11 +30,12 @@ namespace App
         // asio::detail::global<asio::system_context>().join();
 
 #if __EMSCRIPTEN__
-        auto looper = Loop::WasmLooper{};
+        auto looper = Loop::WasmLooper{{.Fps = 120}};
 #else
         auto looper = Loop::TightLooper{};
 #endif
         looper.Start([&](const Loop::UpdateCtx& ctx) -> bool {
+            //Log::Trace("frame={} delta={} µs", ctx.FrameIndex, ctx.FrameDelta.count());
             if (_io_context.stopped()) {
                 Log::Debug("context stopped on frame={}", ctx.FrameIndex);
                 return false;
@@ -59,6 +60,7 @@ namespace App
                     Log::Trace("finished: {}", exitCode);
                     _exitCode = exitCode;
 #if __EMSCRIPTEN__
+                    // In wasm we need to explicitly exit the process because emscripten_set_main_loop_arg() never returns
                     Log::Trace("wasm: emscripten_force_exit: {}", exitCode);
                     emscripten_force_exit(_exitCode);
 #endif

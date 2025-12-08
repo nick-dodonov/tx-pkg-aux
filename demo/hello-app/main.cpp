@@ -8,13 +8,13 @@ static asio::awaitable<void> Sub()
     auto _ = Log::Scope{};
 
     auto timer = asio::steady_timer(co_await asio::this_coro::executor);
-    timer.expires_after(std::chrono::milliseconds(300));
+    timer.expires_after(std::chrono::milliseconds(500));
     co_await timer.async_wait(asio::use_awaitable);
 }
 
 static asio::awaitable<std::string> FooImpl(int input)
 {
-    auto _ = Log::Scope{Log::Scope::Prefixes{">>> started", "<<< finished"}, Log::Level::Info, "({})", input};
+    auto _ = Log::Scope{Log::Scope::Prefixes{">>> started", "<<< finished"}, Log::Level::Debug, "({})", input};
 
     co_await Sub(); // emulation for async work
     co_return "Foo emulated result on input " + std::to_string(input);

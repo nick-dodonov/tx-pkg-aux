@@ -8,13 +8,16 @@ namespace App::Loop
     class WasmLooper final : public ILooper
     {
     public:
-        WasmLooper()
-            : _updateCtx{*this}
-        {}
+        struct Options
+        {
+            int Fps{};
+        };
 
+        WasmLooper(Options options);
         void Start(UpdateAction updateAction) override;
 
     private:
+        Options _options;
         UpdateAction _updateAction;
         UpdateCtx _updateCtx;
 

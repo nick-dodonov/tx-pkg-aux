@@ -8,13 +8,16 @@ namespace App::Loop
 
     struct UpdateCtx
     {
+        using Clock = std::chrono::high_resolution_clock;
+
         explicit UpdateCtx(ILooper& looper)
             : Looper(looper)
         {}
 
         ILooper& Looper;
         uint64_t FrameIndex{};
-        std::chrono::steady_clock::time_point FrameStartTime;
+
+        std::chrono::time_point<Clock> FrameStartTime;
         std::chrono::microseconds FrameDelta{};
     };
 

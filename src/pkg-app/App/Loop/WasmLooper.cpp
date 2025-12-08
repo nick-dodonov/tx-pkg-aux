@@ -6,10 +6,15 @@
 
 namespace App::Loop
 {
+    WasmLooper::WasmLooper(Options options)
+        : _options{options}
+        , _updateCtx{*this}
+    {}
+
     void WasmLooper::Start(UpdateAction updateAction)
     {
         _updateAction = std::move(updateAction);
-        _updateCtx.FrameStartTime = std::chrono::steady_clock::now();
+        _updateCtx.FrameStartTime = UpdateCtx::Clock::now();
 
         emscripten_set_main_loop_arg(
             [](void* arg) {
@@ -17,14 +22,14 @@ namespace App::Loop
                 self.Update();
             },
             this,
-            0,
+            _options.Fps,
             true
         );
     }
 
     void WasmLooper::Update()
     {
-        auto startTime = std::chrono::steady_clock::now();
+        auto startTime = UpdateCtx::Clock::now();
         _updateCtx.FrameDelta = std::chrono::duration_cast<std::chrono::microseconds>(startTime - _updateCtx.FrameStartTime);
         _updateCtx.FrameStartTime = startTime;
         ++_updateCtx.FrameIndex;

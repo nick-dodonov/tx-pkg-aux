@@ -1,5 +1,6 @@
 #pragma once
 #include "Log.h"
+#include "Time.h"
 #include <string>
 #include <format>
 
@@ -11,6 +12,8 @@ namespace Log
         constexpr static Prefixes DefaultPrefixes = {">>>", "<<<"};
         constexpr static auto DefaultLevel = Level::Info;
 
+        using Clock = std::chrono::high_resolution_clock;
+        std::chrono::time_point<Clock> start;
         const Prefixes prefixes = DefaultPrefixes;
         Level level;
         Src src;
@@ -18,11 +21,12 @@ namespace Log
 
         // ReSharper disable CppNonExplicitConvertingConstructor
         template <typename... Args>
-        constexpr Scope( // NOLINT(*-explicit-constructor)
+        constexpr Scope(
             const Prefixes& prefixes,
             const Level level,
             FmtMsg<std::type_identity_t<Args>...> fmt, Args&&... args) // NOLINT(cppcoreguidelines-missing-std-forward)
-            : prefixes(prefixes)
+            : start{Clock::now()}
+            , prefixes{prefixes}
             , level{level}
             , src{std::move(fmt.src)}
             , msg{std::vformat(fmt.get(), std::make_format_args(args...))}
@@ -30,36 +34,43 @@ namespace Log
             Msg(src, level, "{} {}", prefixes.first, msg);
         }
 
-        template <typename... Args>
-        constexpr Scope( // NOLINT(*-explicit-constructor)
-            const Level level,
-            FmtMsg<std::type_identity_t<Args>...> fmt, Args&&... args)
-            : Scope{DefaultPrefixes, level, std::move(fmt),  std::forward<Args>(args)...}
-        {}
-
-        template <typename... Args>
-        constexpr Scope( // NOLINT(*-explicit-constructor)
-            FmtMsg<std::type_identity_t<Args>...> fmt, Args&&... args)
-            : Scope{DefaultLevel, std::move(fmt), std::forward<Args>(args)...}
-        {}
-
-        constexpr Scope(const Prefixes& prefixes, const Level level = DefaultLevel, const Src src = {})
-            : prefixes{prefixes}
+        explicit Scope(const Prefixes& prefixes, const Level level = DefaultLevel, const Src src = {})
+            : start{Clock::now()}
+            , prefixes{prefixes}
             , level{level}
             , src{src}
         {
             Msg(src, level, prefixes.first);
         }
 
-        constexpr Scope(const Level level = DefaultLevel, const Src src = {})
-            : Scope{DefaultPrefixes, level, src}
+        template <typename... Args>
+        Scope(
+            const Level level,
+            FmtMsg<std::type_identity_t<Args>...> fmt, Args&&... args)
+            : Scope{DefaultPrefixes, level, std::move(fmt),  std::forward<Args>(args)...}
         {}
 
+        template <typename... Args>
+        explicit Scope(
+            FmtMsg<std::type_identity_t<Args>...> fmt, Args&&... args)
+            : Scope{DefaultLevel, std::move(fmt), std::forward<Args>(args)...}
+        {}
+
+        explicit Scope(const Level level = DefaultLevel, const Src src = {})
+            : Scope{DefaultPrefixes, level, src}
+        {}
         // ReSharper restore CppNonExplicitConvertingConstructor
 
         ~Scope() noexcept
         {
-            Msg(src, level, "{} {}", prefixes.second, msg);
+            auto duration = Clock::now() - start;
+            Time::HumanReadableBuffer timeBuf{};
+            auto timeStr = Time::GetHumanReadableDuration(duration, timeBuf);
+            if (msg.empty()) {
+                Msg(src, level, "{} / {}", prefixes.second, timeStr);
+            } else {
+                Msg(src, level, "{} {} / {}", prefixes.second, msg, timeStr);
+            }
         }
 
         Scope(const Scope&) = delete;
