@@ -98,19 +98,28 @@ def process_symlink_directory(options: Options) -> None:
     print(f"New directory created: {new_dir}")
     
     if options.replace:
-        # Rename original symlink
-        backup_name = f"{original_symlink.name}.dir_symlink"
-        backup_path = original_symlink.parent / backup_name
-        
         print(f"Performing replacement:")
-        print(f"  Renaming {original_symlink} -> {backup_path}")
-        original_symlink.rename(backup_path)
-        
-        print(f"  Renaming {new_dir} -> {original_symlink}")
-        new_dir.rename(original_symlink)
-        
-        print(f"Replacement completed!")
-        print(f"Original symlink saved as: {backup_path}")
+        if options.force:
+            # If force flag is set, delete original symlink
+            print(f"  Removing {original_symlink}")
+            original_symlink.unlink()
+            
+            print(f"  Renaming {new_dir} -> {original_symlink}")
+            new_dir.rename(original_symlink)
+            
+            print(f"Replacement completed!")
+        else:
+            # Otherwise, rename to backup
+            backup_name = f"{original_symlink.name}.dir_symlink"
+            backup_path = original_symlink.parent / backup_name
+            print(f"  Renaming {original_symlink} -> {backup_path}")
+            original_symlink.rename(backup_path)
+            
+            print(f"  Renaming {new_dir} -> {original_symlink}")
+            new_dir.rename(original_symlink)
+            
+            print(f"Replacement completed!")
+            print(f"Original symlink saved as: {backup_path}")
     else:
         print(f"To replace the original symlink, run:")
         print(f"  mv '{original_symlink}' '{original_symlink}.dir_symlink'")
