@@ -5,7 +5,7 @@ namespace asio = boost::asio;
 
 static asio::awaitable<void> Sub()
 {
-    auto _ = Log::Scope{Log::Level::Info};
+    auto _ = Log::Scope{};
 
     auto timer = asio::steady_timer(co_await asio::this_coro::executor);
     timer.expires_after(std::chrono::milliseconds(300));
@@ -14,7 +14,7 @@ static asio::awaitable<void> Sub()
 
 static asio::awaitable<std::string> FooImpl(int input)
 {
-    auto _ = Log::Scope{Log::Level::Info, "({})", input};
+    auto _ = Log::Scope{Log::Scope::Prefixes{">>> started", "<<< finished"}, Log::Level::Info, "({})", input};
 
     co_await Sub(); // emulation for async work
     co_return "Foo emulated result on input " + std::to_string(input);
@@ -50,22 +50,18 @@ auto FooAsync(int input, CompletionToken&& token) // NOLINT(cppcoreguidelines-mi
 
 static asio::awaitable<int> CoroMain()
 {
-    auto _ = Log::Scope{Log::Level::Info};
-
+    auto _ = Log::Scope{"."};
     {
-        auto awaitable = FooAsync(1, asio::use_awaitable);
-        auto result = co_await std::move(awaitable);
+        auto result = co_await FooAsync(1, asio::use_awaitable);
         Log::Info("FooAsync(1): {}", result);
     }
     {
         boost::system::error_code ec;
-        auto awaitable = FooAsync(2, asio::redirect_error(asio::use_awaitable, ec));
-        auto result = co_await std::move(awaitable);
+        auto result = co_await FooAsync(2, asio::redirect_error(asio::use_awaitable, ec));
         Log::Info("FooAsync(2): {}", result);
     }
     {
-        auto awaitable = FooAsync(3, asio::as_tuple(asio::use_awaitable));
-        auto [result] = co_await std::move(awaitable);
+        auto [result] = co_await FooAsync(3, asio::as_tuple(asio::use_awaitable));
         Log::Info("FooAsync(3): {}", result);
     }
     co_return 111;
