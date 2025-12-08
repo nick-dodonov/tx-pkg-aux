@@ -3,7 +3,10 @@
 #include "Boot/Boot.h"
 
 #if __EMSCRIPTEN__
+    #include "Loop/WasmLooper.h"
     #include <emscripten.h>
+#else
+    #include "Loop/TightLooper.h"
 #endif
 
 namespace App
@@ -11,7 +14,6 @@ namespace App
     AsioContext::AsioContext()
     {
         Log::Trace("initializing");
-
         // TODO: selector for executors strategy, i.e. support system_executor (thread pool)
         // auto executor = asio::system_executor();
         // auto& io_context = get_io_context();
@@ -24,36 +26,24 @@ namespace App
 
     void AsioContext::Run()
     {
-#if __EMSCRIPTEN__
-        emscripten_set_main_loop_arg(
-            [](void* arg) {
-                auto* io_context = static_cast<boost::asio::io_context*>(arg);
-                if (!io_context->stopped()) {
-                    auto count = io_context->poll();
-                    if (count > 0) {
-                        Log::Trace("wasm: polled {} tasks", count);
-                    }
-                } else {
-                    Log::Debug("wasm: stopped, cancelling main loop");
-                    emscripten_cancel_main_loop();
-                    // emscripten_async_call(
-                    //     [](void*) {
-                    //         Log::Trace("wasm: emscripten_force_exit(0)");
-                    //         emscripten_force_exit(0);
-                    //     },
-                    //     nullptr,
-                    //     0
-                    // );
-                }
-            },
-            &_io_context,
-            0,
-            true
-        );
-#else
+        // _io_context.run();
         // asio::detail::global<asio::system_context>().join();
-        _io_context.run();
+
+#if __EMSCRIPTEN__
+        auto looper = Loop::WasmLooper{};
+#else
+        auto looper = Loop::TightLooper{};
 #endif
+        looper.Start([&](const Loop::UpdateCtx& ctx) -> bool {
+            if (_io_context.stopped()) {
+                Log::Debug("context stopped on frame={}", ctx.FrameIndex);
+                return false;
+            }
+            if (const auto count = _io_context.poll(); count > 0) {
+                Log::Trace("context polled {} tasks on frame={}", count, ctx.FrameIndex);
+            }
+            return true;
+        });
     }
 
     int AsioContext::RunCoroMain(const int argc, const char** argv, boost::asio::awaitable<int> coroMain)

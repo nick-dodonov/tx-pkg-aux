@@ -10,11 +10,6 @@ namespace App
         AsioContext();
         ~AsioContext();
 
-        AsioContext(const AsioContext&) = delete;
-        AsioContext& operator=(const AsioContext&) = delete;
-        AsioContext(AsioContext&&) = delete;
-        AsioContext& operator=(AsioContext&&) = delete;
-
         [[nodiscard]] auto get_executor() { return _io_context.get_executor(); }
 
         void Run();

@@ -2,7 +2,6 @@
 #include "Log/Log.h"
 
 namespace asio = boost::asio;
-static App::AsioContext asioContext;
 
 namespace Log
 {
@@ -116,5 +115,6 @@ static asio::awaitable<int> CoroMain()
 
 int main(const int argc, const char* argv[])
 {
+    App::AsioContext asioContext;
     return asioContext.RunCoroMain(argc, argv, CoroMain());
 }

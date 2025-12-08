@@ -1,7 +1,7 @@
 #include "Boot/Boot.h"
 #include "Log/Log.h"
 
-int main(int argc, char* argv[])
+int main(const int argc, const char* argv[])
 {
     Boot::LogHeader(argc, argv);
 

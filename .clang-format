@@ -7,11 +7,11 @@ UseTab: Never
 ContinuationIndentWidth: 4
 AccessModifierOffset: -4
 NamespaceIndentation: All
-IndentRequires: false
+IndentRequires: false # for C++20 requires clauses
 IndentCaseLabels: true
 IndentPPDirectives: None # BeforeHash
 IndentExternBlock: Indent
-ColumnLimit: 120
+ColumnLimit: 160
 
 # pointer and reference alignment
 PointerAlignment: Left
@@ -47,17 +47,18 @@ PackConstructorInitializers: Never
 BreakConstructorInitializers: BeforeComma
 
 # brace wrapping
-BreakBeforeBraces: Linux
-# BreakBeforeBraces: Custom
-# BraceWrapping:
-#   AfterClass: false
+# BreakBeforeBraces: Linux
+BreakBeforeBraces: Custom
+BraceWrapping:
+  AfterNamespace: true
+  AfterClass: true
+  AfterStruct: true
+  AfterEnum: true
+  AfterFunction: true
+  SplitEmptyFunction: false
 #   AfterControlStatement: false
 #   AfterControlStatement: MultiLine
 #   AfterControlStatement: Never
-#   AfterEnum: false
-#   AfterFunction: false
-#   AfterNamespace: false
-#   AfterStruct: false
 #   AfterUnion: false
 #   BeforeCatch: false
 #   BeforeElse: false
@@ -76,7 +77,6 @@ BreakBeforeBraces: Linux
 # inline function formatting
 AllowShortFunctionsOnASingleLine: All
 AllowShortLambdasOnASingleLine: All
-#SplitEmptyFunction: false
 
 # other settings
 AlignConsecutiveAssignments: false
