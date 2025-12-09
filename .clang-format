@@ -61,7 +61,7 @@ BraceWrapping:
 #   AfterControlStatement: Never
 #   AfterUnion: false
 #   BeforeCatch: false
-#   BeforeElse: false
+  BeforeElse: false
 #   AfterCaseLabel: false
 #   AfterExternBlock: false
 #   BeforeLambdaBody: false

@@ -8,22 +8,99 @@
 #include <boost/asio.hpp>
 #include <boost/beast.hpp>
 #include <boost/asio/ssl.hpp>
+#include <boost/noncopyable.hpp>
 
 namespace Http
 {
-    template <typename Protocol, typename Executor>
-    static void SocketClose(boost::asio::basic_socket<Protocol, Executor>& socket, const bool logSuccess = true)
+    static void SocketClose(boost::asio::basic_socket<boost::asio::ip::tcp>& socket, const bool logSuccess)
     {
         boost::system::error_code ec;
         if (socket.close(ec)) {
             Log::Debug("http: socket: close failed: {}", ec.message());
         } else if (logSuccess) {
-            Log::Trace("http: socket: closed");
+            Log::Trace("http: socket: close succeed");
         }
     }
 
-    static void LogTraceTls(const SSL* ssl_handle)
+    struct SocketScope : boost::noncopyable // NOLINT(*-special-member-functions)
     {
+        using Socket = boost::asio::basic_socket<boost::asio::ip::tcp>;
+        Socket& socket;
+
+        explicit SocketScope(Socket& socket_)
+            : socket(socket_)
+        {}
+
+        ~SocketScope()
+        {
+            if (!socket.is_open()) {
+                return;
+            }
+            if (IsConnected()) {
+                if (boost::system::error_code ec; socket.shutdown(boost::asio::ip::tcp::socket::shutdown_both, ec)) {
+                    Log::Trace("http: socket: shutdown: {}", ec.message());
+                } else {
+                    Log::Trace("http: socket: shutdown: succeed");
+                }
+            }
+            SocketClose(socket, true);
+        }
+
+        [[nodiscard]] Socket::endpoint_type GetLocalEndpoint() const
+        {
+            boost::system::error_code ec;
+            const auto endpoint = socket.local_endpoint(ec);
+            if (ec) {
+                Log::Debug("http: socket: local_endpoint failed: {}", ec.message());
+            }
+            return endpoint;
+        }
+
+        [[nodiscard]] Socket::endpoint_type GetRemoteEndpoint() const
+        {
+            boost::system::error_code ec;
+            const auto endpoint = socket.remote_endpoint(ec);
+            if (ec) {
+                Log::Debug("http: socket: remote_endpoint failed: {}", ec.message());
+            }
+            return endpoint;
+        }
+
+        [[nodiscard]] bool IsConnected() const
+        {
+            boost::system::error_code ec;
+            socket.remote_endpoint(ec);
+            return !ec;
+        }
+
+        void LogConnected() const
+        {
+            if (Log::Enabled(Log::Level::Trace)) {
+                const auto local = GetLocalEndpoint();
+                const auto remote = GetRemoteEndpoint();
+                Log::Trace("http: socket: connected: {}:{} -> {}:{}",
+                    local.address().to_string(), local.port(),
+                    remote.address().to_string(), remote.port());
+            }
+        }
+    };
+
+    static void LogDnsResults(const boost::asio::ip::basic_resolver_results<boost::asio::ip::tcp>& dns_results)
+    {
+        if (Log::Enabled(Log::Level::Trace)) {
+            for (const auto& entry : dns_results) {
+                auto endpoint = entry.endpoint();
+                Log::Trace("http: resolved: {}:{}", endpoint.address().to_string(), endpoint.port());
+            }
+        }
+    }
+
+    static void LogSslHandle(const SSL* ssl_handle)
+    {
+        if (!Log::Enabled(Log::Level::Trace)) {
+            return;
+        }
+
         // TLS/SSL version
         const auto* tls_version = SSL_get_version(ssl_handle);
         Log::Trace("http: tls: protocol version: {}", tls_version);
@@ -138,10 +215,7 @@ namespace Http
                 ec, std::format("DNS resolution failed: '{}'", url_result.get_hostname())
             });
         }
-        for (const auto& entry : dns_results) {
-            auto endpoint = entry.endpoint();
-            Log::Trace("http: resolved: {}:{}", endpoint.address().to_string(), endpoint.port());
-        }
+        LogDnsResults(dns_results);
 
         // TCP connect
         asio::ip::tcp::socket socket{executor};
@@ -153,7 +227,6 @@ namespace Http
                 asio::as_tuple(asio::use_awaitable)
             );
             if (!ec) {
-                Log::Trace("http: socket: connected: {}:{}", endpoint.address().to_string(), endpoint.port());
                 break;
             }
             Log::Trace("http: socket: connect failed: {}:{}: {}", endpoint.address().to_string(), endpoint.port(), ec.message());
@@ -166,6 +239,10 @@ namespace Http
                 ec, std::format("Failed to connect to host: '{}'", url_result.get_hostname())
             });
         }
+
+        // Closeable socket wrapper
+        SocketScope tcpSocketScope{socket};
+        tcpSocketScope.LogConnected();
 
         // TCP connected
         if (socket.set_option(asio::ip::tcp::no_delay(true), ec)) {
@@ -183,11 +260,11 @@ namespace Http
             sslContext.set_default_verify_paths();
 
             ssl::stream<asio::ip::tcp::socket> sslStream{std::move(socket), sslContext};
+            SocketScope sslSocketScope{sslStream.lowest_layer()};
+
             String::CstrView cstrHostName{url_result.get_hostname()};
             if (!SSL_set_tlsext_host_name(sslStream.native_handle(), cstrHostName.c_str())) {
                 Log::Debug("http: tls: failed to set SNI");
-                auto& underlying_socket = sslStream.lowest_layer();
-                SocketClose(underlying_socket, true);
                 co_return std::unexpected(std::system_error{
                     std::make_error_code(std::errc::protocol_error),
                     std::format("Failed to set SNI for: '{}'", url_result.get_hostname())
@@ -199,34 +276,25 @@ namespace Http
                 asio::as_tuple(asio::use_awaitable));
             if (ec) {
                 Log::Debug("http: tls: handshaking failed: {}", ec.message());
-
-                // НЕ делаем async_shutdown - handshake не прошел
-                // Просто закрываем underlying socket
-                auto& underlying_socket = sslStream.lowest_layer();
-                SocketClose(underlying_socket, true);
-
-                co_return std::unexpected(std::system_error{ec, 
+                // Don't make async_shutdown - handshake didn't pass, just close lowest_layer() socket
+                co_return std::unexpected(std::system_error{ec,
                     std::format("Failed TLS handshake: '{}'", url_result.get_hostname())
                 });
             }
 
-            Log::Trace("http: tls: handshake successful");
-            if (Log::Enabled(Log::Level::Trace)) {
-                LogTraceTls(sslStream.native_handle());
-            }
+            Log::Trace("http: tls: handshake succeed");
+            LogSslHandle(sslStream.native_handle());
 
             // Graceful SSL shutdown
-            Log::Trace("http: tls: shutting down");
+            //Log::Trace("http: tls: shutting down");
             std::tie(ec) = co_await sslStream.async_shutdown(asio::as_tuple(asio::use_awaitable));
-            if (ec && ec != asio::error::eof) {
-                // EOF is expected - server closed connection after shutdown
-                Log::Debug("http: tls: shutdown warning: {}", ec.message());
+            if (ec && ec != asio::error::eof) { // EOF is expected - server closed connection after shutdown
+                Log::Debug("http: tls: shutdown failed: {}", ec.message());
+            } else {
+                Log::Trace("http: tls: shutdown {}", ec ? ec.message(): "succeed");
             }
 
-            // Closing underlying TCP socket
-            auto& underlying_socket = sslStream.lowest_layer();
-            SocketClose(underlying_socket, true);
-
+            // Underlying TCP socket will be closed by socket scope
             //XXXXXXXXXXXXXXXXXXXXXXXX
             co_return std::unexpected(std::system_error{
                 std::make_error_code(std::errc::not_supported),
@@ -251,7 +319,6 @@ namespace Http
                 asio::as_tuple(asio::use_awaitable));
             if (ec) {
                 Log::Debug("http: sending failed: {} (count={})", ec.message(), count);
-                SocketClose(socket, true);
                 co_return std::unexpected(std::system_error{
                     ec, std::format("Failed to send HTTP request: '{}' {} {}", 
                         url_result.get_hostname(), request.method_string(), request.target())
@@ -270,7 +337,6 @@ namespace Http
             auto reason_view = std::string_view(response.reason().data(), response.reason().size());
             if (ec) {
                 Log::Debug("http: receive failed: {} (count={})", ec.message(), count);
-                SocketClose(socket, true);
                 co_return std::unexpected(std::system_error{
                     ec, 
                     std::format("Failed to receive HTTP response: {} ({})", 
@@ -288,10 +354,7 @@ namespace Http
                 response.result_int(), reason_view, body.size());
         }
 
-        // TCP close
-        //TODO: shutdown?
-        SocketClose(socket, true);
-
+        // TCP socket will be closed by socket scope
         co_return ILiteClient::Response {
             .statusCode = static_cast<int>(response.result_int()),
             .body = std::move(body),
