@@ -206,54 +206,35 @@ namespace Http
         std::string _url;
         ada::url_aggregator _url_result;
 
+        using DnsResults = boost::asio::ip::basic_resolver_results<boost::asio::ip::tcp>;
+        DnsResults _dns_results;
+
         boost::asio::awaitable<ILiteClient::Result> GetAsyncImpl()
         {
             Log::Trace("http: coro: {}", _url);
 
             // URL parsing
-            if (auto ec = ParseUrl()) {
+            if (auto ec = UrlParse()) {
                 Log::Debug("http: url parse failed: {}", _url);
                 co_return std::unexpected(std::system_error{ec,std::format("Failed to parse URL: {}", _url)});
             }
 
-            namespace asio = boost::asio;
-            namespace beast = boost::beast;
-            namespace http = beast::http;
-            namespace ssl = asio::ssl;
-
-            auto executor = co_await asio::this_coro::executor;
-            asio::ip::tcp::resolver resolver{executor};
-
             // DNS resolution
-            auto url_protocol = _url_result.get_protocol();
-            auto url_port = _url_result.get_port();
-            std::string url_service;
-            if (!url_port.empty()) {
-                url_service = url_port;
-            } else if (!url_protocol.empty()) {
-                url_service = url_protocol.substr(0, url_protocol.size()-1); // resolver supports "http" and "https" services
-            } else {
-                url_service = DefaultRequestService;
-            }
-            boost::system::error_code ec;
-            auto dns_results = co_await resolver.async_resolve(
-                _url_result.get_hostname(),
-                url_service,
-                // https://think-async.com/Asio/asio-1.36.0/doc/asio/overview/composition/token_adapters.html
-                asio::redirect_error(asio::use_awaitable, ec)
-            );
-            if (ec) {
-                Log::Error("http: failed to resolved: {}", ec.message());
+            if (auto ec = co_await DnsResolve()) {
                 co_return std::unexpected(std::system_error{
                     ec, std::format("DNS resolution failed: '{}'", _url_result.get_hostname())
                 });
             }
-            LogDnsResults(dns_results);
+
+            namespace asio = boost::asio;
+            namespace ssl = asio::ssl;
 
             // TCP connect
+            auto executor = co_await asio::this_coro::executor;
             asio::ip::tcp::socket socket{executor};
 
-            for (const auto& entry : dns_results) {
+            boost::system::error_code ec;
+            for (const auto& entry : _dns_results) {
                 auto endpoint = entry.endpoint();
                 std::tie(ec) = co_await socket.async_connect(
                     endpoint,
@@ -338,7 +319,7 @@ namespace Http
             co_return response;
         }
 
-        std::error_code ParseUrl()
+        std::error_code UrlParse()
         {
             auto url_ec = ada::parse<ada::url_aggregator>(_url);
             if (!url_ec) {
@@ -353,6 +334,40 @@ namespace Http
                 _url_result.get_pathname()
             );
             return {};
+        }
+
+        boost::asio::awaitable<boost::system::error_code> DnsResolve()
+        {
+            namespace asio = boost::asio;
+
+            // DNS resolution
+            const auto executor = co_await asio::this_coro::executor;
+            asio::ip::tcp::resolver resolver{executor};
+
+            const auto url_protocol = _url_result.get_protocol();
+            const auto url_port = _url_result.get_port();
+            std::string url_service;
+            if (!url_port.empty()) {
+                url_service = url_port;
+            } else if (!url_protocol.empty()) {
+                url_service = url_protocol.substr(0, url_protocol.size()-1); // resolver supports "http" and "https" services
+            } else {
+                url_service = DefaultRequestService;
+            }
+
+            boost::system::error_code ec;
+            _dns_results = co_await resolver.async_resolve(
+                _url_result.get_hostname(),
+                url_service,
+                // https://think-async.com/Asio/asio-1.36.0/doc/asio/overview/composition/token_adapters.html
+                asio::redirect_error(asio::use_awaitable, ec)
+            );
+            if (ec) {
+                Log::Error("http: failed to resolved: {}", ec.message());
+            } else {
+                LogDnsResults(_dns_results);
+            }
+            co_return ec;
         }
 
         template <typename Stream>
