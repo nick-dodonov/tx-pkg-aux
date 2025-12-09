@@ -28,10 +28,10 @@ namespace Http
 
     struct SocketScope : boost::noncopyable // NOLINT(*-special-member-functions)
     {
-        using Socket = boost::asio::basic_socket<boost::asio::ip::tcp>;
-        Socket& socket;
+        using BasicSocket = boost::asio::basic_socket<boost::asio::ip::tcp>;
+        BasicSocket& socket;
 
-        explicit SocketScope(Socket& socket_)
+        explicit SocketScope(BasicSocket& socket_)
             : socket(socket_)
         {}
 
@@ -50,7 +50,7 @@ namespace Http
             SocketClose(socket, true);
         }
 
-        [[nodiscard]] Socket::endpoint_type GetLocalEndpoint() const
+        [[nodiscard]] BasicSocket::endpoint_type GetLocalEndpoint() const
         {
             boost::system::error_code ec;
             const auto endpoint = socket.local_endpoint(ec);
@@ -60,7 +60,7 @@ namespace Http
             return endpoint;
         }
 
-        [[nodiscard]] Socket::endpoint_type GetRemoteEndpoint() const
+        [[nodiscard]] BasicSocket::endpoint_type GetRemoteEndpoint() const
         {
             boost::system::error_code ec;
             const auto endpoint = socket.remote_endpoint(ec);
@@ -209,6 +209,11 @@ namespace Http
         using DnsResults = boost::asio::ip::basic_resolver_results<boost::asio::ip::tcp>;
         DnsResults _dns_results;
 
+        using Socket = boost::asio::ip::tcp::socket;
+        using TlsStream = boost::asio::ssl::stream<Socket>;
+        using Stream = std::variant<std::monostate, Socket, TlsStream>;
+        Stream _stream;
+
         boost::asio::awaitable<ILiteClient::Result> GetAsyncImpl()
         {
             Log::Trace("http: coro: {}", _url);
@@ -216,13 +221,13 @@ namespace Http
             // URL parsing
             if (auto ec = UrlParse()) {
                 Log::Debug("http: url parse failed: {}", _url);
-                co_return std::unexpected(std::system_error{ec,std::format("Failed to parse URL: {}", _url)});
+                co_return std::unexpected(std::system_error{ec,std::format("URL parse failed: {}", _url)});
             }
 
             // DNS resolution
             if (auto ec = co_await DnsResolve()) {
                 co_return std::unexpected(std::system_error{
-                    ec, std::format("DNS resolution failed: '{}'", _url_result.get_hostname())
+                    ec, std::format("DNS resolve failed: '{}'", _url_result.get_hostname())
                 });
             }
 
@@ -230,35 +235,19 @@ namespace Http
             namespace ssl = asio::ssl;
 
             // TCP connect
-            auto executor = co_await asio::this_coro::executor;
-            asio::ip::tcp::socket socket{executor};
-
-            boost::system::error_code ec;
-            for (const auto& entry : _dns_results) {
-                auto endpoint = entry.endpoint();
-                std::tie(ec) = co_await socket.async_connect(
-                    endpoint,
-                    asio::as_tuple(asio::use_awaitable)
-                );
-                if (!ec) {
-                    break;
-                }
-                Log::Trace("http: socket: connect failed: {}:{}: {}", endpoint.address().to_string(), endpoint.port(), ec.message());
-                SocketClose(socket, false);
-            }
-
-            if (ec) {
-                Log::Debug("http: socket: connect failed to any endpoint: {}", ec.message());
+            if (auto ec = co_await TcpConnect()) {
                 co_return std::unexpected(std::system_error{
-                    ec, std::format("Failed to connect to host: '{}'", _url_result.get_hostname())
+                    ec, std::format("TCP connect failed: '{}'", _url_result.get_hostname())
                 });
             }
 
             // Closeable socket wrapper
+            auto& socket = *std::get_if<Socket>(&_stream);
             SocketScope tcpSocketScope{socket};
             tcpSocketScope.LogConnected();
 
             // TCP connected
+            boost::system::error_code ec;
             if (socket.set_option(asio::ip::tcp::no_delay(true), ec)) {
                 Log::Debug("http: socket: set_option TCP_NODELAY failed: {}", ec.message());
             }
@@ -270,7 +259,7 @@ namespace Http
                 sslContext.set_verify_mode(ssl::verify_peer);
                 sslContext.set_default_verify_paths();
 
-                ssl::stream<asio::ip::tcp::socket> sslStream{std::move(socket), sslContext};
+                TlsStream sslStream{std::move(socket), sslContext};
                 SocketScope tlsSocketScope{sslStream.lowest_layer()};
 
                 String::CstrView cstrHostName{_url_result.get_hostname()};
@@ -321,6 +310,7 @@ namespace Http
 
         std::error_code UrlParse()
         {
+            // URL parsing
             auto url_ec = ada::parse<ada::url_aggregator>(_url);
             if (!url_ec) {
                 return std::make_error_code(std::errc::invalid_argument);
@@ -370,8 +360,37 @@ namespace Http
             co_return ec;
         }
 
+        boost::asio::awaitable<boost::system::error_code> TcpConnect()
+        {
+            // TCP connect
+            namespace asio = boost::asio;
+            const auto executor = co_await asio::this_coro::executor;
+            Socket socket{executor};
+
+            boost::system::error_code ec;
+            for (const auto& entry : _dns_results) {
+                auto endpoint = entry.endpoint();
+                std::tie(ec) = co_await socket.async_connect(
+                    endpoint,
+                    asio::as_tuple(asio::use_awaitable)
+                );
+                if (!ec) {
+                    break;
+                }
+                Log::Trace("http: socket: connect failed: {}:{}: {}", endpoint.address().to_string(), endpoint.port(), ec.message());
+                SocketClose(socket, false);
+            }
+
+            if (ec) {
+                Log::Debug("http: socket: connect failed to any endpoint: {}", ec.message());
+            }
+
+            _stream.emplace<Socket>(std::move(socket));
+            co_return ec;
+        }
+
         template <typename Stream>
-        boost::asio::awaitable<ILiteClient::Result> MakeHttpRequest(Stream& stream)
+        boost::asio::awaitable<ILiteClient::Result> MakeHttpRequest(Stream& stream) // NOLINT(*-avoid-reference-coroutine-parameters)
         {
             namespace asio = boost::asio;
             namespace beast = boost::beast;
