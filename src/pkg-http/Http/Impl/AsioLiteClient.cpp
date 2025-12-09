@@ -12,6 +12,9 @@
 
 namespace Http
 {
+    auto constexpr TlsUrlProtocol = "https:";
+    auto constexpr BasicHttpVersion = 11;
+
     static void SocketClose(boost::asio::basic_socket<boost::asio::ip::tcp>& socket, const bool logSuccess)
     {
         boost::system::error_code ec;
@@ -82,6 +85,25 @@ namespace Http
                     local.address().to_string(), local.port(),
                     remote.address().to_string(), remote.port());
             }
+        }
+    };
+
+    struct TlsScope : boost::noncopyable // NOLINT(*-special-member-functions)
+    {
+        using Stream = boost::asio::ssl::stream<boost::asio::ip::tcp::socket>;
+        Stream& stream;
+
+        explicit TlsScope(Stream& stream_)
+            : stream(stream_)
+        {}
+
+        ~TlsScope()
+        {
+            const auto executor = stream.get_executor();
+            boost::asio::dispatch(executor, [] -> boost::asio::awaitable<void> {
+                Log::Trace("http: tls: XXXXXXXXXXXXXXXXXXXXX");
+                co_return;
+            });
         }
     };
 
@@ -158,6 +180,72 @@ namespace Http
         } else {
             Log::Trace("http: tls: no ALPN negotiated (HTTP/1.1)");
         }
+    }
+
+    template <typename Stream>
+    static boost::asio::awaitable<ILiteClient::Result> MakeHttpRequest(const ada::url_aggregator url_result, Stream& stream)
+    {
+        namespace asio = boost::asio;
+        namespace beast = boost::beast;
+        namespace http = beast::http;
+
+        // HTTP request/response
+        http::request<http::string_body> request{
+            http::verb::get,
+            url_result.get_pathname(),
+            BasicHttpVersion};
+        request.set(http::field::host, url_result.get_hostname());
+        request.set(http::field::user_agent, "Test/1.0");
+
+        // Send
+        auto [ec, count] = co_await http::async_write(
+            stream,
+            request,
+            asio::as_tuple(asio::use_awaitable));
+        if (ec) {
+            Log::Debug("http: sending failed: {} (count={})", ec.message(), count);
+            co_return std::unexpected(std::system_error{
+                ec, std::format("Failed to send HTTP request: '{}' {} {}",
+                    url_result.get_hostname(), request.method_string(), request.target())
+            });
+        }
+        Log::Trace("http: sent: {} bytes", count);
+
+        // Receive
+        http::response<http::string_body> response;
+        std::string body;
+
+        beast::flat_buffer buffer;
+        std::tie(ec, count) = co_await http::async_read(
+            stream,
+            buffer,
+            response,
+            asio::as_tuple(asio::use_awaitable));
+        // beast::string_view differs from std::string_view and isn't formatted well
+        auto reason_view = std::string_view(response.reason().data(), response.reason().size());
+        if (ec) {
+            Log::Debug("http: receive failed: {} (count={})", ec.message(), count);
+            co_return std::unexpected(std::system_error{
+                ec,
+                std::format("Failed to receive HTTP response: {} ({})",
+                    response.result_int(), reason_view)
+            });
+        }
+        Log::Trace("http: received: {} bytes", count);
+
+        // Convert Beast buffer/response to std::string and deliver a result.
+        body = !response.body().empty()
+            ? response.body()
+            : beast::buffers_to_string(buffer.data());
+
+        Log::Trace("http: response: {} ({}) body.size={}",
+            response.result_int(), reason_view, body.size());
+
+        // TCP socket will be closed by socket scope
+        co_return ILiteClient::Response {
+            .statusCode = static_cast<int>(response.result_int()),
+            .body = std::move(body),
+        };
     }
 
     static boost::asio::awaitable<ILiteClient::Result> GetAsyncImpl(std::string url)
@@ -249,10 +337,7 @@ namespace Http
             Log::Debug("http: socket: set_option TCP_NODELAY failed: {}", ec.message());
         }
 
-        http::response<http::string_body> response;
-        std::string body;
-
-        if (url_result.get_protocol() == "https:") {
+        if (url_result.get_protocol() == TlsUrlProtocol) {
             // TLS handshake
             Log::Trace("http: tls: handshaking");
             ssl::context sslContext{ssl::context::tls_client};
@@ -260,7 +345,7 @@ namespace Http
             sslContext.set_default_verify_paths();
 
             ssl::stream<asio::ip::tcp::socket> sslStream{std::move(socket), sslContext};
-            SocketScope sslSocketScope{sslStream.lowest_layer()};
+            SocketScope tlsSocketScope{sslStream.lowest_layer()};
 
             String::CstrView cstrHostName{url_result.get_hostname()};
             if (!SSL_set_tlsext_host_name(sslStream.native_handle(), cstrHostName.c_str())) {
@@ -283,7 +368,11 @@ namespace Http
             }
 
             Log::Trace("http: tls: handshake succeed");
+            TlsScope tlsScope{sslStream};
             LogSslHandle(sslStream.native_handle());
+
+            // Make HTTP request over TLS
+            auto response = co_await MakeHttpRequest(std::move(url_result), sslStream);
 
             // Graceful SSL shutdown
             //Log::Trace("http: tls: shutting down");
@@ -295,70 +384,14 @@ namespace Http
             }
 
             // Underlying TCP socket will be closed by socket scope
-            //XXXXXXXXXXXXXXXXXXXXXXXX
-            co_return std::unexpected(std::system_error{
-                std::make_error_code(std::errc::not_supported),
-                std::format("XXXXXXXXXXXXXXXXXXXXXX: {}", url)
-            });
+            co_return response;
         }
-        else 
-        {
-            // HTTP request/response
-            http::request<http::string_body> request{
-                http::verb::get, 
-                url_result.get_pathname(), 
-                11};
-            request.set(http::field::host, url_result.get_hostname());
-            request.set(http::field::user_agent, "Test/1.0");
 
-            // Send
-            unsigned long count = 0;
-            std::tie(ec, count) = co_await http::async_write(
-                socket, 
-                request, 
-                asio::as_tuple(asio::use_awaitable));
-            if (ec) {
-                Log::Debug("http: sending failed: {} (count={})", ec.message(), count);
-                co_return std::unexpected(std::system_error{
-                    ec, std::format("Failed to send HTTP request: '{}' {} {}", 
-                        url_result.get_hostname(), request.method_string(), request.target())
-                });
-            }
-            Log::Trace("http: sent: {} bytes", count);
-
-            // Receive
-            beast::flat_buffer buffer;
-            std::tie(ec, count) = co_await http::async_read(
-                socket, 
-                buffer, 
-                response, 
-                asio::as_tuple(asio::use_awaitable));
-            // beast::string_view differs from std::string_view and isn't formatted well
-            auto reason_view = std::string_view(response.reason().data(), response.reason().size());
-            if (ec) {
-                Log::Debug("http: receive failed: {} (count={})", ec.message(), count);
-                co_return std::unexpected(std::system_error{
-                    ec, 
-                    std::format("Failed to receive HTTP response: {} ({})", 
-                        response.result_int(), reason_view)
-                });
-            }
-            Log::Trace("http: received: {} bytes", count);
-
-            // Convert Beast buffer/response to std::string and deliver a result.
-            body = !response.body().empty()
-                ? response.body()
-                : beast::buffers_to_string(buffer.data());
-
-            Log::Trace("http: response: {} ({}) body.size={}",
-                response.result_int(), reason_view, body.size());
-        }
+        // Make HTTP request over plain TCP
+        auto response = co_await MakeHttpRequest(std::move(url_result), socket);
 
         // TCP socket will be closed by socket scope
-        co_return ILiteClient::Response {
-            .statusCode = static_cast<int>(response.result_int()),
-            .body = std::move(body),
-        };
+        co_return response;
     }
 
     struct BeastRequestContext {

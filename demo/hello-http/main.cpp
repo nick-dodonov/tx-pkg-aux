@@ -13,11 +13,17 @@ static std::vector<std::string> ChooseTryUrls(const Boot::CliArgs& args)
         {"h200", "http://httpbun.com/status/200"},
         {"h400", "http://httpbun.com/status/400"},
         {"hget", "http://httpbun.com/get"},
-        {"get", "https://httpbun.com/get"},
+        {"sget", "https://httpbun.com/get"},
+        {"eget", " https://self-signed-cert.httpbun.com/get"},
     };
 
     std::vector<std::string> selectedUrls;
     for (const auto& arg: args) {
+        if (arg.starts_with("http://") or arg.starts_with("https://")) {
+            selectedUrls.push_back(std::string{arg});
+            continue;
+        }
+
         if (auto it = urls.find(arg); it != urls.end()) {
             selectedUrls.push_back(it->second);
         }
