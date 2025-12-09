@@ -17,7 +17,7 @@ namespace App
         const auto& GetCliArgs() const { return _cliArgs; }
 
         [[nodiscard]] auto GetExecutor() { return _io_context.get_executor(); }
-        void RunUntilStopped();
+        void RunContext();
 
         int RunCoroMain(boost::asio::awaitable<int> coroMain);
 

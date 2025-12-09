@@ -32,7 +32,7 @@ namespace App
         Log::Trace("destroy");
     }
 
-    void Domain::RunUntilStopped()
+    void Domain::RunContext()
     {
         // _io_context.run();
         // asio::detail::global<asio::system_context>().join();
@@ -45,11 +45,11 @@ namespace App
         looper.Start([&](const Loop::UpdateCtx& ctx) -> bool {
             //Log::Trace("frame={} delta={} µs", ctx.FrameIndex, ctx.FrameDelta.count());
             if (_io_context.stopped()) {
-                Log::Debug("context stopped on frame={}", ctx.FrameIndex);
+                Log::Debug("stopped on frame={}", ctx.FrameIndex);
                 return false;
             }
             if (const auto count = _io_context.poll(); count > 0) {
-                Log::Trace("context polled {} tasks on frame={}", count, ctx.FrameIndex);
+                Log::Trace("polled {} tasks on frame={}", count, ctx.FrameIndex);
             }
             return true;
         });
@@ -76,7 +76,7 @@ namespace App
                 }
             });
 
-        RunUntilStopped();
+        RunContext();
         return _exitCode;
     }
 }

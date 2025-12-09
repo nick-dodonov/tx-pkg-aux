@@ -79,10 +79,10 @@ namespace Http
 
         void LogConnected() const
         {
-            if (Log::Enabled(Log::Level::Trace)) {
+            if (Log::Enabled(Log::Level::Debug)) {
                 const auto local = GetLocalEndpoint();
                 const auto remote = GetRemoteEndpoint();
-                Log::Trace("http: socket: connected: {}:{} -> {}:{}",
+                Log::Debug("http: socket: connected: {}:{} -> {}:{}",
                     local.address().to_string(), local.port(),
                     remote.address().to_string(), remote.port());
             }
