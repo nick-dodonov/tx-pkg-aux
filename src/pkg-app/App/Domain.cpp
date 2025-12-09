@@ -1,4 +1,4 @@
-#include "AsioContext.h"
+#include "Domain.h"
 #include "Log/Log.h"
 #include "Boot/Boot.h"
 
@@ -11,23 +11,28 @@
 
 namespace App
 {
-    AsioContext::AsioContext(const int argc, const char** argv)
-        : _argc{argc}
-        , _argv{argv}
+    Domain::Domain(const int argc, const char** argv)
+        : Domain{Boot::CliArgs(argc, argv)}
+    {}
+
+    Domain::Domain(Boot::CliArgs cliArgs)
+        : _cliArgs{std::move(cliArgs)}
     {
-        Boot::LogHeader(argc, argv);
+        Boot::LogHeader(_cliArgs);
+        Boot::SetupAbortHandlers();
+
         Log::Trace("initialize");
         // TODO: selector for executors strategy, i.e. support system_executor (thread pool)
         // auto executor = asio::system_executor();
         // auto& io_context = get_io_context();
     }
 
-    AsioContext::~AsioContext()
+    Domain::~Domain()
     {
         Log::Trace("destroy");
     }
 
-    void AsioContext::RunUntilStopped()
+    void Domain::RunUntilStopped()
     {
         // _io_context.run();
         // asio::detail::global<asio::system_context>().join();
@@ -50,7 +55,7 @@ namespace App
         });
     }
 
-    int AsioContext::RunCoroMain(boost::asio::awaitable<int> coroMain)
+    int Domain::RunCoroMain(boost::asio::awaitable<int> coroMain)
     {
         Log::Trace("starting");
         boost::asio::co_spawn(

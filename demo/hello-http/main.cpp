@@ -1,28 +1,11 @@
-#include "App/AsioContext.h"
+#include "App/Domain.h"
 #include "Http/LiteClient.h"
 #include "Log/Log.h"
-#include <span>
 #include <boost/asio/experimental/channel.hpp>
 
-// ReSharper disable once CppDFAConstantParameter
-static bool HasCommandLineFlag(const int argc, const char** argv, std::string_view flag)
+static std::vector<std::string> ChooseTryUrls(const Boot::CliArgs& args)
 {
-    return std::ranges::any_of(
-        std::span(argv + 1, argc - 1),
-        [flag](const char* arg) { return std::string_view(arg) == flag; }
-    );
-}
-
-static bool TakeJsFlag(const int argc, const char** argv)
-{
-    const auto flag = HasCommandLineFlag(argc, argv, "--em");
-    Log::Info("useJsFetchClient: {}", !flag);
-    return !flag;
-}
-
-static std::vector<std::string> ChooseTryUrls(const int argc, const char** argv)
-{
-    static const auto urls = std::map<std::string, std::string>{
+    static const auto urls = std::map<std::string, std::string, std::less<>>{
         {"ep", "url-parse-error"},
         {"ec", "http://localhost:12345/connect-refused"},
         {"tif", "http://ifconfig.io/ip"},
@@ -34,40 +17,40 @@ static std::vector<std::string> ChooseTryUrls(const int argc, const char** argv)
     };
 
     std::vector<std::string> selectedUrls;
-    for (int i = 1; i < argc; ++i) {
-        const auto* arg = argv[i];
+    for (const auto& arg: args) {
         if (auto it = urls.find(arg); it != urls.end()) {
             selectedUrls.push_back(it->second);
         }
     }
 
-    if (selectedUrls.empty()) {
-        Log::Info("No valid URL keys specified. Setting default.");
-        selectedUrls.emplace_back("https://httpbun.com/get");
-    }
-
     return selectedUrls;
 }
 
-static boost::asio::awaitable<int> CoroMain(const int argc, const char** argv)
+static boost::asio::awaitable<int> CoroMain(const std::shared_ptr<App::Domain> domain)
 {
     auto executor = co_await boost::asio::this_coro::executor;
 
-    auto client = Http::LiteClient::MakeDefault({
+    const auto& args = domain->GetCliArgs();
+    auto useJsFetchClient = !args.Contains("--em");
+    const auto client = Http::LiteClient::MakeDefault({
         .executor = executor,
-        .wasm = {.useJsFetchClient = TakeJsFlag(argc, argv)}
+        .wasm = {.useJsFetchClient = useJsFetchClient}
     });
 
-    Log::Info("Running selected tests:");
-    const auto selectedUrls = ChooseTryUrls(argc, argv);
+    Log::Info("Running selected tests (useJsFetchClient={}):", useJsFetchClient);
+    const auto selectedUrls = ChooseTryUrls(args);
     const auto selectedSize = selectedUrls.size();
+    if (selectedSize <= 0) {
+        Log::Error("No valid URL keys specified.");
+        co_return 1;
+    }
 
     // emulating semaphore slim
     using done_channel = boost::asio::experimental::channel<void(boost::system::error_code)>;
     auto completions = std::make_shared<done_channel>(executor, selectedSize);
 
     for (size_t i = 0; i < selectedSize; ++i) {
-        const auto& url = selectedUrls[i];
+        const auto& url = selectedUrls.at(i);
         Log::Info("TryHttp: >>> [{}] request: {}", i, url);
         client->Get(url, [i, completions, url = std::string{url}](auto result) {
             if (result) {
@@ -93,6 +76,6 @@ static boost::asio::awaitable<int> CoroMain(const int argc, const char** argv)
 
 int main(const int argc, const char* argv[])
 {
-    static App::AsioContext asioContext{argc, argv};
-    return asioContext.RunCoroMain(CoroMain(argc, argv));
+    const auto domain = std::make_shared<App::Domain>(argc, argv);
+    return domain->RunCoroMain(CoroMain(domain));
 }

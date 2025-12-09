@@ -1,14 +1,28 @@
 load("@tx-kit-ext//rules/build:tx_binary.bzl", "tx_binary")
+load("@tx-kit-ext//rules/build:tx_library.bzl", "tx_library")
 
 package(
     features = [
         # "thin_lto",  # Enable Thin LTO
-        # "-legacy_whole_archive",  # Disable legacy whole archive
+    ],
+)
+
+# sub library with exception handling enabled to demonstrate unhandled exceptions catching
+tx_library(
+    name = "hello-sublib",
+    srcs = ["sublib.cpp"],
+    hdrs = ["sublib.h"],
+    cxxopts = ["-fexceptions"],
+    deps = [
+        "//:pkg-log",
     ],
 )
 
 tx_binary(
     name = "hello-boot",
     srcs = ["main.cpp"],
-    deps = ["//:pkg-boot"],
+    deps = [
+        ":hello-sublib",
+        "//:pkg-boot",
+    ],
 )

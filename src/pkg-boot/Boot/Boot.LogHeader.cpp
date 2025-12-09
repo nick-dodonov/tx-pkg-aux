@@ -1,30 +1,37 @@
 #include "Boot.h"
 #include "Build.h"
+#include "CliArgs.h"
+
 #include "Log/Log.h"
-#include <iomanip>
 #include <Log/Path.h>
+
+#include <iomanip>
 
 namespace Boot
 {
+    static Log::Logger _log{"Boot"};
+
     template <typename... Args>
     static void Line(Log::FmtMsg<std::type_identity_t<Args>...> fmt, Args&&... args)
     {
         fmt.src.mode = Log::Src::NoFunc;
-        Log::Info(fmt, std::forward<Args>(args)...);
+        _log.Info(fmt, std::forward<Args>(args)...);
     }
 
-    static std::string_view GetAppName(int argc, const char** argv)
+    static std::string_view GetAppName(const CliArgs& args)
     {
-        if (argc <= 0) {
+        if (args.empty()) {
             return "<unknown>";
         }
-        const auto* path = argv[0];
+        const auto path = args[0];
         return Log::Path::GetWithoutExtension(Log::Path::GetBasename(path));
     }
 
-    void LogHeader(const int argc, const char** argv)
+    void LogHeader(const int argc, const char** argv) noexcept { LogHeader(CliArgs(argc, argv)); }
+
+    void LogHeader(const CliArgs& args) noexcept
     {
-        const auto appName = GetAppName(argc, argv);
+        const auto appName = GetAppName(args);
         Line("║ App: {}", appName);
         Line("║ Build: {}", Build::BuildDescription());
 
@@ -41,8 +48,8 @@ namespace Boot
         Line("║ Directory: {}", cwd.data());
 
         Line("║ Command:");
-        for (auto i = 0; i < argc; ++i) {
-            Line("║  [{}] {}", i, argv[i]);
+        for (auto i = 0; i < args.size(); ++i) {
+            Line("║  [{}] {}", i, args[i]);
         }
     }
 }

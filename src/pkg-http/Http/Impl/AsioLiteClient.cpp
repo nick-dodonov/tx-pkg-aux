@@ -12,7 +12,7 @@
 namespace Http
 {
     template <typename Protocol, typename Executor>
-    static void SocketClose(boost::asio::basic_socket<Protocol, Executor>& socket, bool logSuccess = true)
+    static void SocketClose(boost::asio::basic_socket<Protocol, Executor>& socket, const bool logSuccess = true)
     {
         boost::system::error_code ec;
         if (socket.close(ec)) {
@@ -22,19 +22,18 @@ namespace Http
         }
     }
 
-    static void LogTraceTls(SSL* ssl_handle)
+    static void LogTraceTls(const SSL* ssl_handle)
     {
         // TLS/SSL version
-        const char* tls_version = SSL_get_version(ssl_handle);
+        const auto* tls_version = SSL_get_version(ssl_handle);
         Log::Trace("http: tls: protocol version: {}", tls_version);
 
         // Cipher being used
-        const char* cipher_name = SSL_get_cipher_name(ssl_handle);
-        const char* cipher_version = SSL_get_cipher_version(ssl_handle);
-        int cipher_bits = SSL_get_cipher_bits(ssl_handle, nullptr);
+        const auto* cipher_name = SSL_get_cipher_name(ssl_handle);
+        const auto* cipher_version = SSL_get_cipher_version(ssl_handle);
+        auto cipher_bits = SSL_get_cipher_bits(ssl_handle, nullptr);
         Log::Trace("http: tls: cipher: {} ({}, {} bits)", cipher_name, cipher_version, cipher_bits);
-        const SSL_CIPHER* cipher = SSL_get_current_cipher(ssl_handle);
-        if (cipher) {
+        if (const auto* cipher = SSL_get_current_cipher(ssl_handle)) {
             std::array<char, 256> cipher_desc{};
             SSL_CIPHER_description(cipher, cipher_desc.data(), cipher_desc.size());
             Log::Trace("http: tls: cipher details: {}", 
@@ -47,8 +46,7 @@ namespace Http
         Log::Trace("http: tls: session reused={}", session_reused);
 
         // Server certificate
-        X509* cert = SSL_get_peer_certificate(ssl_handle);
-        if (cert) {
+        if (auto* cert = SSL_get_peer_certificate(ssl_handle)) {
             std::array<char, 256> subject{};
             std::array<char, 256> issuer{};
             X509_NAME_oneline(X509_get_subject_name(cert), subject.data(), subject.size());
@@ -58,7 +56,7 @@ namespace Http
             Log::Trace("http: tls: server cert issuer: {}", issuer.data());
 
             // Check certificate verification result
-            long verify_result = SSL_get_verify_result(ssl_handle);
+            auto verify_result = SSL_get_verify_result(ssl_handle);
             if (verify_result == X509_V_OK) {
                 Log::Trace("http: tls: certificate verification: OK");
             } else {
@@ -111,7 +109,7 @@ namespace Http
         namespace asio = boost::asio;
         namespace beast = boost::beast;
         namespace http = beast::http;
-        namespace ssl = boost::asio::ssl;
+        namespace ssl = asio::ssl;
 
         auto executor = co_await asio::this_coro::executor;
         asio::ip::tcp::resolver resolver{executor};
@@ -180,8 +178,8 @@ namespace Http
         if (url_result.get_protocol() == "https:") {
             // TLS handshake
             Log::Trace("http: tls: handshaking");
-            asio::ssl::context sslContext{asio::ssl::context::tls_client};
-            sslContext.set_verify_mode(asio::ssl::verify_peer);
+            ssl::context sslContext{ssl::context::tls_client};
+            sslContext.set_verify_mode(ssl::verify_peer);
             sslContext.set_default_verify_paths();
 
             ssl::stream<asio::ip::tcp::socket> sslStream{std::move(socket), sslContext};
@@ -238,7 +236,7 @@ namespace Http
         else 
         {
             // HTTP request/response
-            http::request<beast::http::string_body> request{
+            http::request<http::string_body> request{
                 http::verb::get, 
                 url_result.get_pathname(), 
                 11};
@@ -313,11 +311,13 @@ namespace Http
             namespace asio = boost::asio;
             return asio::async_initiate<CompletionToken, void(ILiteClient::Result)>(
                 [&]<typename T0>(T0&& handler) {
+                    auto executor = asio::get_associated_executor(handler);
+                    auto slot = asio::get_associated_cancellation_slot(handler);
                     asio::co_spawn(
-                        asio::get_associated_executor(handler),
+                        executor,
                         GetAsyncImpl(std::move(url)),
                         asio::bind_cancellation_slot(
-                            asio::get_associated_cancellation_slot(handler),
+                            slot,
                             [handler = std::forward<T0>(handler)](const std::exception_ptr& ex, ILiteClient::Result&& result) mutable {
                                 if (!ex) {
                                     std::move(handler)(std::move(result));

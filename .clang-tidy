@@ -4,6 +4,7 @@ Checks: >
   clang-analyzer-*,
   -clang-analyzer-alpha.*,
   bugprone-*,
+  -bugprone-exception-escape,
   cppcoreguidelines-*,
   -cppcoreguidelines-avoid-const-or-ref-data-members,
   -cppcoreguidelines-avoid-magic-numbers,
@@ -27,6 +28,7 @@ Checks: >
 # - readability-magic-numbers: Acceptable in test code
 # - readability-convert-member-functions-to-static: Breaks coroutine awaiter protocol
 # - readability-identifier-length: Conflicts with naming conventions (variable i/j/n are common)
+# -bugprone-exception-escape - False positives in codebases that do not use exceptions at all
 
 CheckOptions:
   - key: readability-identifier-naming.VariableCase

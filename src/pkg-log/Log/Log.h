@@ -7,7 +7,7 @@ namespace Log::Detail
 {
     void DefaultInit();
 
-    inline spdlog::logger* DefaultLoggerRaw()
+    inline spdlog::logger* DefaultLoggerRaw() noexcept
     {
         static spdlog::logger* _logger;
         if (_logger) {
@@ -115,16 +115,18 @@ namespace Log
     {
         static Logger Default;
 
-        explicit Logger(const char* area = nullptr)
+        explicit Logger(const char* area = nullptr) noexcept
             : _area(area)
         {}
 
-        bool Enabled(const Level level) {
+        bool Enabled(const Level level) noexcept
+        {
             return Raw()->should_log(Detail::ToSpdLevel(level));
         }
 
+        // raw helpers for macros usage
         template <typename T>
-        void Msg(spdlog::source_loc loc, const Level level, T&& msg)
+        void Msg(spdlog::source_loc loc, const Level level, T&& msg) noexcept
         {
             if (_area) {
                 loc.filename = _area;
@@ -134,7 +136,7 @@ namespace Log
         }
 
         template <typename... Args>
-        void Msg(spdlog::source_loc loc, const Level level, std::format_string<Args...> fmt, Args&&... args)
+        void Msg(spdlog::source_loc loc, const Level level, std::format_string<Args...> fmt, Args&&... args) noexcept
         {
             if (_area) {
                 loc.filename = _area;
@@ -143,20 +145,80 @@ namespace Log
             Raw()->log(loc, Detail::ToSpdLevel(level), fmt.get(), std::forward<Args>(args)...);
         }
 
-        // helpers allowing to use macro w/ passing logger instance as the 1st argument
+        // raw helpers allowing to use macro w/ passing logger instance as the 1st argument
         template <typename T>
-        void Msg(const spdlog::source_loc loc, const Level level, Logger& logger, T&& msg)
+        void Msg(const spdlog::source_loc loc, const Level level, Logger& logger, T&& msg) noexcept
         {
             logger.Msg(loc, level, std::forward<T>(msg));
         }
 
         template <typename... Args>
-        void Msg(const spdlog::source_loc loc, const Level level, Logger& logger, std::format_string<Args...> fmt, Args&&... args)
+        void Msg(const spdlog::source_loc loc, const Level level, Logger& logger, std::format_string<Args...> fmt, Args&&... args) noexcept
         {
             logger.Msg(loc, level, fmt, std::forward<Args>(args)...);
         }
 
+        // main methods
+        template <typename... Args>
+        void Msg(const Src src, const Level level, std::string_view fmt, Args&&... args) noexcept
+        {
+            auto loc = Detail::ToSpdLoc(src);
+            if (_area) {
+                loc.filename = _area;
+                loc.line = -1;
+            }
+
+            Raw()->log(
+                std::move(loc),
+                Detail::ToSpdLevel(level),
+                fmt,
+                std::forward<Args>(args)...);
+        }
+
+        template <typename... Args>
+        void Msg(const Level level, FmtMsg<Args...> fmt, Args&&... args) noexcept
+        {
+            Msg(fmt.src, level, fmt.get(), std::forward<Args>(args)...);
+        }
+
+        template <typename... Args>
+        void Trace(FmtMsg<std::type_identity_t<Args>...> fmt, Args&&... args) noexcept
+        {
+            Msg(Level::Trace, std::move(fmt), std::forward<Args>(args)...);
+        }
+
+        template <typename... Args>
+        void Debug(FmtMsg<std::type_identity_t<Args>...> fmt, Args&&... args) noexcept
+        {
+            Msg(Level::Debug, std::move(fmt), std::forward<Args>(args)...);
+        }
+
+        template <typename... Args>
+        void Info(FmtMsg<std::type_identity_t<Args>...> fmt, Args&&... args) noexcept
+        {
+            Msg(Level::Info, std::move(fmt), std::forward<Args>(args)...);
+        }
+
+        template <typename... Args>
+        void Warn(FmtMsg<std::type_identity_t<Args>...> fmt, Args&&... args) noexcept
+        {
+            Msg(Level::Warn, std::move(fmt), std::forward<Args>(args)...);
+        }
+
+        template <typename... Args>
+        void Error(FmtMsg<std::type_identity_t<Args>...> fmt, Args&&... args) noexcept
+        {
+            Msg(Level::Error, std::move(fmt), std::forward<Args>(args)...);
+        }
+
+        template <typename... Args>
+        void Fatal(FmtMsg<std::type_identity_t<Args>...> fmt, Args&&... args) noexcept
+        {
+            Msg(Level::Fatal, std::move(fmt), std::forward<Args>(args)...);
+        }
+
     private:
+        // ReSharper disable once CppMemberFunctionMayBeStatic
         spdlog::logger* Raw() { return Detail::DefaultLoggerRaw(); }
 
         const char* _area{};

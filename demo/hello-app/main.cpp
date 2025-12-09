@@ -1,4 +1,4 @@
-#include "App/AsioContext.h"
+#include "App/Domain.h"
 #include "Log/Scope.h"
 
 namespace asio = boost::asio;
@@ -69,6 +69,6 @@ static asio::awaitable<int> CoroMain()
 
 int main(const int argc, const char* argv[])
 {
-    App::AsioContext asioContext{argc, argv};
-    return asioContext.RunCoroMain(CoroMain());
+    App::Domain domain{argc, argv};
+    return domain.RunCoroMain(CoroMain());
 }

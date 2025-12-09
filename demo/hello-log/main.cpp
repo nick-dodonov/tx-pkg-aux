@@ -1,5 +1,7 @@
 #include "Log/Log.h"
 
+//TODO: add samples w/ Src modifiers (NoFunc)
+
 static void FuncDemo()
 {
     Log::Trace("func message (trace)");
@@ -22,15 +24,42 @@ static void MacroDemo()
     LogDebug("macro formatted: {}", 12345);
 }
 
+static void LoggerFuncDemo()
+{
+    Log::Logger logger("LoggerFunc");
+    logger.Trace("logger func message (trace)");
+    logger.Debug("logger func message (debug)");
+    logger.Info("logger func message (info)");
+    logger.Warn("logger func message (warning)");
+    logger.Error("logger func message (error)");
+    logger.Fatal("logger func message (fatal)");
+    logger.Debug("logger func formatted: {} '{}'", _LIBCPP_STD_VER, "demo");
+}
+
+static void LoggerMacroDemo()
+{
+    Log::Logger logger("LoggerMacro");
+    LogTrace(logger, "logger macro msg (trace)");
+    LogDebug(logger, "logger macro msg (debug)");
+    LogInfo(logger, "logger macro msg (info)");
+    LogWarn(logger, "logger macro msg (warn)");
+    LogError(logger, "logger macro msg (error)");
+    LogFatal(logger, "logger macro msg (fatal)");
+    LogDebug(logger, "logger macro formatted: {}", std::chrono::system_clock::to_time_t(std::chrono::system_clock::now()));
+}
+
 struct FeatureDemo
 {
+    Log::Logger logger{"FeatureArea"};
+
     static Log::Logger& DefaultLogger()
     {
-        static Log::Logger logger("Feature");
+        static Log::Logger logger("FeatureDefault");
         return logger;
     }
 
-    void DoSomething()
+    // ReSharper disable once CppMemberFunctionMayBeStatic
+    void DefaultMacroDemo()
     {
         LogTrace("feature msg (trace)");
         LogDebug("feature msg (debug)");
@@ -42,19 +71,14 @@ struct FeatureDemo
     }
 };
 
-static void MacroWithLoggerDemo(Log::Logger& logger)
-{
-    LogTrace(logger, "macro w/ logger msg (trace)");
-    LogDebug(logger, "macro w/ logger formatted: {}", 12345);
-}
-
-int main(int argc, char* argv[])
+int main(const int argc, char**)
 {
     FuncDemo();
     MacroDemo();
+    LoggerFuncDemo();
+    LoggerMacroDemo();
     FeatureDemo feature;
-    feature.DoSomething();
-    MacroWithLoggerDemo(FeatureDemo::DefaultLogger());
+    feature.DefaultMacroDemo();
 
     return argc - 1; // to check exit code is passed from emrun
 }
