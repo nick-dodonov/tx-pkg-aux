@@ -14,6 +14,7 @@ namespace Http
 {
     auto constexpr TlsUrlProtocol = "https:";
     auto constexpr BasicHttpVersion = 11;
+    auto constexpr DefaultRequestService = "80";
 
     static void SocketClose(boost::asio::basic_socket<boost::asio::ip::tcp>& socket, const bool logSuccess)
     {
@@ -180,7 +181,7 @@ namespace Http
                     auto slot = asio::get_associated_cancellation_slot(handler);
                     asio::co_spawn(
                         executor,
-                        GetAsyncImpl(std::move(_url)),
+                        GetAsyncImpl(),
                         asio::bind_cancellation_slot(
                             slot,
                             [handler = std::forward<T0>(handler)](const std::exception_ptr& ex, ILiteClient::Result&& result) mutable {
@@ -203,29 +204,17 @@ namespace Http
 
     private:
         std::string _url;
+        ada::url_aggregator _url_result;
 
-        boost::asio::awaitable<ILiteClient::Result> GetAsyncImpl(std::string url)
+        boost::asio::awaitable<ILiteClient::Result> GetAsyncImpl()
         {
-            Log::Trace("http: coro: {}", url);
+            Log::Trace("http: coro: {}", _url);
 
             // URL parsing
-            auto url_ec = ada::parse<ada::url_aggregator>(url);
-            if (!url_ec) {
-                Log::Debug("http: url parse failed: {}", url);
-                co_return std::unexpected(std::system_error{
-                    std::make_error_code(std::errc::invalid_argument),
-                    std::format("Failed to parse URL: {}", url)
-                });
+            if (auto ec = ParseUrl()) {
+                Log::Debug("http: url parse failed: {}", _url);
+                co_return std::unexpected(std::system_error{ec,std::format("Failed to parse URL: {}", _url)});
             }
-
-            auto& url_result = url_ec.value();
-            Log::Trace(
-                "http: url parsed: protocol={} host={} port={} path={}",
-                url_result.get_protocol(),
-                url_result.get_hostname(),
-                url_result.get_port(),
-                url_result.get_pathname()
-            );
 
             namespace asio = boost::asio;
             namespace beast = boost::beast;
@@ -236,19 +225,19 @@ namespace Http
             asio::ip::tcp::resolver resolver{executor};
 
             // DNS resolution
-            auto url_protocol = url_result.get_protocol();
-            auto url_port = url_result.get_port();
+            auto url_protocol = _url_result.get_protocol();
+            auto url_port = _url_result.get_port();
             std::string url_service;
             if (!url_port.empty()) {
                 url_service = url_port;
             } else if (!url_protocol.empty()) {
                 url_service = url_protocol.substr(0, url_protocol.size()-1); // resolver supports "http" and "https" services
             } else {
-                url_service = "80"; // default
+                url_service = DefaultRequestService;
             }
             boost::system::error_code ec;
             auto dns_results = co_await resolver.async_resolve(
-                url_result.get_hostname(),
+                _url_result.get_hostname(),
                 url_service,
                 // https://think-async.com/Asio/asio-1.36.0/doc/asio/overview/composition/token_adapters.html
                 asio::redirect_error(asio::use_awaitable, ec)
@@ -256,7 +245,7 @@ namespace Http
             if (ec) {
                 Log::Error("http: failed to resolved: {}", ec.message());
                 co_return std::unexpected(std::system_error{
-                    ec, std::format("DNS resolution failed: '{}'", url_result.get_hostname())
+                    ec, std::format("DNS resolution failed: '{}'", _url_result.get_hostname())
                 });
             }
             LogDnsResults(dns_results);
@@ -280,7 +269,7 @@ namespace Http
             if (ec) {
                 Log::Debug("http: socket: connect failed to any endpoint: {}", ec.message());
                 co_return std::unexpected(std::system_error{
-                    ec, std::format("Failed to connect to host: '{}'", url_result.get_hostname())
+                    ec, std::format("Failed to connect to host: '{}'", _url_result.get_hostname())
                 });
             }
 
@@ -293,7 +282,7 @@ namespace Http
                 Log::Debug("http: socket: set_option TCP_NODELAY failed: {}", ec.message());
             }
 
-            if (url_result.get_protocol() == TlsUrlProtocol) {
+            if (_url_result.get_protocol() == TlsUrlProtocol) {
                 // TLS handshake
                 Log::Trace("http: tls: handshaking");
                 ssl::context sslContext{ssl::context::tls_client};
@@ -303,12 +292,12 @@ namespace Http
                 ssl::stream<asio::ip::tcp::socket> sslStream{std::move(socket), sslContext};
                 SocketScope tlsSocketScope{sslStream.lowest_layer()};
 
-                String::CstrView cstrHostName{url_result.get_hostname()};
+                String::CstrView cstrHostName{_url_result.get_hostname()};
                 if (!SSL_set_tlsext_host_name(sslStream.native_handle(), cstrHostName.c_str())) {
                     Log::Debug("http: tls: failed to set SNI");
                     co_return std::unexpected(std::system_error{
                         std::make_error_code(std::errc::protocol_error),
-                        std::format("Failed to set SNI for: '{}'", url_result.get_hostname())
+                        std::format("Failed to set SNI for: '{}'", _url_result.get_hostname())
                     });
                 }
 
@@ -319,7 +308,7 @@ namespace Http
                     Log::Debug("http: tls: handshaking failed: {}", ec.message());
                     // Don't make async_shutdown - handshake didn't pass, just close lowest_layer() socket
                     co_return std::unexpected(std::system_error{ec,
-                        std::format("Failed TLS handshake: '{}'", url_result.get_hostname())
+                        std::format("Failed TLS handshake: '{}'", _url_result.get_hostname())
                     });
                 }
 
@@ -327,7 +316,7 @@ namespace Http
                 LogSslHandle(sslStream.native_handle());
 
                 // Make HTTP request over TLS
-                auto response = co_await MakeHttpRequest(std::move(url_result), sslStream);
+                auto response = co_await MakeHttpRequest(sslStream);
 
                 // Graceful SSL shutdown
                 //Log::Trace("http: tls: shutting down");
@@ -343,14 +332,31 @@ namespace Http
             }
 
             // Make HTTP request over plain TCP
-            auto response = co_await MakeHttpRequest(std::move(url_result), socket);
+            auto response = co_await MakeHttpRequest(socket);
 
             // TCP socket will be closed by socket scope
             co_return response;
         }
 
+        std::error_code ParseUrl()
+        {
+            auto url_ec = ada::parse<ada::url_aggregator>(_url);
+            if (!url_ec) {
+                return std::make_error_code(std::errc::invalid_argument);
+            }
+            _url_result = url_ec.value();
+            Log::Trace(
+                "http: url parsed: protocol={} host={} port={} path={}",
+                _url_result.get_protocol(),
+                _url_result.get_hostname(),
+                _url_result.get_port(),
+                _url_result.get_pathname()
+            );
+            return {};
+        }
+
         template <typename Stream>
-        boost::asio::awaitable<ILiteClient::Result> MakeHttpRequest(const ada::url_aggregator url_result, Stream& stream)
+        boost::asio::awaitable<ILiteClient::Result> MakeHttpRequest(Stream& stream)
         {
             namespace asio = boost::asio;
             namespace beast = boost::beast;
@@ -359,9 +365,9 @@ namespace Http
             // HTTP request/response
             http::request<http::string_body> request{
                 http::verb::get,
-                url_result.get_pathname(),
+                _url_result.get_pathname(),
                 BasicHttpVersion};
-            request.set(http::field::host, url_result.get_hostname());
+            request.set(http::field::host, _url_result.get_hostname());
             request.set(http::field::user_agent, "Test/1.0");
 
             // Send
@@ -373,7 +379,7 @@ namespace Http
                 Log::Debug("http: sending failed: {} (count={})", ec.message(), count);
                 co_return std::unexpected(std::system_error{
                     ec, std::format("Failed to send HTTP request: '{}' {} {}",
-                        url_result.get_hostname(), request.method_string(), request.target())
+                        _url_result.get_hostname(), request.method_string(), request.target())
                 });
             }
             Log::Trace("http: sent: {} bytes", count);
