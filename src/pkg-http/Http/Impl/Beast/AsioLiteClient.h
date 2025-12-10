@@ -8,7 +8,7 @@ namespace Http
     {
     public:
         using BaseLiteClient::BaseLiteClient;
-        boost::asio::awaitable<ILiteClient::Result> GetAsync(std::string url) override;
+        boost::asio::awaitable<Result> GetAsync(std::string url) override;
     };
 }
 #endif
