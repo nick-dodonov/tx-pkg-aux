@@ -11,6 +11,9 @@ MODULE.bazel.lock
 # Native debugging customizations
 /.lldb*
 
+# Artifacts and temp
+/.*
+
 # OS/caches/temp files
 .DS_Store
 Thumbs.db

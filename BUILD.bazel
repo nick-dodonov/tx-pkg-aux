@@ -3,11 +3,7 @@ package(
 )
 
 # Public API aliases for external consumption
-alias(
-    name = "pkg-log",
-    actual = "//src/pkg-log",
-)
-alias(
-    name = "pkg-boot",
-    actual = "//src/pkg-boot",
-)
+alias(name = "pkg-app", actual = "//src/pkg-app")
+alias(name = "pkg-boot", actual = "//src/pkg-boot")
+alias(name = "pkg-http", actual = "//src/pkg-http")
+alias(name = "pkg-log", actual = "//src/pkg-log")

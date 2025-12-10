@@ -5,6 +5,12 @@ tx_library(
     srcs = glob(["**/*.cpp"]),
     hdrs = glob(["**/*.h"]),
     strip_include_prefix = ".",
-    deps = ["@lwlog"],
+    defines = [
+        "SPDLOG_USE_STD_FORMAT",
+        "SPDLOG_NO_EXCEPTIONS",
+    ],
+    deps = [
+        "@spdlog//:spdlog",
+    ],
     visibility = ["//visibility:public"],
 )

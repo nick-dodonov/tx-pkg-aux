@@ -1,0 +1,24 @@
+load("@tx-kit-ext//rules/build:tx_library.bzl", "tx_library")
+
+tx_library(
+    name = "pkg-http",
+    srcs = glob(["**/*.cpp"]),
+    hdrs = glob(["**/*.h"]),
+    strip_include_prefix = ".",
+    cxxopts = [
+        "-std=c++23",
+    ],
+    deps = [
+        "//:pkg-log",
+        "@boost.asio//:boost.asio",
+        "@ada-url//:ada", #TODO: maybe cxxurl?
+        "@gsl//:gsl",
+    ] + select({
+        "@platforms//cpu:wasm32": [],
+        "//conditions:default": [
+            "@boost.beast//:boost.beast",
+            "@boringssl//:ssl",
+        ],
+    }),
+    visibility = ["//visibility:public"],
+)

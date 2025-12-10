@@ -18,32 +18,32 @@ namespace Build
         desc << " | ";
 #if defined(__wasm__) || defined(__EMSCRIPTEN__)
         desc << "WebAssembly";
-#ifdef __EMSCRIPTEN__
+    #ifdef __EMSCRIPTEN__
         desc << " (Emscripten)";
-#endif
+    #endif
 #elif defined(_WIN32) || defined(_WIN64)
         desc << "Windows";
-#ifdef _WIN64
+    #ifdef _WIN64
         desc << " x64";
-#else
+    #else
         desc << " x86";
-#endif
+    #endif
 #elif defined(__APPLE__)
         desc << "macOS";
-#if defined(__arm64__) || defined(__aarch64__)
+    #if defined(__arm64__) || defined(__aarch64__)
         desc << " ARM64";
-#elif defined(__x86_64__)
+    #elif defined(__x86_64__)
         desc << " x64";
-#endif
+    #endif
 #elif defined(__linux__)
         desc << "Linux";
-#if defined(__arm64__) || defined(__aarch64__)
+    #if defined(__arm64__) || defined(__aarch64__)
         desc << " ARM64";
-#elif defined(__x86_64__)
+    #elif defined(__x86_64__)
         desc << " x64";
-#elif defined(__i386__)
+    #elif defined(__i386__)
         desc << " x86";
-#endif
+    #endif
 #else
         desc << "Unknown Platform";
 #endif

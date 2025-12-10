@@ -1,23 +1,84 @@
 #include "Log/Log.h"
-#include <format>
 
-int main(int argc, char* argv[])
+//TODO: add samples w/ Src modifiers (NoFunc)
+
+static void FuncDemo()
 {
-    Log::Debug("Test message (debug)");
-    Log::Info("Test message (info)");
-    Log::Warn("Test message (warning)");
-    Log::Error("Test message (error)");
-    Log::Fatal("Test message (fatal)");
+    Log::Trace("func message (trace)");
+    Log::Debug("func message (debug)");
+    Log::Info("func message (info)");
+    Log::Warn("func message (warning)");
+    Log::Error("func message (error)");
+    Log::Fatal("func message (fatal)");
+    Log::Debug("func formatted: {} '{}'", _LIBCPP_STD_VER, "demo");
+}
 
-    Log::Fatal(std::format("  DEBUG compile_commands: {}", _LIBCPP_STD_VER));
+static void MacroDemo()
+{
+    LogTrace("macro msg (trace)");
+    LogDebug("macro msg (debug)");
+    LogInfo("macro msg (info)");
+    LogWarn("macro msg (warn)");
+    LogError("macro msg (error)");
+    LogFatal("macro msg (fatal)");
+    LogDebug("macro formatted: {}", 12345);
+}
 
-    Log::Info("Command:");
-    for (int i = 0; i < argc; ++i) {
-        Log::Info(std::format("  Arg[{}]: {}", i, argv[i]));
+static void LoggerFuncDemo()
+{
+    Log::Logger logger("LoggerFunc");
+    logger.Trace("logger func message (trace)");
+    logger.Debug("logger func message (debug)");
+    logger.Info("logger func message (info)");
+    logger.Warn("logger func message (warning)");
+    logger.Error("logger func message (error)");
+    logger.Fatal("logger func message (fatal)");
+    logger.Debug("logger func formatted: {} '{}'", _LIBCPP_STD_VER, "demo");
+}
+
+static void LoggerMacroDemo()
+{
+    Log::Logger logger("LoggerMacro");
+    LogTrace(logger, "logger macro msg (trace)");
+    LogDebug(logger, "logger macro msg (debug)");
+    LogInfo(logger, "logger macro msg (info)");
+    LogWarn(logger, "logger macro msg (warn)");
+    LogError(logger, "logger macro msg (error)");
+    LogFatal(logger, "logger macro msg (fatal)");
+    LogDebug(logger, "logger macro formatted: {}", std::chrono::system_clock::to_time_t(std::chrono::system_clock::now()));
+}
+
+struct FeatureDemo
+{
+    Log::Logger logger{"FeatureArea"};
+
+    static Log::Logger& DefaultLogger()
+    {
+        static Log::Logger logger("FeatureDefault");
+        return logger;
     }
 
-    auto exitCode = argc - 1;
-    Log::Info(std::format("Exit: {}", exitCode));
+    // ReSharper disable once CppMemberFunctionMayBeStatic
+    void DefaultMacroDemo()
+    {
+        LogTrace("feature msg (trace)");
+        LogDebug("feature msg (debug)");
+        LogInfo("feature msg (info)");
+        LogWarn("feature msg (warn)");
+        LogError("feature msg (error)");
+        LogFatal("feature msg (fatal)");
+        LogDebug("feature formatted: {}", -12345);
+    }
+};
 
-    return exitCode; // test exit code is passed from emrun
+int main(const int argc, char**)
+{
+    FuncDemo();
+    MacroDemo();
+    LoggerFuncDemo();
+    LoggerMacroDemo();
+    FeatureDemo feature;
+    feature.DefaultMacroDemo();
+
+    return argc - 1; // to check exit code is passed from emrun
 }
