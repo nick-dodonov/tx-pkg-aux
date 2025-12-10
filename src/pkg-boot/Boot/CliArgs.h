@@ -10,6 +10,9 @@ namespace Boot
     class CliArgs : public CliArgsView
     {
     public:
+        CliArgs(const int argc, char** argv) noexcept
+            : CliArgsView(argv, argv + argc)
+        {}
         CliArgs(const int argc, const char** argv) noexcept
             : CliArgsView(argv, argv + argc)
         {}

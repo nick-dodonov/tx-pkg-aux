@@ -4,6 +4,7 @@ namespace Boot
 {
     class CliArgs;
 
+    void LogHeader(int argc, char** argv) noexcept;
     void LogHeader(int argc, const char** argv) noexcept;
     void LogHeader(const CliArgs& args) noexcept;
 
