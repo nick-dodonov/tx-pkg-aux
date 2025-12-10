@@ -237,11 +237,14 @@ namespace Http
         struct TcpConnection
         {
             TcpSocket socket;
-            TcpSocket& GetStream() { return socket; }
 
             explicit TcpConnection(TcpSocket&& socket_)
                 : socket(std::move(socket_))
             {}
+            TcpConnection(const TcpConnection&) = delete;
+            TcpConnection& operator=(const TcpConnection&) = delete;
+            TcpConnection(TcpConnection&&) noexcept = default;
+            TcpConnection& operator=(TcpConnection&&) noexcept = default;
 
             ~TcpConnection()
             {
@@ -253,15 +256,20 @@ namespace Http
         {
             SslStream stream;
 
-            SslStream& GetStream() { return stream; }
-
             explicit SslConnection(SslStream&& stream_)
                 : stream(std::move(stream_))
             {}
-            SslConnection(SslConnection&&) = default;
+            SslConnection(const SslConnection&) = delete;
+            SslConnection& operator=(const SslConnection&) = delete;
+            SslConnection(SslConnection&&) noexcept = default;
+            SslConnection& operator=(SslConnection&&) noexcept = default;
 
-            bool IsHandshakeComplete() {
-                return SSL_is_init_finished(stream.native_handle()) != 0;
+            bool IsHandshakeComplete()
+            {
+                if (const auto* sslHandle = stream.native_handle()) {
+                    return SSL_is_init_finished(sslHandle) != 0;
+                }
+                return false;
             }
 
             ~SslConnection()
@@ -294,6 +302,43 @@ namespace Http
             }
         };
 
+        boost::asio::awaitable<std::expected<SslConnection, std::system_error>> SslConnect(TcpConnection&& tcpConnection) const // NOLINT(*-avoid-reference-coroutine-parameters)
+        {
+            namespace asio = boost::asio;
+            namespace ssl = asio::ssl;
+
+            // TLS connect
+            const auto executor = co_await asio::this_coro::executor;
+            ssl::context sslContext{ssl::context::tls_client};
+            sslContext.set_verify_mode(ssl::verify_none); //TODO: rollback to ssl::verify_peer and add certs handling setup for development
+            sslContext.set_default_verify_paths();
+
+            auto sslStream = SslStream{std::move(tcpConnection).socket, sslContext};
+            auto sslConnection = SslConnection{std::move(sslStream)};
+
+            // SNI setup
+            String::CstrView cstrHostName{_url_result.get_hostname()};
+            if (!SSL_set_tlsext_host_name(sslConnection.stream.native_handle(), cstrHostName.c_str())) {
+                auto what = std::format("SNI setup failed '{}'", _url_result.get_hostname());
+                Log::Debug("http: tls: {}", what);
+                co_return std::unexpected(std::system_error{std::make_error_code(std::errc::protocol_error), what});
+            }
+
+            // TLS handshake
+            auto [ec] = co_await sslConnection.stream.async_handshake(
+                ssl::stream_base::client,
+                asio::as_tuple(asio::use_awaitable));
+            if (ec) {
+                auto what = std::format("TLS handshake failed '{}:{}'", _url_result.get_hostname(), _url_result.get_port());
+                Log::Debug("http: tls: {}: {}", what, ec.message());
+                // Don't make async_shutdown - handshake didn't pass, just close lowest_layer() socket
+                co_return std::unexpected(std::system_error{ec, what});
+            }
+
+            LogSslConnected(sslConnection.stream.native_handle());
+            co_return std::move(sslConnection);
+        }
+
         boost::asio::awaitable<ILiteClient::Result> GetAsyncImpl()
         {
             Log::Trace("http: coro: {}", _url);
@@ -311,9 +356,6 @@ namespace Http
                 });
             }
 
-            namespace asio = boost::asio;
-            namespace ssl = asio::ssl;
-
             // TCP connect
             auto tcpSocket = co_await TcpConnect();
             if (!tcpSocket) {
@@ -325,42 +367,19 @@ namespace Http
 
             // TLS or plain HTTP handling
             if (_url_result.get_protocol() == TlsUrlProtocol) {
-                // TLS handshake
-                Log::Trace("http: tls: handshaking");
-                ssl::context sslContext{ssl::context::tls_client};
-                sslContext.set_verify_mode(ssl::verify_none); //TODO: rollback to ssl::verify_peer and add certs handling setup for development
-                sslContext.set_default_verify_paths();
-
-                auto sslStream = SslStream{std::move(tcpConnection).socket, sslContext};
-                auto sslConnection = SslConnection{std::move(sslStream)};
-
-                String::CstrView cstrHostName{_url_result.get_hostname()};
-                if (!SSL_set_tlsext_host_name(sslConnection.stream.native_handle(), cstrHostName.c_str())) {
-                    auto what = std::format("SNI setup failed '{}'", _url_result.get_hostname());
-                    Log::Debug("http: tls: {}", what);
-                    co_return std::unexpected(std::system_error{std::make_error_code(std::errc::protocol_error), what});
+                auto resultSslConnection = co_await SslConnect(std::move(tcpConnection));
+                if (!resultSslConnection) {
+                    co_return std::unexpected(std::move(resultSslConnection).error());
                 }
-
-                auto [ec] = co_await sslConnection.stream.async_handshake(
-                    ssl::stream_base::client,
-                    asio::as_tuple(asio::use_awaitable));
-                if (ec) {
-                    auto what = std::format("TLS handshake failed '{}:{}'", _url_result.get_hostname(), _url_result.get_port());
-                    Log::Debug("http: tls: {}: {}", what, ec.message());
-                    // Don't make async_shutdown - handshake didn't pass, just close lowest_layer() socket
-                    co_return std::unexpected(std::system_error{ec, what});
-                }
-
-                LogSslConnected(sslConnection.stream.native_handle());
 
                 // Make HTTP request over TLS
-                auto response = co_await MakeHttpRequest(sslConnection);
+                auto response = co_await MakeHttpRequest(resultSslConnection.value().stream);
                 // TLS shutdown and TCP socket will be closed by scope
                 co_return response;
             }
 
             // Make HTTP request over plain TCP
-            auto response = co_await MakeHttpRequest(tcpConnection);
+            auto response = co_await MakeHttpRequest(tcpConnection.socket);
             // TCP socket will be closed by scope
             co_return response;
         }
@@ -467,7 +486,7 @@ namespace Http
             namespace beast = boost::beast;
             namespace http = beast::http;
 
-            auto& stream = connection.GetStream();
+            auto& stream = connection;
 
             // HTTP request/response
             http::request<http::string_body> request{
