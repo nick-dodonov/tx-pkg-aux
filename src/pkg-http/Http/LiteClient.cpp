@@ -1,9 +1,9 @@
 #include "LiteClient.h"
 #if __EMSCRIPTEN__
-    #include "Impl/EmFetchLiteClient.h"
-    #include "Impl/JsFetchLiteClient.h"
+    #include "Impl/Wasm/EmFetchLiteClient.h"
+    #include "Impl/Wasm/JsFetchLiteClient.h"
 #else
-    #include "Impl/AsioLiteClient.h"
+    #include "Impl/Beast/AsioLiteClient.h"
 #endif
 
 namespace Http

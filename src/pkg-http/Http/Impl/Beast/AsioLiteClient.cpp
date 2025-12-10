@@ -1,7 +1,7 @@
 #if !__EMSCRIPTEN__
 #include "AsioLiteClient.h"
 #include "Log/Log.h"
-#include "CstrView.h"
+#include "../CstrView.h"
 #include <format>
 #include <array>
 #include <ada.h>
@@ -121,7 +121,7 @@ namespace Http
         }
     }
 
-    static void LogSslHandle(const SSL* ssl_handle)
+    static void LogSslConnected(const SSL* ssl_handle)
     {
         if (!Log::Enabled(Log::Level::Trace)) {
             return;
@@ -129,7 +129,7 @@ namespace Http
 
         // TLS/SSL version
         const auto* tls_version = SSL_get_version(ssl_handle);
-        Log::Trace("http: tls: protocol version: {}", tls_version);
+        Log::Trace("http: tls: handshake succeed: {}", tls_version);
 
         // Cipher being used
         const auto* cipher_name = SSL_get_cipher_name(ssl_handle);
@@ -351,29 +351,17 @@ namespace Http
                     co_return std::unexpected(std::system_error{ec, what});
                 }
 
-                Log::Trace("http: tls: handshake succeed");
-                LogSslHandle(sslConnection.stream.native_handle());
+                LogSslConnected(sslConnection.stream.native_handle());
 
                 // Make HTTP request over TLS
                 auto response = co_await MakeHttpRequest(sslConnection);
-
-                // // Graceful SSL shutdown
-                // //Log::Trace("http: tls: shutting down");
-                // std::tie(ec) = co_await sslConnection.stream.async_shutdown(asio::as_tuple(asio::use_awaitable));
-                // if (ec/* && ec != asio::error::eof*/) { // EOF is expected - server closed connection after shutdown
-                //     Log::Trace("http: tls: shutdown: {}", ec.message());
-                // } else {
-                //     Log::Trace("http: tls: shutdown succeed");//, ec ? ec.message(): "succeed");
-                // }
-
-                // Underlying TCP socket will be closed by socket scope
+                // TLS shutdown and TCP socket will be closed by scope
                 co_return response;
             }
 
             // Make HTTP request over plain TCP
             auto response = co_await MakeHttpRequest(tcpConnection);
-
-            // TCP socket will be closed by socket scope
+            // TCP socket will be closed by scope
             co_return response;
         }
 

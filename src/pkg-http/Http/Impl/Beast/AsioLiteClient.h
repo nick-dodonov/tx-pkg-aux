@@ -1,6 +1,6 @@
 #pragma once
 #if !__EMSCRIPTEN__
-#include "BaseLiteClient.h"
+#include "../BaseLiteClient.h"
 
 namespace Http
 {
