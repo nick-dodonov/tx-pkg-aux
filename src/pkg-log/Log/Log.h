@@ -28,12 +28,12 @@ namespace Log
     };
 
     template <class... Args>
-    struct FmtMsg : MsgBase, std::format_string<Args...>
+    struct FmtMsg : std::format_string<Args...>, MsgBase // order changed to fix MSVC issue (consteval ctor first)
     {
         // ReSharper disable CppNonExplicitConvertingConstructor
         template <class Tp>
           requires std::convertible_to<const Tp&, std::basic_string_view<char>>
-        FmtMsg(const Tp& str, const Src src = {}) noexcept // NOLINT(*-explicit-constructor)
+        constexpr FmtMsg(const Tp& str, const Src src = {}) noexcept // NOLINT(*-explicit-constructor)
             : std::format_string<Args...>{str}
             , MsgBase{src}
         {}
@@ -41,14 +41,14 @@ namespace Log
     };
 
     template <>
-    struct FmtMsg<> : MsgBase, std::string_view
+    struct FmtMsg<> : std::string_view, MsgBase
     {
         template <typename T>
             requires (!std::same_as<std::decay_t<T>, FmtMsg> && std::constructible_from<std::string_view, T>)
         // ReSharper disable once CppNonExplicitConvertingConstructor
         constexpr FmtMsg(T&& msg, const Src src = {}) noexcept // NOLINT(*-explicit-constructor)
-            : MsgBase{src}
-            , std::string_view{std::forward<T>(msg)}
+            : std::string_view{std::forward<T>(msg)}
+            , MsgBase{src}
         {}
 
         [[nodiscard]] constexpr std::string_view get() const noexcept { return {data(), size()}; }

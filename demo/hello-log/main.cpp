@@ -10,7 +10,7 @@ static void FuncDemo()
     Log::Warn("func message (warning)");
     Log::Error("func message (error)");
     Log::Fatal("func message (fatal)");
-    Log::Debug("func formatted: {} '{}'", _LIBCPP_STD_VER, "demo");
+    Log::Debug("func formatted: '{}'", "demo");
 }
 
 static void MacroDemo()
@@ -33,7 +33,7 @@ static void LoggerFuncDemo()
     logger.Warn("logger func message (warning)");
     logger.Error("logger func message (error)");
     logger.Fatal("logger func message (fatal)");
-    logger.Debug("logger func formatted: {} '{}'", _LIBCPP_STD_VER, "demo");
+    logger.Debug("logger func formatted: '{}'", "demo");
 }
 
 static void LoggerMacroDemo()
