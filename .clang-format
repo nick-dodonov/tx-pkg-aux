@@ -75,7 +75,7 @@ BraceWrapping:
 #   AfterCaseLabel: false
 
 # inline function formatting
-AllowShortFunctionsOnASingleLine: All
+AllowShortFunctionsOnASingleLine: InlineOnly
 AllowShortLambdasOnASingleLine: All
 
 # other settings
