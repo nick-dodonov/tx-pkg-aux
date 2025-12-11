@@ -33,9 +33,9 @@ namespace Log
         // ReSharper disable CppNonExplicitConvertingConstructor
         template <class Tp>
           requires std::convertible_to<const Tp&, std::basic_string_view<char>>
-        constexpr FmtMsg(const Tp& str, const Src src = {}) noexcept // NOLINT(*-explicit-constructor)
-            : MsgBase{src}
-            , std::format_string<Args...>{str}
+        FmtMsg(const Tp& str, const Src src = {}) noexcept // NOLINT(*-explicit-constructor)
+            : std::format_string<Args...>{str}
+            , MsgBase{src}
         {}
         // ReSharper restore CppNonExplicitConvertingConstructor
     };
