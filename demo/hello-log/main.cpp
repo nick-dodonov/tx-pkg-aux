@@ -1,4 +1,7 @@
+#include <numbers>
+
 #include "Log/Log.h"
+#include "Log/Scope.h"
 
 //TODO: add samples w/ Src modifiers (NoFunc)
 
@@ -71,6 +74,34 @@ struct FeatureDemo
     }
 };
 
+static void ScopeDemo()
+{
+    {
+        auto _ = Log::Scope{};
+        Log::Info("inside scope");
+    }
+    {
+        auto _ = Log::Scope{Log::Level::Trace};
+        Log::Trace("inside scope");
+    }
+    {
+        auto _ = Log::Scope{"custom message"};
+        Log::Info("inside scope");
+    }
+    {
+        auto _ = Log::Scope{Log::Level::Debug, "custom level message"};
+        Log::Debug("inside scope");
+    }
+    {
+        auto _ = Log::Scope{"custom formatted: {}", std::numbers::pi_v<float>};
+        Log::Info("inside scope");
+    }
+    {
+        auto _ = Log::Scope{Log::Level::Debug, "custom level formatted: {}", std::numbers::pi_v<float>};
+        Log::Debug("inside scope");
+    }
+}
+
 int main(const int argc, char**)
 {
     FuncDemo();
@@ -80,5 +111,6 @@ int main(const int argc, char**)
     FeatureDemo feature;
     feature.DefaultMacroDemo();
 
+    ScopeDemo();
     return argc - 1; // to check exit code is passed from emrun
 }

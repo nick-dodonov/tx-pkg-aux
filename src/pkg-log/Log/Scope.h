@@ -24,12 +24,13 @@ namespace Log
         constexpr Scope(
             const Prefixes& prefixes,
             const Level level,
-            FmtMsg<std::type_identity_t<Args>...> fmt, Args&&... args) // NOLINT(cppcoreguidelines-missing-std-forward)
+            FmtMsg<std::type_identity_t<Args>...> fmt, 
+            Args&&... args) // NOLINT(cppcoreguidelines-missing-std-forward)
             : start{Clock::now()}
             , prefixes{prefixes}
             , level{level}
             , src{std::move(fmt.src)}
-            , msg{std::vformat(fmt.get(), std::make_format_args(args...))}
+            , msg{std::vformat(fmt.format.get(), std::make_format_args(args...))}
         {
             Msg(src, level, "{} {}", prefixes.first, msg);
         }
