@@ -6,7 +6,7 @@
 
 namespace Log
 {
-    struct Scope : MsgBase
+    struct Scope
     {
         using Prefixes = std::pair<std::string_view, std::string_view>;
         constexpr static Prefixes DefaultPrefixes = {">>>", "<<<"};

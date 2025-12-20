@@ -35,22 +35,18 @@ namespace Log::Detail
 
 namespace Log
 {
-    struct MsgBase
-    {
-        Src src;
-    };
-
     template <class... Args>
-    struct FmtMsg : MsgBase
+    struct FmtMsg
     {
         std::format_string<Args...> format;
+        Src src;
 
         // ReSharper disable CppNonExplicitConvertingConstructor
         template <class Tp>
           requires std::convertible_to<const Tp&, std::basic_string_view<char>>
-        constexpr FmtMsg(const Tp& str, const Src src = {}) noexcept // NOLINT(*-explicit-constructor)
-            : MsgBase{src}
-            , format{str}
+        consteval FmtMsg(Tp&& str, const Src src = {}) noexcept // NOLINT(*-explicit-constructor)
+            : format{std::forward<Tp>(str)}
+            , src{src}
         {}
         // ReSharper restore CppNonExplicitConvertingConstructor
     };
