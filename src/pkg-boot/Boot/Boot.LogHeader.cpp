@@ -39,8 +39,9 @@ namespace Boot
 
         // startup time
         const auto tm = spdlog::details::os::localtime();
+        const auto tzOffset = spdlog::details::os::utc_minutes_offset(tm);
         std::ostringstream oss;
-        oss << std::put_time(&tm, "%Y-%m-%d %H:%M:%S");
+        oss << std::put_time(&tm, "%Y-%m-%d %H:%M:%S ") << "UTC" << (tzOffset >= 0 ? "+" : "-") << std::abs(tzOffset) / 60 << ":00";
         Line("║ Runtime: {}", oss.view());
 
         std::array<char, 1024> cwd = {};
