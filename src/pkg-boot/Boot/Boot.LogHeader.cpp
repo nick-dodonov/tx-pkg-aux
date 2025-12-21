@@ -6,6 +6,7 @@
 #include <Log/Path.h>
 
 #include <iomanip>
+#include <filesystem>
 
 namespace Boot
 {
@@ -41,14 +42,17 @@ namespace Boot
         const auto tm = spdlog::details::os::localtime();
         const auto tzOffset = spdlog::details::os::utc_minutes_offset(tm);
         std::ostringstream oss;
-        oss << std::put_time(&tm, "%Y-%m-%d %H:%M:%S ") << "UTC" << (tzOffset >= 0 ? "+" : "-") << std::abs(tzOffset) / 60 << ":00";
+        oss << std::put_time(&tm, "%Y-%m-%d %H:%M:%S ") << (tzOffset >= 0 ? "+" : "-") << std::abs(tzOffset) / 60 << ":00";
         Line("║ Runtime: {}", oss.view());
 
-        std::array<char, 1024> cwd = {};
-        if (!getcwd(cwd.data(), cwd.size())) {
-            cwd[0] = '\0';
+        // current working directory
+        std::error_code ec;
+        const auto currentPath = std::filesystem::current_path(ec);
+        if (!ec) {
+            Line("║ Directory: {}", currentPath.string());
+        } else {
+            Line("║ Directory: <error: {}>", ec.message());
         }
-        Line("║ Directory: {}", cwd.data());
 
         Line("║ Command:");
         for (auto i = 0; i < args.size(); ++i) {
