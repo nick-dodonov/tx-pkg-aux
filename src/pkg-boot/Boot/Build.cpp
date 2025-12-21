@@ -48,6 +48,24 @@ namespace Build
         desc << "Unknown Platform";
 #endif
 
+        // Architecture information
+        desc << " | ";
+#if defined(__aarch64__) || defined(_M_ARM64)
+        desc << "ARM64";
+#elif defined(__arm__) || defined(_M_ARM)
+        desc << "ARM32";
+#elif defined(__x86_64__) || defined(_M_X64) || defined(__amd64__)
+        desc << "x64";
+#elif defined(__i386__) || defined(_M_IX86) || defined(__i386)
+        desc << "x86";
+#elif defined(__riscv) && (__riscv_xlen == 64)
+        desc << "RISC-V 64";
+#elif defined(__riscv) && (__riscv_xlen == 32)
+        desc << "RISC-V 32";
+#else
+        desc << "(Unknown)";
+#endif
+
         // Compiler information
         desc << " | ";
 #if defined(__clang__)
