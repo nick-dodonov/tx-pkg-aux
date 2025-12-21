@@ -68,18 +68,37 @@ namespace Build
 
         // C++ standard
         desc << " | C++";
-#if __cplusplus >= 202300L
+#if defined(_MSC_VER)
+        // MSVC uses _MSVC_LANG instead of __cplusplus for correct standard detection
+        // TODO: include /Zc:__cplusplus for MSVC toolchain build to use standard detection w/ __cplusplus
+    #if _MSVC_LANG >= 202300L
         desc << "26";
-#elif __cplusplus >= 202002L
+    #elif _MSVC_LANG >= 202002L
         desc << "20";
-#elif __cplusplus >= 201703L
+    #elif _MSVC_LANG >= 201703L
         desc << "17";
-#elif __cplusplus >= 201402L
+    #elif _MSVC_LANG >= 201402L
         desc << "14";
-#elif __cplusplus >= 201103L
+    #elif _MSVC_LANG >= 201103L
         desc << "11";
-#else
+    #else
         desc << "<Unknown Standard>";
+    #endif
+#else
+        // For other compilers use __cplusplus
+    #if __cplusplus >= 202300L
+        desc << "26";
+    #elif __cplusplus >= 202002L
+        desc << "20";
+    #elif __cplusplus >= 201703L
+        desc << "17";
+    #elif __cplusplus >= 201402L
+        desc << "14";
+    #elif __cplusplus >= 201103L
+        desc << "11";
+    #else
+        desc << "<Unknown Standard>";
+    #endif
 #endif
 
         return desc.str();
