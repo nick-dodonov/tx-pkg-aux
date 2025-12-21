@@ -9,14 +9,14 @@ namespace Log::Detail
 {
     void DefaultInit();
 
+    inline static spdlog::logger* _sdpRawLogger = []() { // NOLINT(cppcoreguidelines-avoid-non-const-global-variables)
+        DefaultInit();
+        return spdlog::default_logger_raw();
+    }();
+
     inline spdlog::logger* DefaultLoggerRaw() noexcept
     {
-        static spdlog::logger* _logger;
-        if (_logger) {
-            return _logger;
-        }
-        DefaultInit();
-        return _logger = spdlog::default_logger_raw();
+        return _sdpRawLogger;
     }
 
     static constexpr auto AreaLoggerLine = -1;
