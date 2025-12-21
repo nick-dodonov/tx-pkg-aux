@@ -1,7 +1,9 @@
 #pragma once
 #include "Level.h"
 #include "Src.h"
+#include <format>
 #include <spdlog/spdlog.h>
+#include <string_view>
 
 namespace Log::Detail
 {
@@ -18,40 +20,35 @@ namespace Log::Detail
     }
 
     static constexpr auto AreaLoggerLine = -1;
+
+    template <typename... Args>
+    constexpr spdlog::format_string_t<Args...> ToSpdFormat(std::format_string<Args...> fmt)
+    {
+        // spdlog w/ __cpp_lib_format >= 202207L supported
+        if constexpr (std::same_as<spdlog::format_string_t<Args...>, std::format_string<Args...>>) {
+            return std::move(fmt);
+        } else {
+            return fmt.get();
+        }
+    }
 }
 
 namespace Log
 {
-    struct MsgBase
-    {
-        Src src;
-    };
-
     template <class... Args>
-    struct FmtMsg : MsgBase, std::format_string<Args...>
+    struct FmtMsg
     {
+        std::format_string<Args...> format;
+        Src src;
+
         // ReSharper disable CppNonExplicitConvertingConstructor
         template <class Tp>
           requires std::convertible_to<const Tp&, std::basic_string_view<char>>
-        constexpr FmtMsg(const Tp& str, const Src src = {}) noexcept // NOLINT(*-explicit-constructor)
-            : MsgBase{src}
-            , std::format_string<Args...>{str}
+        consteval FmtMsg(Tp&& str, const Src src = {}) noexcept // NOLINT(*-explicit-constructor)
+            : format{std::forward<Tp>(str)}
+            , src{src}
         {}
         // ReSharper restore CppNonExplicitConvertingConstructor
-    };
-
-    template <>
-    struct FmtMsg<> : MsgBase, std::string_view
-    {
-        template <typename T>
-            requires (!std::same_as<std::decay_t<T>, FmtMsg> && std::constructible_from<std::string_view, T>)
-        // ReSharper disable once CppNonExplicitConvertingConstructor
-        constexpr FmtMsg(T&& msg, const Src src = {}) noexcept // NOLINT(*-explicit-constructor)
-            : MsgBase{src}
-            , std::string_view{std::forward<T>(msg)}
-        {}
-
-        [[nodiscard]] constexpr std::string_view get() const noexcept { return {data(), size()}; }
     };
 
     inline bool Enabled(const Level level)
@@ -60,19 +57,28 @@ namespace Log
     }
 
     template <typename... Args>
-    void Msg(const Src src, const Level level, std::string_view fmt, Args&&... args) noexcept
+    void Msg(const Src src, const Level level, std::string_view msg) noexcept
     {
         Detail::DefaultLoggerRaw()->log(
             Detail::ToSpdLoc(src),
             Detail::ToSpdLevel(level),
-            fmt,
+            msg);
+    }
+
+    template <typename... Args>
+    void Msg(const Src src, const Level level, std::format_string<Args...> fmt, Args&&... args) noexcept
+    {
+        Detail::DefaultLoggerRaw()->log(
+            Detail::ToSpdLoc(src),
+            Detail::ToSpdLevel(level),
+            Detail::ToSpdFormat<Args...>(fmt),
             std::forward<Args>(args)...);
     }
 
     template <typename... Args>
     void Msg(const Level level, FmtMsg<Args...> fmt, Args&&... args) noexcept
     {
-        Msg(fmt.src, level, fmt.get(), std::forward<Args>(args)...);
+        Msg(fmt.src, level, std::move(fmt.format), std::forward<Args>(args)...);
     }
 
     template <typename... Args>
@@ -142,7 +148,7 @@ namespace Log
                 loc.filename = _area;
                 loc.line = Detail::AreaLoggerLine;
             }
-            Raw()->log(loc, Detail::ToSpdLevel(level), fmt.get(), std::forward<Args>(args)...);
+            Raw()->log(loc, Detail::ToSpdLevel(level), Detail::ToSpdFormat<Args...>(std::move(fmt)), std::forward<Args>(args)...);
         }
 
         // raw helpers allowing to use macro w/ passing logger instance as the 1st argument
@@ -160,7 +166,7 @@ namespace Log
 
         // main methods
         template <typename... Args>
-        void Msg(const Src src, const Level level, std::string_view fmt, Args&&... args) noexcept
+        void Msg(const Src src, const Level level, std::format_string<Args...> fmt, Args&&... args) noexcept
         {
             auto loc = Detail::ToSpdLoc(src);
             if (_area) {
@@ -171,14 +177,14 @@ namespace Log
             Raw()->log(
                 std::move(loc),
                 Detail::ToSpdLevel(level),
-                fmt,
+                Detail::ToSpdFormat<Args...>(std::move(fmt)),
                 std::forward<Args>(args)...);
         }
 
         template <typename... Args>
         void Msg(const Level level, FmtMsg<Args...> fmt, Args&&... args) noexcept
         {
-            Msg(fmt.src, level, fmt.get(), std::forward<Args>(args)...);
+            Msg(fmt.src, level, std::move(fmt.format), std::forward<Args>(args)...);
         }
 
         template <typename... Args>

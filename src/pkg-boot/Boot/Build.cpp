@@ -24,28 +24,34 @@ namespace Build
 #elif defined(_WIN32) || defined(_WIN64)
         desc << "Windows";
     #ifdef _WIN64
-        desc << " x64";
+        desc << " (64)";
     #else
-        desc << " x86";
+        desc << " (32)";
     #endif
 #elif defined(__APPLE__)
         desc << "macOS";
-    #if defined(__arm64__) || defined(__aarch64__)
-        desc << " ARM64";
-    #elif defined(__x86_64__)
-        desc << " x64";
-    #endif
 #elif defined(__linux__)
         desc << "Linux";
-    #if defined(__arm64__) || defined(__aarch64__)
-        desc << " ARM64";
-    #elif defined(__x86_64__)
-        desc << " x64";
-    #elif defined(__i386__)
-        desc << " x86";
-    #endif
 #else
-        desc << "Unknown Platform";
+        desc << "<Unknown OS>";
+#endif
+
+        // Architecture information
+        desc << " | ";
+#if defined(__arm64__) || defined(__aarch64__) || defined(_M_ARM64)
+        desc << "ARM64";
+#elif defined(__arm__) || defined(_M_ARM)
+        desc << "ARM32";
+#elif defined(__x86_64__) || defined(_M_X64) || defined(__amd64__)
+        desc << "x64";
+#elif defined(__i386__) || defined(_M_IX86) || defined(__i386)
+        desc << "x86";
+#elif defined(__riscv) && (__riscv_xlen == 64)
+        desc << "RISC-V 64";
+#elif defined(__riscv) && (__riscv_xlen == 32)
+        desc << "RISC-V 32";
+#else
+        desc << "<Unknown Arch>";
 #endif
 
         // Compiler information
@@ -57,23 +63,42 @@ namespace Build
 #elif defined(_MSC_VER)
         desc << "MSVC " << _MSC_VER;
 #else
-        desc << "Unknown Compiler";
+        desc << "<Unknown Compiler>";
 #endif
 
         // C++ standard
         desc << " | C++";
-#if __cplusplus >= 202300L
+#if defined(_MSC_VER)
+        // MSVC uses _MSVC_LANG instead of __cplusplus for correct standard detection
+        // TODO: include /Zc:__cplusplus for MSVC toolchain build to use standard detection w/ __cplusplus
+    #if _MSVC_LANG >= 202300L
         desc << "26";
-#elif __cplusplus >= 202002L
+    #elif _MSVC_LANG >= 202002L
         desc << "20";
-#elif __cplusplus >= 201703L
+    #elif _MSVC_LANG >= 201703L
         desc << "17";
-#elif __cplusplus >= 201402L
+    #elif _MSVC_LANG >= 201402L
         desc << "14";
-#elif __cplusplus >= 201103L
+    #elif _MSVC_LANG >= 201103L
         desc << "11";
+    #else
+        desc << "<Unknown Standard>";
+    #endif
 #else
-        desc << "Pre-11";
+        // For other compilers use __cplusplus
+    #if __cplusplus >= 202300L
+        desc << "26";
+    #elif __cplusplus >= 202002L
+        desc << "20";
+    #elif __cplusplus >= 201703L
+        desc << "17";
+    #elif __cplusplus >= 201402L
+        desc << "14";
+    #elif __cplusplus >= 201103L
+        desc << "11";
+    #else
+        desc << "<Unknown Standard>";
+    #endif
 #endif
 
         return desc.str();

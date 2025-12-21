@@ -6,5 +6,8 @@
     "editor.defaultFormatter": "llvm-vs-code-extensions.vscode-clangd",
     "editor.formatOnSave": false
   },
-  "cmake.ignoreCMakeListsMissing": true  
+  "cmake.ignoreCMakeListsMissing": true,
+  "files.associations": {
+    "format": "cpp"
+  }
 }

@@ -1,4 +1,7 @@
+#include <numbers>
+
 #include "Log/Log.h"
+#include "Log/Scope.h"
 
 //TODO: add samples w/ Src modifiers (NoFunc)
 
@@ -10,7 +13,7 @@ static void FuncDemo()
     Log::Warn("func message (warning)");
     Log::Error("func message (error)");
     Log::Fatal("func message (fatal)");
-    Log::Debug("func formatted: {} '{}'", _LIBCPP_STD_VER, "demo");
+    Log::Debug("func formatted: '{}'", "demo");
 }
 
 static void MacroDemo()
@@ -33,7 +36,7 @@ static void LoggerFuncDemo()
     logger.Warn("logger func message (warning)");
     logger.Error("logger func message (error)");
     logger.Fatal("logger func message (fatal)");
-    logger.Debug("logger func formatted: {} '{}'", _LIBCPP_STD_VER, "demo");
+    logger.Debug("logger func formatted: '{}'", "demo");
 }
 
 static void LoggerMacroDemo()
@@ -71,6 +74,34 @@ struct FeatureDemo
     }
 };
 
+static void ScopeDemo()
+{
+    {
+        auto _ = Log::Scope{};
+        Log::Info("inside scope");
+    }
+    {
+        auto _ = Log::Scope{Log::Level::Trace};
+        Log::Trace("inside scope");
+    }
+    {
+        auto _ = Log::Scope{"custom message"};
+        Log::Info("inside scope");
+    }
+    {
+        auto _ = Log::Scope{Log::Level::Debug, "custom level message"};
+        Log::Debug("inside scope");
+    }
+    {
+        auto _ = Log::Scope{"custom formatted: {}", std::numbers::pi_v<float>};
+        Log::Info("inside scope");
+    }
+    {
+        auto _ = Log::Scope{Log::Level::Debug, "custom level formatted: {}", std::numbers::pi_v<float>};
+        Log::Debug("inside scope");
+    }
+}
+
 int main(const int argc, char**)
 {
     FuncDemo();
@@ -80,5 +111,6 @@ int main(const int argc, char**)
     FeatureDemo feature;
     feature.DefaultMacroDemo();
 
+    ScopeDemo();
     return argc - 1; // to check exit code is passed from emrun
 }

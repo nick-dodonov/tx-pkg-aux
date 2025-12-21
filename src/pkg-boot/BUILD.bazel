@@ -5,6 +5,11 @@ tx_library(
     srcs = glob(["**/*.cpp"]),
     hdrs = glob(["**/*.h"]),
     strip_include_prefix = ".",
+    linkopts = select({
+        # TODO: research dbghelp.lib "price" and is it allowed in release builds?
+        "@platforms//os:windows": ["-DEFAULTLIB:dbghelp.lib"],
+        "//conditions:default": [],
+    }),
     deps = [
         "//:pkg-log",
         "@boost.throw_exception//:boost.throw_exception",

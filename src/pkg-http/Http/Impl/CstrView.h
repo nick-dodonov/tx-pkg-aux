@@ -19,7 +19,7 @@ namespace String
         explicit CstrView(std::string_view sv)
             : sv_(sv)
         {
-            if (!sv.empty() && sv[sv.size()] == '\0') {
+            if (!sv.empty() && sv[sv.size() - 1] == '\0') {
                 ptr_ = sv.data();
                 return;
             }
