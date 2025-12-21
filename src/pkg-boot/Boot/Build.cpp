@@ -24,33 +24,21 @@ namespace Build
 #elif defined(_WIN32) || defined(_WIN64)
         desc << "Windows";
     #ifdef _WIN64
-        desc << " x64";
+        desc << " (64)";
     #else
-        desc << " x86";
+        desc << " (32)";
     #endif
 #elif defined(__APPLE__)
         desc << "macOS";
-    #if defined(__arm64__) || defined(__aarch64__)
-        desc << " ARM64";
-    #elif defined(__x86_64__)
-        desc << " x64";
-    #endif
 #elif defined(__linux__)
         desc << "Linux";
-    #if defined(__arm64__) || defined(__aarch64__)
-        desc << " ARM64";
-    #elif defined(__x86_64__)
-        desc << " x64";
-    #elif defined(__i386__)
-        desc << " x86";
-    #endif
 #else
-        desc << "Unknown Platform";
+        desc << "<Unknown OS>";
 #endif
 
         // Architecture information
         desc << " | ";
-#if defined(__aarch64__) || defined(_M_ARM64)
+#if defined(__arm64__) || defined(__aarch64__) || defined(_M_ARM64)
         desc << "ARM64";
 #elif defined(__arm__) || defined(_M_ARM)
         desc << "ARM32";
@@ -63,7 +51,7 @@ namespace Build
 #elif defined(__riscv) && (__riscv_xlen == 32)
         desc << "RISC-V 32";
 #else
-        desc << "(Unknown)";
+        desc << "<Unknown Arch>";
 #endif
 
         // Compiler information
@@ -75,7 +63,7 @@ namespace Build
 #elif defined(_MSC_VER)
         desc << "MSVC " << _MSC_VER;
 #else
-        desc << "Unknown Compiler";
+        desc << "<Unknown Compiler>";
 #endif
 
         // C++ standard
@@ -91,7 +79,7 @@ namespace Build
 #elif __cplusplus >= 201103L
         desc << "11";
 #else
-        desc << "Pre-11";
+        desc << "<Unknown Standard>";
 #endif
 
         return desc.str();
