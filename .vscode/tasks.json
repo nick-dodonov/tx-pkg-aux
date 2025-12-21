@@ -44,25 +44,6 @@
         },
         {
             "type": "shell",
-            "label": "print PATH",
-            "command": "echo $PATH | tr ':' '\n'",
-            "group": {
-                "kind": "build",
-                "isDefault": true
-            },
-            "presentation": {
-                "focus": true,
-            },
-            // "options": {
-            //     "shell": {
-            //         "executable": "/bin/zsh",
-            //         //"args": ["-l", "-c"],
-            //         //"args": ["-c"],
-            //     }
-            // },
-        },
-        {
-            "type": "shell",
             "label": "build demo <relative>",
             "command": "bazel build ${relativeFileDirname}",
             "group": {
