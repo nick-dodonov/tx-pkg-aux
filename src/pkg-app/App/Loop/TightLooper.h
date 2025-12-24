@@ -8,5 +8,6 @@ namespace App::Loop
     {
     public:
         void Start(UpdateAction updateAction) override;
+        void Finish(const FinishData& finishData) override;
     };
 }

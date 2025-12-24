@@ -1,10 +1,10 @@
 #include "Domain.h"
 #include "Log/Log.h"
 #include "Boot/Boot.h"
+#include <memory>
 
 #if __EMSCRIPTEN__
     #include "Loop/WasmLooper.h"
-    #include <emscripten.h>
 #else
     #include "Loop/TightLooper.h"
 #endif
@@ -17,6 +17,13 @@ namespace App
 
     Domain::Domain(Boot::CliArgs cliArgs)
         : _cliArgs{std::move(cliArgs)}
+        , _looper{
+#if __EMSCRIPTEN__
+            std::make_shared<Loop::WasmLooper>(Loop::WasmLooper{{.Fps = 120}})
+#else
+            std::make_shared<Loop::TightLooper>()
+#endif
+        }
     {
         Boot::LogHeader(_cliArgs);
         Boot::SetupAbortHandlers();
@@ -37,12 +44,7 @@ namespace App
         // _io_context.run();
         // asio::detail::global<asio::system_context>().join();
 
-#if __EMSCRIPTEN__
-        auto looper = Loop::WasmLooper{{.Fps = 120}};
-#else
-        auto looper = Loop::TightLooper{};
-#endif
-        looper.Start([&](const Loop::UpdateCtx& ctx) -> bool {
+        _looper->Start([&](const Loop::UpdateCtx& ctx) -> bool {
             //Log::Trace("frame={} delta={} µs", ctx.FrameIndex, ctx.FrameDelta.count());
             if (_io_context.stopped()) {
                 Log::Debug("stopped on frame={}", ctx.FrameIndex);
@@ -65,16 +67,7 @@ namespace App
                 if (!ex) {
                     Log::Trace("finished: {}", exitCode);
                     _exitCode = exitCode;
-#if __EMSCRIPTEN__
-                    // WASM explicit exit because emscripten_set_main_loop_arg() never returns
-
-                    //TODO: find what stops the exit with error message: "program exited (with status: 1), but keepRuntimeAlive() is set (counter=1) due to an async operation, so halting execution but not exiting the runtime or preventing further async execution (you can use emscripten_force_exit, if you want to force a true shutdown)"
-                    // Log::Trace("wasm: exit: {}", _exitCode);
-                    // exit(_exitCode);
-
-                    Log::Trace("wasm: emscripten_force_exit: {}", _exitCode);
-                    emscripten_force_exit(_exitCode);
-#endif
+                    _looper->Finish(Loop::FinishData{exitCode});
                 } else {
                     Log::Fatal("finished w/ unhandled exception");
                     std::rethrow_exception(ex);

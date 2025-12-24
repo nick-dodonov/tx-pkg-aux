@@ -17,4 +17,9 @@ namespace App::Loop
             proceed = updateAction(updateCtx);
         }
     }
+
+    void TightLooper::Finish(const FinishData& finishData)
+    {
+        // No-op for TightLooper because it exits from synchronous Start().
+    }
 }
