@@ -15,6 +15,7 @@ namespace App::Loop
 
         WasmLooper(Options options);
         void Start(UpdateAction updateAction) override;
+        void Finish(const FinishData& finishData) override;
 
     private:
         Options _options;
