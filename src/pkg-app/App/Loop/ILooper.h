@@ -1,28 +1,9 @@
 #pragma once
-#include <chrono>
 #include <functional>
+#include "UpdateCtx.h"
 
 namespace App::Loop
 {
-    class ILooper;
-
-    /// Context passed to the looper update action.
-    /// Filled with frame timing information depending on the looper implementation.
-    struct UpdateCtx
-    {
-        using Clock = std::chrono::high_resolution_clock;
-
-        explicit UpdateCtx(ILooper& looper)
-            : Looper(looper)
-        {}
-
-        ILooper& Looper;
-        uint64_t FrameIndex{};
-
-        std::chrono::time_point<Clock> FrameStartTime;
-        std::chrono::microseconds FrameDelta{};
-    };
-
     /// Context passed to the looper when updating is finished.
     /// Used to signal exit code or other finalization options 
     /// in several looper implementations that cannot exit from the synchronous Start().
