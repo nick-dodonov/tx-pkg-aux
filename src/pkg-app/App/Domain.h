@@ -12,8 +12,16 @@ namespace App
     {
     public:
         Domain(int argc, const char** argv);
+        Domain(int argc, const char** argv, std::shared_ptr<Loop::ILooper> looper);
         explicit Domain(Boot::CliArgs cliArgs);
+        Domain(Boot::CliArgs cliArgs, std::shared_ptr<Loop::ILooper> looper);
         ~Domain();
+
+        /// Get the looper, optionally cast to a specific type
+        template<typename T = Loop::ILooper>
+        std::shared_ptr<T> GetLooper() const {
+            return std::dynamic_pointer_cast<T>(_looper);
+        }
 
         const auto& GetCliArgs() const { return _cliArgs; }
 
