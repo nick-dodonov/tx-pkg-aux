@@ -13,6 +13,12 @@ namespace App::Loop
 
         explicit UpdateCtx(ILooper& looper);
 
+        /// Initialize frame timing information at the start of the loop
+        void Initialize();
+
+        /// Update frame timing information for each frame
+        void Tick();
+
         ILooper& Looper;
         uint64_t FrameIndex{};
 

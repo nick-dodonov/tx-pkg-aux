@@ -14,7 +14,7 @@ namespace App::Loop
     void WasmLooper::Start(UpdateAction updateAction)
     {
         _updateAction = std::move(updateAction);
-        _updateCtx.FrameStartTime = UpdateCtx::Clock::now();
+        _updateCtx.Initialize();
 
         emscripten_set_main_loop_arg(
             [](void* arg) {
@@ -29,10 +29,7 @@ namespace App::Loop
 
     void WasmLooper::Update()
     {
-        auto startTime = UpdateCtx::Clock::now();
-        _updateCtx.FrameDelta = std::chrono::duration_cast<std::chrono::microseconds>(startTime - _updateCtx.FrameStartTime);
-        _updateCtx.FrameStartTime = startTime;
-        ++_updateCtx.FrameIndex;
+        _updateCtx.Tick();
 
         auto proceed = _updateAction(_updateCtx);
         if (!proceed) {
