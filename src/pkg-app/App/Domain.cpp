@@ -11,19 +11,33 @@
 
 namespace App
 {
+    namespace
+    {
+        std::shared_ptr<Loop::ILooper> CreateDefaultLooper()
+        {
+#if __EMSCRIPTEN__
+            return std::make_shared<Loop::WasmLooper>(Loop::WasmLooper{{.Fps = 120}});
+#else
+            return std::make_shared<Loop::TightLooper>();
+#endif
+        }
+    }
+
     Domain::Domain(const int argc, const char** argv)
         : Domain{Boot::CliArgs(argc, argv)}
     {}
 
+    Domain::Domain(const int argc, const char** argv, std::shared_ptr<Loop::ILooper> looper)
+        : Domain{Boot::CliArgs(argc, argv), std::move(looper)}
+    {}
+
     Domain::Domain(Boot::CliArgs cliArgs)
+        : Domain{std::move(cliArgs), CreateDefaultLooper()}
+    {}
+
+    Domain::Domain(Boot::CliArgs cliArgs, std::shared_ptr<Loop::ILooper> looper)
         : _cliArgs{std::move(cliArgs)}
-        , _looper{
-#if __EMSCRIPTEN__
-            std::make_shared<Loop::WasmLooper>(Loop::WasmLooper{{.Fps = 120}})
-#else
-            std::make_shared<Loop::TightLooper>()
-#endif
-        }
+        , _looper{std::move(looper)}
     {
         Boot::LogHeader(_cliArgs);
         Boot::SetupAbortHandlers();

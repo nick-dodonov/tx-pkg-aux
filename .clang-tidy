@@ -17,7 +17,9 @@ Checks: >
   -readability-magic-numbers,
   -readability-convert-member-functions-to-static,
   -readability-identifier-length,
-  -readability-static-definition-in-anonymous-namespace
+  -readability-static-definition-in-anonymous-namespace,
+  -readability-uppercase-literal-suffix,
+  -readability-math-missing-parentheses
 
 # Disabled checks explanation:
 # - alpha.*: Experimental checks, too many false positives
