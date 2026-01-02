@@ -15,12 +15,35 @@ namespace App::Loop
 
         struct Frame
         {
+            /// Frame index from initialization
             uint64_t index{};
+
+            /// Frame start time point
             TimePoint startTime;
 
-            Duration delta{};  // maximum precision
-            std::chrono::microseconds microseconds{};
-            float seconds{};
+            /// Time delta since last frame
+            Duration delta{};
+
+            /// Delta time in microseconds
+            std::chrono::microseconds deltaUs{};
+
+            /// Delta time in seconds as float
+            float deltaSeconds{};
+        };
+
+        struct Session
+        {
+            /// Session start time point
+            TimePoint startTime;
+
+            /// Total time passed since session initialization
+            Duration passed{};
+
+            /// Passed time in microseconds
+            std::chrono::microseconds passedUs{};
+
+            /// Passed time in seconds as float
+            float passedSeconds{};
         };
 
         explicit UpdateCtx(ILooper& looper);
@@ -33,5 +56,6 @@ namespace App::Loop
 
         ILooper& Looper;
         Frame frame;
+        Session session;
     };
 }
