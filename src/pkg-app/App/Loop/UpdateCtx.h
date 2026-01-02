@@ -10,6 +10,18 @@ namespace App::Loop
     struct UpdateCtx
     {
         using Clock = std::chrono::high_resolution_clock;
+        using TimePoint = Clock::time_point;
+        using Duration = Clock::duration;
+
+        struct Frame
+        {
+            uint64_t index{};
+            TimePoint startTime;
+
+            Duration delta{};  // maximum precision
+            std::chrono::microseconds microseconds{};
+            float seconds{};
+        };
 
         explicit UpdateCtx(ILooper& looper);
 
@@ -20,9 +32,6 @@ namespace App::Loop
         void Tick();
 
         ILooper& Looper;
-        uint64_t FrameIndex{};
-
-        std::chrono::time_point<Clock> FrameStartTime;
-        std::chrono::microseconds FrameDelta{};
+        Frame frame;
     };
 }

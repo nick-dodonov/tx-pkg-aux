@@ -59,13 +59,13 @@ namespace App
         // asio::detail::global<asio::system_context>().join();
 
         _looper->Start([&](const Loop::UpdateCtx& ctx) -> bool {
-            //Log::Trace("frame={} delta={} µs", ctx.FrameIndex, ctx.FrameDelta.count());
+            //Log::Trace("frame={} delta={} µs", ctx.frame.index, ctx.frame.delta.count());
             if (_io_context.stopped()) {
-                Log::Debug("stopped on frame={}", ctx.FrameIndex);
+                Log::Debug("stopped on frame={}", ctx.frame.index);
                 return false;
             }
             if (const auto count = _io_context.poll(); count > 0) {
-                Log::Trace("polled {} tasks on frame={}", count, ctx.FrameIndex);
+                Log::Trace("polled {} tasks on frame={}", count, ctx.frame.index);
             }
             return true;
         });
