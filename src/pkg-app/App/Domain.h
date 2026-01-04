@@ -18,15 +18,11 @@ namespace App
         ~Domain();
 
         /// Get the looper, optionally cast to a specific type
-        template<typename T = Loop::ILooper>
-        std::shared_ptr<T> GetLooper() const {
-            return std::dynamic_pointer_cast<T>(_looper);
-        }
+        template <typename T = Loop::ILooper>
+        [[nodiscard]] std::shared_ptr<T> GetLooper() const { return std::dynamic_pointer_cast<T>(_looper); }
 
-        const auto& GetCliArgs() const { return _cliArgs; }
-
+        [[nodiscard]] const auto& GetCliArgs() const { return _cliArgs; }
         [[nodiscard]] auto GetExecutor() { return _io_context.get_executor(); }
-        void RunContext();
 
         int RunCoroMain(boost::asio::awaitable<int> coroMain);
 
@@ -36,5 +32,7 @@ namespace App
 
         boost::asio::io_context _io_context;
         int _exitCode{};
+
+        void RunContext();
     };
 }
