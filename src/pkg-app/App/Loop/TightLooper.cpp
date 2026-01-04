@@ -2,7 +2,7 @@
 
 namespace App::Loop
 {
-    void TightLooper::Start(const UpdateAction updateAction)
+    void TightLooper::Start(const HandlerPtr handler)
     {
         UpdateCtx updateCtx{*this};
         updateCtx.Initialize();
@@ -10,7 +10,7 @@ namespace App::Loop
         auto proceed = true;
         while (proceed) {
             updateCtx.Tick();
-            proceed = updateAction(updateCtx);
+            proceed = handler->Update(*this, updateCtx);
         }
     }
 

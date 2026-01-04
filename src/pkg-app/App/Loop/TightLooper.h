@@ -7,7 +7,7 @@ namespace App::Loop
     class TightLooper final : public ILooper
     {
     public:
-        void Start(UpdateAction updateAction) override;
+        void Start(HandlerPtr handler) override;
         void Finish(const FinishData& finishData) override;
     };
 }
