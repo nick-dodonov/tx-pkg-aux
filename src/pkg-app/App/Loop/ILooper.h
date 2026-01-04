@@ -4,9 +4,9 @@
 
 namespace App::Loop
 {
-    /// Context passed to the looper when updating is finished.
+    /// Context passed to the runner when updating is finished.
     /// Used to signal exit code or other finalization options 
-    /// in several looper implementations that cannot exit from the synchronous Start().
+    /// in several runner implementations that cannot exit from the synchronous Start().
     struct FinishData
     {
         explicit FinishData(const int exitCode)
@@ -17,26 +17,26 @@ namespace App::Loop
     };
 
     ////////////////////////////////////////////////
-    class ILooper;
+    class IRunner;
 
-    template<typename TLooper>
-    class Looper;
+    template<typename TRunner>
+    class Runner;
 
     /// Base loop handler
     class IHandler
     {
     public:
         virtual ~IHandler() = default;
-        virtual bool Started(ILooper& looper) = 0;
-        virtual bool Update(ILooper& looper, const UpdateCtx& ctx) = 0;
-        virtual void Stopping(ILooper& looper) = 0;
+        virtual bool Started(IRunner& runner) = 0;
+        virtual bool Update(IRunner& runner, const UpdateCtx& ctx) = 0;
+        virtual void Stopping(IRunner& runner) = 0;
     };
 
-    /// Base looper that runs the update action while the handler returns true
-    class ILooper : public std::enable_shared_from_this<ILooper>
+    /// Base runner that runs the update action while the handler returns true
+    class IRunner : public std::enable_shared_from_this<IRunner>
     {
     public:
-        virtual ~ILooper() = default;
+        virtual ~IRunner() = default;
 
         using HandlerPtr = std::shared_ptr<IHandler>;
         virtual void Start(HandlerPtr handler) = 0;
@@ -50,37 +50,37 @@ namespace App::Loop
         using UpdateAction = std::function<bool(const UpdateCtx&)>;
         explicit FuncHandler(UpdateAction&& updateAction) : _updateAction{std::move(updateAction)} {}
 
-        bool Started(ILooper& looper) override { return true;}
-        bool Update(ILooper& looper, const UpdateCtx& ctx) override { return _updateAction(ctx); }
-        void Stopping(ILooper& looper) override {}
+        bool Started(IRunner& runner) override { return true;}
+        bool Update(IRunner& runner, const UpdateCtx& ctx) override { return _updateAction(ctx); }
+        void Stopping(IRunner& runner) override {}
 
     private:
         UpdateAction _updateAction;
     };
 
-    // template<typename TLooper>
+    // template<typename TRunner>
     // class Handler : public IHandler
     // {
     // public:
-    //     virtual bool Update(Looper<TLooper>& looper, const UpdateCtx& ctx) = 0;
+    //     virtual bool Update(Runner<TRunner>& runner, const UpdateCtx& ctx) = 0;
     //
     // protected:
-    //     bool Update(ILooper& looper, const UpdateCtx& ctx) override
+    //     bool Update(IRunner& runner, const UpdateCtx& ctx) override
     //     {
-    //         static_assert(std::is_base_of_v<Looper<TLooper>, TLooper>);
-    //         return static_cast<Looper<TLooper>&>(looper).Update(ctx);
+    //         static_assert(std::is_base_of_v<Runner<TRunner>, TRunner>);
+    //         return static_cast<Runner<TRunner>&>(runner).Update(ctx);
     //     }
     // };
     //
-    // template<typename TLooper>
-    // class Looper : public ILooper
+    // template<typename TRunner>
+    // class Runner : public IRunner
     // {
     // public:
     //     virtual void Start(UpdateAction updateAction) = 0;
     //
     // };
     //
-    // struct MyLooper : Looper<MyLooper>
+    // struct MyRunner : Runner<MyRunner>
     // {
     //
     // };

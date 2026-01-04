@@ -2,7 +2,7 @@
 
 namespace App::Loop
 {
-    void TightLooper::Start(const HandlerPtr handler)
+    void TightRunner::Start(const HandlerPtr handler)
     {
         UpdateCtx updateCtx{*this};
         updateCtx.Initialize();
@@ -19,7 +19,7 @@ namespace App::Loop
         _running = false;
     }
 
-    void TightLooper::Finish(const FinishData& finishData)
+    void TightRunner::Finish(const FinishData& finishData)
     {
         _running = false;
     }

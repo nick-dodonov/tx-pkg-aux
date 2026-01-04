@@ -6,12 +6,12 @@
 
 namespace App::Loop
 {
-    WasmLooper::WasmLooper(Options options)
+    WasmRunner::WasmRunner(Options options)
         : _options{options}
         , _updateCtx{*this}
     {}
 
-    void WasmLooper::Start(HandlerPtr handler)
+    void WasmRunner::Start(HandlerPtr handler)
     {
         _handler = std::move(handler);
         _updateCtx.Initialize();
@@ -19,7 +19,7 @@ namespace App::Loop
         _handler->Started(*this);
         emscripten_set_main_loop_arg(
             [](void* arg) {
-                auto& self = *static_cast<WasmLooper*>(arg);
+                auto& self = *static_cast<WasmRunner*>(arg);
                 self.Update();
             },
             this,
@@ -28,7 +28,7 @@ namespace App::Loop
         );
     }
 
-    void WasmLooper::Update()
+    void WasmRunner::Update()
     {
         _updateCtx.Tick();
 
@@ -47,7 +47,7 @@ namespace App::Loop
         }
     }
 
-    void WasmLooper::Finish(const FinishData& finishData)
+    void WasmRunner::Finish(const FinishData& finishData)
     {
         _handler->Stopping(*this);
 

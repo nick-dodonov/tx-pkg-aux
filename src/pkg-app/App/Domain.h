@@ -14,14 +14,14 @@ namespace App
     {
     public:
         Domain(int argc, const char** argv);
-        Domain(int argc, const char** argv, std::shared_ptr<Loop::ILooper> looper);
+        Domain(int argc, const char** argv, std::shared_ptr<Loop::IRunner> runner);
         explicit Domain(Boot::CliArgs cliArgs);
-        Domain(Boot::CliArgs cliArgs, std::shared_ptr<Loop::ILooper> looper);
+        Domain(Boot::CliArgs cliArgs, std::shared_ptr<Loop::IRunner> runner);
         ~Domain();
 
-        /// Get the looper, optionally cast to a specific type
-        template <typename T = Loop::ILooper>
-        [[nodiscard]] std::shared_ptr<T> GetLooper() const { return std::dynamic_pointer_cast<T>(_looper); }
+        /// Get the runner, optionally cast to a specific type
+        template <typename T = Loop::IRunner>
+        [[nodiscard]] std::shared_ptr<T> GetRunner() const { return std::dynamic_pointer_cast<T>(_runner); }
 
         [[nodiscard]] const auto& GetCliArgs() const { return _cliArgs; }
         [[nodiscard]] auto GetExecutor() { return _io_context.get_executor(); }
@@ -30,15 +30,15 @@ namespace App
 
     private:
         Boot::CliArgs _cliArgs;
-        std::shared_ptr<Loop::ILooper> _looper;
+        std::shared_ptr<Loop::IRunner> _runner;
 
         boost::asio::io_context _io_context;
         int _exitCode{};
 
         void RunContext();
 
-        bool Started(Loop::ILooper& looper) override;
-        bool Update(Loop::ILooper& looper, const Loop::UpdateCtx& ctx) override;
-        void Stopping(Loop::ILooper& looper) override;
+        bool Started(Loop::IRunner& runner) override;
+        bool Update(Loop::IRunner& runner, const Loop::UpdateCtx& ctx) override;
+        void Stopping(Loop::IRunner& runner) override;
     };
 }

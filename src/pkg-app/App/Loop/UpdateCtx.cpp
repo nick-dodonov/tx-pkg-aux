@@ -3,8 +3,8 @@
 
 namespace App::Loop
 {
-    UpdateCtx::UpdateCtx(ILooper& looper)
-        : Looper(looper)
+    UpdateCtx::UpdateCtx(IRunner& runner)
+        : Runner(runner)
     {
     }
 
