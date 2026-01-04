@@ -79,7 +79,7 @@ namespace App
         // _io_context.run();
         // asio::detail::global<asio::system_context>().join();
 
-        _looper->Start([&](const Loop::UpdateCtx& ctx) -> bool {
+        _looper->Start(std::make_unique<Loop::FuncHandler>([&](const Loop::UpdateCtx& ctx) -> bool {
             //Log::Trace("frame={} delta={} µs", ctx.frame.index, ctx.frame.delta.count());
             if (_io_context.stopped()) {
                 Log::Debug("stopped on frame={}", ctx.frame.index);
@@ -89,6 +89,6 @@ namespace App
                 Log::Trace("polled {} tasks on frame={}", count, ctx.frame.index);
             }
             return true;
-        });
+        }));
     }
 }

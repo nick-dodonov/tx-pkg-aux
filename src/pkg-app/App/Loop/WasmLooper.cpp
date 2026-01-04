@@ -11,9 +11,9 @@ namespace App::Loop
         , _updateCtx{*this}
     {}
 
-    void WasmLooper::Start(UpdateAction updateAction)
+    void WasmLooper::Start(HandlerPtr handler)
     {
-        _updateAction = std::move(updateAction);
+        _handler = std::move(handler);
         _updateCtx.Initialize();
 
         emscripten_set_main_loop_arg(
@@ -31,7 +31,7 @@ namespace App::Loop
     {
         _updateCtx.Tick();
 
-        auto proceed = _updateAction(_updateCtx);
+        auto proceed = _handler->Update(*this, _updateCtx);
         if (!proceed) {
             Log::Debug("emscripten_cancel_main_loop");
             emscripten_cancel_main_loop();

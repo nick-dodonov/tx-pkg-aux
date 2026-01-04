@@ -14,12 +14,12 @@ namespace App::Loop
         };
 
         WasmLooper(Options options);
-        void Start(UpdateAction updateAction) override;
+        void Start(HandlerPtr handler) override;
         void Finish(const FinishData& finishData) override;
 
     private:
         Options _options;
-        UpdateAction _updateAction;
+        HandlerPtr _handler;
         UpdateCtx _updateCtx;
 
         void Update();
