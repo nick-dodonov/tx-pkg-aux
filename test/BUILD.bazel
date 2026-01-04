@@ -17,3 +17,11 @@ tx_test(
         "@googletest//:gtest_main",
     ],
 )
+
+tx_test(
+    name = "call",
+    srcs = ["call_test.cpp"],
+    deps = [
+        "@google_benchmark//:benchmark",
+    ],
+)
