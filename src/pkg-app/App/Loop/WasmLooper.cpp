@@ -16,7 +16,7 @@ namespace App::Loop
         _handler = std::move(handler);
         _updateCtx.Initialize();
 
-        _handler->AfterStart(*this);
+        _handler->Started(*this);
         emscripten_set_main_loop_arg(
             [](void* arg) {
                 auto& self = *static_cast<WasmLooper*>(arg);
@@ -49,7 +49,7 @@ namespace App::Loop
 
     void WasmLooper::Finish(const FinishData& finishData)
     {
-        _handler->BeforeFinish(*this);
+        _handler->Stopping(*this);
 
         // WASM explicit exit because emscripten_set_main_loop_arg() never returns
         auto exitCode = finishData.ExitCode;

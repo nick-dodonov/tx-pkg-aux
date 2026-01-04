@@ -8,14 +8,14 @@ namespace App::Loop
         updateCtx.Initialize();
 
         _running = true;
-        handler->AfterStart(*this);
+        handler->Started(*this);
 
         while (_running) {
             updateCtx.Tick();
             _running = handler->Update(*this, updateCtx);
         }
 
-        handler->BeforeFinish(*this);
+        handler->Stopping(*this);
         _running = false;
     }
 

@@ -3,11 +3,13 @@
 #include "Loop/ILooper.h"
 #include <boost/asio.hpp>
 #include <boost/core/noncopyable.hpp>
+#include <memory>
 
 namespace App
 {
     class Domain
-        : public std::enable_shared_from_this<Domain>
+        : public Loop::IHandler
+        , public std::enable_shared_from_this<class Domain>
         , boost::noncopyable
     {
     public:
@@ -34,5 +36,9 @@ namespace App
         int _exitCode{};
 
         void RunContext();
+
+        bool Started(Loop::ILooper& looper) override;
+        bool Update(Loop::ILooper& looper, const Loop::UpdateCtx& ctx) override;
+        void Stopping(Loop::ILooper& looper) override;
     };
 }
