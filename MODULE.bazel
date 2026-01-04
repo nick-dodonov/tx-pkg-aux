@@ -45,3 +45,4 @@ bazel_dep(name = "gsl", version = "4.0.0")
 
 # test dependencies
 bazel_dep(name = "googletest", version = "1.17.0.bcr.2", dev_dependency = True)
+bazel_dep(name = "google_benchmark", version = "1.9.4", dev_dependency = True)
