@@ -7,15 +7,20 @@ namespace App::Loop
         UpdateCtx updateCtx{*this};
         updateCtx.Initialize();
 
-        auto proceed = true;
-        while (proceed) {
+        _running = true;
+        handler->AfterStart(*this);
+
+        while (_running) {
             updateCtx.Tick();
-            proceed = handler->Update(*this, updateCtx);
+            _running = handler->Update(*this, updateCtx);
         }
+
+        handler->BeforeFinish(*this);
+        _running = false;
     }
 
     void TightLooper::Finish(const FinishData& finishData)
     {
-        // No-op for TightLooper because it exits from synchronous Start().
+        _running = false;
     }
 }

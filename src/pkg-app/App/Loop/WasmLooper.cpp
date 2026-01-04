@@ -16,6 +16,7 @@ namespace App::Loop
         _handler = std::move(handler);
         _updateCtx.Initialize();
 
+        _handler->AfterStart(*this);
         emscripten_set_main_loop_arg(
             [](void* arg) {
                 auto& self = *static_cast<WasmLooper*>(arg);
@@ -48,15 +49,19 @@ namespace App::Loop
 
     void WasmLooper::Finish(const FinishData& finishData)
     {
-            // WASM explicit exit because emscripten_set_main_loop_arg() never returns
-            auto exitCode = finishData.ExitCode;
+        _handler->BeforeFinish(*this);
 
-            //TODO: find what stops the exit with error message: "program exited (with status: 1), but keepRuntimeAlive() is set (counter=1) due to an async operation, so halting execution but not exiting the runtime or preventing further async execution (you can use emscripten_force_exit, if you want to force a true shutdown)"
-            // Log::Trace("wasm: exit: {}", exitCode);
-            // exit(exitCode);
+        // WASM explicit exit because emscripten_set_main_loop_arg() never returns
+        auto exitCode = finishData.ExitCode;
 
-            Log::Trace("wasm: emscripten_force_exit: {}", exitCode);
-            emscripten_force_exit(exitCode);
+        // TODO: find what stops the exit with error message: "program exited (with status: 1), but keepRuntimeAlive() is set (counter=1) due to an async
+        // operation, so halting execution but not exiting the runtime or preventing further async execution (you can use emscripten_force_exit, if you want to
+        // force a true shutdown)"
+        //  Log::Trace("wasm: exit: {}", exitCode);
+        //  exit(exitCode);
+
+        Log::Trace("wasm: emscripten_force_exit: {}", exitCode);
+        emscripten_force_exit(exitCode);
     }
 }
 #endif
