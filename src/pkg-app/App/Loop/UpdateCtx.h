@@ -3,10 +3,10 @@
 
 namespace App::Loop
 {
-    class ILooper;
+    class IRunner;
 
-    /// Context passed to the looper update action.
-    /// Filled with frame timing information depending on the looper implementation.
+    /// Context passed to the runner update action.
+    /// Filled with frame timing information depending on the runner implementation.
     struct UpdateCtx
     {
         using Clock = std::chrono::high_resolution_clock;
@@ -46,7 +46,7 @@ namespace App::Loop
             float passedSeconds{};
         };
 
-        explicit UpdateCtx(ILooper& looper);
+        explicit UpdateCtx(IRunner& runner);
 
         /// Initialize frame timing information at the start of the loop
         void Initialize();
@@ -54,7 +54,7 @@ namespace App::Loop
         /// Update frame timing information for each frame
         void Tick();
 
-        ILooper& Looper;
+        IRunner& Runner;
         Frame frame;
         Session session;
     };

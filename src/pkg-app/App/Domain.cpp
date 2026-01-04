@@ -13,12 +13,12 @@ namespace App
 {
     namespace
     {
-        std::shared_ptr<Loop::ILooper> CreateDefaultLooper()
+        std::shared_ptr<Loop::IRunner> CreateDefaultRunner()
         {
 #if __EMSCRIPTEN__
-            return std::make_shared<Loop::WasmLooper>(Loop::WasmLooper{{.Fps = 120}});
+            return std::make_shared<Loop::WasmRunner>(Loop::WasmRunner{{.Fps = 120}});
 #else
-            return std::make_shared<Loop::TightLooper>();
+            return std::make_shared<Loop::TightRunner>();
 #endif
         }
     }
@@ -27,17 +27,17 @@ namespace App
         : Domain{Boot::CliArgs(argc, argv)}
     {}
 
-    Domain::Domain(const int argc, const char** argv, std::shared_ptr<Loop::ILooper> looper)
-        : Domain{Boot::CliArgs(argc, argv), std::move(looper)}
+    Domain::Domain(const int argc, const char** argv, std::shared_ptr<Loop::IRunner> runner)
+        : Domain{Boot::CliArgs(argc, argv), std::move(runner)}
     {}
 
     Domain::Domain(Boot::CliArgs cliArgs)
-        : Domain{std::move(cliArgs), CreateDefaultLooper()}
+        : Domain{std::move(cliArgs), CreateDefaultRunner()}
     {}
 
-    Domain::Domain(Boot::CliArgs cliArgs, std::shared_ptr<Loop::ILooper> looper)
+    Domain::Domain(Boot::CliArgs cliArgs, std::shared_ptr<Loop::IRunner> runner)
         : _cliArgs{std::move(cliArgs)}
-        , _looper{std::move(looper)}
+        , _runner{std::move(runner)}
     {
         Boot::LogHeader(_cliArgs);
         Boot::SetupAbortHandlers();
@@ -63,24 +63,24 @@ namespace App
                 if (!ex) {
                     Log::Trace("finished: {}", exitCode);
                     _exitCode = exitCode;
-                    _looper->Finish(Loop::FinishData{exitCode});
+                    _runner->Finish(Loop::FinishData{exitCode});
                 } else {
                     Log::Fatal("finished w/ unhandled exception");
                     std::rethrow_exception(ex);
                 }
             });
 
-        _looper->Start(shared_from_this());
+        _runner->Start(shared_from_this());
         return _exitCode;
     }
 
-    bool Domain::Started(Loop::ILooper& looper)
+    bool Domain::Started(Loop::IRunner& runner)
     {
-        Log::Debug("looper started");
+        Log::Debug("runner started");
         return true;
     }
 
-    bool Domain::Update(Loop::ILooper& looper, const Loop::UpdateCtx& ctx)
+    bool Domain::Update(Loop::IRunner& runner, const Loop::UpdateCtx& ctx)
     {
         //Log::Trace("frame={} delta={} µs", ctx.frame.index, ctx.frame.delta.count());
         if (_io_context.stopped()) {
@@ -93,8 +93,8 @@ namespace App
         return true;
     }
 
-    void Domain::Stopping(Loop::ILooper& looper)
+    void Domain::Stopping(Loop::IRunner& runner)
     {
-        Log::Debug("looper stopping");
+        Log::Debug("runner stopping");
     }
 }

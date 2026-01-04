@@ -3,8 +3,8 @@
 
 namespace App::Loop
 {
-    /// Looper that runs as fast as possible
-    class TightLooper final : public ILooper
+    /// Runner that runs as fast as possible
+    class TightRunner final : public IRunner
     {
     public:
         void Start(HandlerPtr handler) override;

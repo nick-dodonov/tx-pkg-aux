@@ -4,8 +4,8 @@
 namespace App::Loop
 {
 #if __EMSCRIPTEN__
-    /// Looper that integrates with emscripten main loop
-    class WasmLooper final : public ILooper
+    /// Runner that integrates with emscripten main loop
+    class WasmRunner final : public IRunner
     {
     public:
         struct Options
@@ -13,7 +13,7 @@ namespace App::Loop
             int Fps{};
         };
 
-        WasmLooper(Options options);
+        WasmRunner(Options options);
         void Start(HandlerPtr handler) override;
         void Finish(const FinishData& finishData) override;
 
