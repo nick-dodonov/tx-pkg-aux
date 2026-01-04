@@ -2,7 +2,6 @@
 #include "Log/Scope.h"
 #include <charconv>
 #include <cstddef>
-#include <cstring>
 
 namespace asio = boost::asio;
 
@@ -11,7 +10,7 @@ static asio::awaitable<void> Sub()
     auto _ = Log::Scope{};
 
     auto timer = asio::steady_timer(co_await asio::this_coro::executor);
-    timer.expires_after(std::chrono::milliseconds(500));
+    timer.expires_after(std::chrono::milliseconds(300));
     co_await timer.async_wait(asio::use_awaitable);
 }
 
@@ -74,7 +73,7 @@ static asio::awaitable<int> CoroMain(int exitCode)
 
 int main(const int argc, const char* argv[])
 {
-    App::Domain domain{argc, argv};
+    auto domain = std::make_shared<App::Domain>(argc, argv);
     auto exitCode = 0;
     if (argc > 1) {
         int result = 0;
@@ -83,5 +82,5 @@ int main(const int argc, const char* argv[])
             exitCode = result;
         }
     }
-    return domain.RunCoroMain(CoroMain(exitCode));
+    return domain->RunCoroMain(CoroMain(exitCode));
 }

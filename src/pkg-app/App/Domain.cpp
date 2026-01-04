@@ -70,25 +70,31 @@ namespace App
                 }
             });
 
-        RunContext();
+        _looper->Start(shared_from_this());
         return _exitCode;
     }
 
-    void Domain::RunContext()
+    bool Domain::Started(Loop::ILooper& looper)
     {
-        // _io_context.run();
-        // asio::detail::global<asio::system_context>().join();
+        Log::Debug("looper started");
+        return true;
+    }
 
-        _looper->Start(std::make_unique<Loop::FuncHandler>([&](const Loop::UpdateCtx& ctx) -> bool {
-            //Log::Trace("frame={} delta={} µs", ctx.frame.index, ctx.frame.delta.count());
-            if (_io_context.stopped()) {
-                Log::Debug("stopped on frame={}", ctx.frame.index);
-                return false;
-            }
-            if (const auto count = _io_context.poll(); count > 0) {
-                Log::Trace("polled {} tasks on frame={}", count, ctx.frame.index);
-            }
-            return true;
-        }));
+    bool Domain::Update(Loop::ILooper& looper, const Loop::UpdateCtx& ctx)
+    {
+        //Log::Trace("frame={} delta={} µs", ctx.frame.index, ctx.frame.delta.count());
+        if (_io_context.stopped()) {
+            Log::Debug("stopped on frame={}", ctx.frame.index);
+            return false;
+        }
+        if (const auto count = _io_context.poll(); count > 0) {
+            Log::Trace("polled {} tasks on frame={}", count, ctx.frame.index);
+        }
+        return true;
+    }
+
+    void Domain::Stopping(Loop::ILooper& looper)
+    {
+        Log::Debug("looper stopping");
     }
 }

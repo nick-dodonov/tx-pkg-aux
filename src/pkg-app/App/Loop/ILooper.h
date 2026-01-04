@@ -27,9 +27,9 @@ namespace App::Loop
     {
     public:
         virtual ~IHandler() = default;
-        virtual bool AfterStart(ILooper& looper) = 0;
+        virtual bool Started(ILooper& looper) = 0;
         virtual bool Update(ILooper& looper, const UpdateCtx& ctx) = 0;
-        virtual void BeforeFinish(ILooper& looper) = 0;
+        virtual void Stopping(ILooper& looper) = 0;
     };
 
     /// Base looper that runs the update action while the handler returns true
@@ -38,7 +38,7 @@ namespace App::Loop
     public:
         virtual ~ILooper() = default;
 
-        using HandlerPtr = std::unique_ptr<IHandler>;
+        using HandlerPtr = std::shared_ptr<IHandler>;
         virtual void Start(HandlerPtr handler) = 0;
         virtual void Finish(const FinishData& finishData) = 0;
     };
@@ -50,9 +50,9 @@ namespace App::Loop
         using UpdateAction = std::function<bool(const UpdateCtx&)>;
         explicit FuncHandler(UpdateAction&& updateAction) : _updateAction{std::move(updateAction)} {}
 
-        bool AfterStart(ILooper& looper) override { return true;}
+        bool Started(ILooper& looper) override { return true;}
         bool Update(ILooper& looper, const UpdateCtx& ctx) override { return _updateAction(ctx); }
-        void BeforeFinish(ILooper& looper) override {}
+        void Stopping(ILooper& looper) override {}
 
     private:
         UpdateAction _updateAction;
