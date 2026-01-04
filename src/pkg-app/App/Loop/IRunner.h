@@ -1,5 +1,6 @@
 #pragma once
 #include <functional>
+#include <memory>
 #include "UpdateCtx.h"
 
 namespace App::Loop
@@ -28,8 +29,8 @@ namespace App::Loop
     public:
         virtual ~IHandler() = default;
         virtual bool Started(IRunner& runner) = 0;
-        virtual bool Update(IRunner& runner, const UpdateCtx& ctx) = 0;
         virtual void Stopping(IRunner& runner) = 0;
+        virtual bool Update(IRunner& runner, const UpdateCtx& ctx) = 0;
     };
 
     /// Base runner that runs the update action while the handler returns true
@@ -43,30 +44,50 @@ namespace App::Loop
         virtual void Finish(const FinishData& finishData) = 0;
     };
 
-    // template<typename TRunner>
-    // class Handler : public IHandler
-    // {
-    // public:
-    //     virtual bool Update(Runner<TRunner>& runner, const UpdateCtx& ctx) = 0;
-    //
-    // protected:
-    //     bool Update(IRunner& runner, const UpdateCtx& ctx) override
-    //     {
-    //         static_assert(std::is_base_of_v<Runner<TRunner>, TRunner>);
-    //         return static_cast<Runner<TRunner>&>(runner).Update(ctx);
-    //     }
-    // };
-    //
-    // template<typename TRunner>
-    // class Runner : public IRunner
-    // {
-    // public:
-    //     virtual void Start(UpdateAction updateAction) = 0;
-    //
-    // };
-    //
-    // struct MyRunner : Runner<MyRunner>
-    // {
-    //
-    // };
+    /// Typed handler for specific runner type
+    template <typename TRunner>
+    class Handler : public IHandler
+    {
+    public:
+        using Runner = TRunner;
+
+        virtual bool Started(TRunner& runner) = 0;
+        virtual void Stopping(TRunner& runner) = 0;
+        virtual bool Update(TRunner& runner, const UpdateCtx& ctx) = 0;
+
+    private:
+        bool Started(IRunner& runner) override { return this->Started(static_cast<TRunner&>(runner)); }
+        void Stopping(IRunner& runner) override { this->Stopping(static_cast<TRunner&>(runner)); }
+        bool Update(IRunner& runner, const UpdateCtx& ctx) override { return this->Update(static_cast<TRunner&>(runner), ctx); }
+    };
+
+    /// Typed runner for specific runner type
+    template <typename THandler>
+    class Runner : public IRunner
+    {
+    public:
+        using HandlerPtr = std::shared_ptr<THandler>;
+        virtual void Start(HandlerPtr handler) = 0;
+
+    private:
+        void Start(IRunner::HandlerPtr handler) override
+        { 
+            auto specific = std::dynamic_pointer_cast<THandler>(std::move(handler));
+            if (specific) {
+                this->Start(std::move(specific));
+            } else {
+                struct Wrap : THandler {
+                    IRunner::HandlerPtr _handler;
+                    enum Tag { Dummy };
+                    explicit Wrap(Tag tag, IRunner::HandlerPtr handler)
+                        : _handler(std::move(handler))
+                    {}
+                    bool Started(typename THandler::Runner& runner) override { return _handler->Started(runner); }
+                    void Stopping(typename THandler::Runner& runner) override { _handler->Stopping(runner); }
+                    bool Update(typename THandler::Runner& runner, const UpdateCtx& ctx) override { return _handler->Update(runner, ctx); }
+                };
+                this->Start(std::static_pointer_cast<THandler>(std::make_shared<Wrap>(Wrap::Tag::Dummy, std::move(handler))));
+            }
+        }
+    };
 }

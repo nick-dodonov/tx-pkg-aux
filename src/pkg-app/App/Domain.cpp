@@ -80,6 +80,11 @@ namespace App
         return true;
     }
 
+    void Domain::Stopping(Loop::IRunner& runner)
+    {
+        Log::Debug("runner stopping");
+    }
+
     bool Domain::Update(Loop::IRunner& runner, const Loop::UpdateCtx& ctx)
     {
         //Log::Trace("frame={} delta={} µs", ctx.frame.index, ctx.frame.delta.count());
@@ -91,10 +96,5 @@ namespace App
             Log::Trace("polled {} tasks on frame={}", count, ctx.frame.index);
         }
         return true;
-    }
-
-    void Domain::Stopping(Loop::IRunner& runner)
-    {
-        Log::Debug("runner stopping");
     }
 }
