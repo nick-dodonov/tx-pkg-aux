@@ -9,5 +9,8 @@ namespace App::Loop
     public:
         void Start(HandlerPtr handler) override;
         void Finish(const FinishData& finishData) override;
+
+    private:
+        bool _running{};
     };
 }
