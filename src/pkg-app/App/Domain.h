@@ -35,8 +35,6 @@ namespace App
         boost::asio::io_context _io_context;
         int _exitCode{};
 
-        void RunContext();
-
         bool Started(Loop::IRunner& runner) override;
         bool Update(Loop::IRunner& runner, const Loop::UpdateCtx& ctx) override;
         void Stopping(Loop::IRunner& runner) override;

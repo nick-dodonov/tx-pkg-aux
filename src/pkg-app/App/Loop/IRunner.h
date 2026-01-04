@@ -43,21 +43,6 @@ namespace App::Loop
         virtual void Finish(const FinishData& finishData) = 0;
     };
 
-    /// Back-compatibility handler TODO: rm
-    class FuncHandler : public IHandler
-    {
-    public:
-        using UpdateAction = std::function<bool(const UpdateCtx&)>;
-        explicit FuncHandler(UpdateAction&& updateAction) : _updateAction{std::move(updateAction)} {}
-
-        bool Started(IRunner& runner) override { return true;}
-        bool Update(IRunner& runner, const UpdateCtx& ctx) override { return _updateAction(ctx); }
-        void Stopping(IRunner& runner) override {}
-
-    private:
-        UpdateAction _updateAction;
-    };
-
     // template<typename TRunner>
     // class Handler : public IHandler
     // {
