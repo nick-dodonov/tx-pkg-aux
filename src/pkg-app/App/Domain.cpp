@@ -4,9 +4,9 @@
 #include <memory>
 
 #if __EMSCRIPTEN__
-    #include "Loop/WasmLooper.h"
+    #include "Loop/WasmRunner.h"
 #else
-    #include "Loop/TightLooper.h"
+    #include "Loop/TightRunner.h"
 #endif
 
 namespace App

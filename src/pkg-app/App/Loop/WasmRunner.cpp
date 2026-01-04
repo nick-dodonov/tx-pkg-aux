@@ -1,5 +1,5 @@
 #if __EMSCRIPTEN__
-#include "WasmLooper.h"
+#include "WasmRunner.h"
 #include "Log/Log.h"
 
 #include <emscripten.h>
