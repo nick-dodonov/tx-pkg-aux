@@ -1,5 +1,8 @@
 #include "App/Domain.h"
 #include "Log/Scope.h"
+#include <charconv>
+#include <cstddef>
+#include <cstring>
 
 namespace asio = boost::asio;
 
@@ -48,7 +51,7 @@ auto FooAsync(int input, CompletionToken&& token) // NOLINT(cppcoreguidelines-mi
     );
 }
 
-static asio::awaitable<int> CoroMain()
+static asio::awaitable<int> CoroMain(int exitCode)
 {
     auto _ = Log::Scope{"."};
     {
@@ -64,11 +67,21 @@ static asio::awaitable<int> CoroMain()
         auto [result] = co_await FooAsync(3, asio::as_tuple(asio::use_awaitable));
         Log::Info("FooAsync(3): {}", result);
     }
-    co_return 111;
+
+    Log::Info("exiting with code: {}", exitCode);
+    co_return exitCode;
 }
 
 int main(const int argc, const char* argv[])
 {
     App::Domain domain{argc, argv};
-    return domain.RunCoroMain(CoroMain());
+    auto exitCode = 0;
+    if (argc > 1) {
+        int result = 0;
+        auto [ptr, ec] = std::from_chars(argv[1], argv[1] + std::strlen(argv[1]), result);
+        if (ec == std::errc()) {
+            exitCode = result;
+        }
+    }
+    return domain.RunCoroMain(CoroMain(exitCode));
 }
