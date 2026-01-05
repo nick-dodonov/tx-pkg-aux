@@ -73,7 +73,8 @@ static asio::awaitable<int> CoroMain(int exitCode)
 
 int main(const int argc, const char* argv[])
 {
-    auto domain = std::make_shared<App::Domain>(argc, argv);
+    auto runner = App::Loop::CreateDefaultRunner();
+    auto domain = std::make_shared<App::Domain>(argc, argv, runner);
     auto exitCode = 0;
     if (argc > 1) {
         int result = 0;

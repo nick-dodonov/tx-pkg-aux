@@ -1,38 +1,15 @@
 #include "Domain.h"
 #include "Log/Log.h"
 #include "Boot/Boot.h"
-#include <memory>
-
-#if __EMSCRIPTEN__
-    #include "Loop/WasmRunner.h"
-#else
-    #include "Loop/TightRunner.h"
-#endif
 
 namespace App
 {
-    namespace
-    {
-        std::shared_ptr<Loop::IRunner> CreateDefaultRunner()
-        {
-#if __EMSCRIPTEN__
-            return std::make_shared<Loop::WasmRunner>(Loop::WasmRunner{{.Fps = 120}});
-#else
-            return std::make_shared<Loop::TightRunner>();
-#endif
-        }
-    }
-
-    Domain::Domain(const int argc, const char** argv)
-        : Domain{Boot::CliArgs(argc, argv)}
-    {}
-
     Domain::Domain(const int argc, const char** argv, std::shared_ptr<Loop::IRunner> runner)
         : Domain{Boot::CliArgs(argc, argv), std::move(runner)}
     {}
 
     Domain::Domain(Boot::CliArgs cliArgs)
-        : Domain{std::move(cliArgs), CreateDefaultRunner()}
+        : Domain{std::move(cliArgs), Loop::CreateDefaultRunner()}
     {}
 
     Domain::Domain(Boot::CliArgs cliArgs, std::shared_ptr<Loop::IRunner> runner)
