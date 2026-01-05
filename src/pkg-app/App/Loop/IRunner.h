@@ -1,5 +1,4 @@
 #pragma once
-#include <functional>
 #include <memory>
 #include "UpdateCtx.h"
 
@@ -28,8 +27,8 @@ namespace App::Loop
     {
     public:
         virtual ~IHandler() = default;
-        virtual bool Started(IRunner& runner) = 0;
-        virtual void Stopping(IRunner& runner) = 0;
+        virtual bool Started(IRunner& runner) { return true; }
+        virtual void Stopping(IRunner& runner) {}
         virtual bool Update(IRunner& runner, const UpdateCtx& ctx) = 0;
     };
 
@@ -51,8 +50,8 @@ namespace App::Loop
     public:
         using Runner = TRunner;
 
-        virtual bool Started(TRunner& runner) = 0;
-        virtual void Stopping(TRunner& runner) = 0;
+        virtual bool Started(TRunner& runner) { return true; }
+        virtual void Stopping(TRunner& runner) {}
         virtual bool Update(TRunner& runner, const UpdateCtx& ctx) = 0;
 
     private:
