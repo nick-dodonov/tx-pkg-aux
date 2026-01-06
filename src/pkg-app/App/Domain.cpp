@@ -1,6 +1,7 @@
 #include "Domain.h"
 #include "Log/Log.h"
 #include "Boot/Boot.h"
+#include "Loop/Runner.h"
 
 namespace App
 {
