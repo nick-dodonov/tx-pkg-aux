@@ -1,3 +1,4 @@
+#include "Runner.h"
 #if __EMSCRIPTEN__
     #include "WasmRunner.h"
 #else

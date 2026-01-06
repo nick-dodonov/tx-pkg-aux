@@ -89,7 +89,4 @@ namespace App::Loop
             }
         }
     };
-
-    /// Create default simple console runner based on platform
-    std::shared_ptr<Loop::IRunner> CreateDefaultRunner();
 }
