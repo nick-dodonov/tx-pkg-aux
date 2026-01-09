@@ -6,6 +6,13 @@ common --enable_platform_specific_config
 # Local dependencies overrides (simplify mutual development)
 common:local-deps --override_module=tx-kit-ext=../tx-kit-ext
 
+#TODO: shared .bazelrc for tx-pkg-aux and tx-pkg-misc in tx-kit-ext?
+build --copt=-Werror=return-type                # Функции без return
+#build --copt=-Werror=unused-variable            # Неиспользуемые переменные
+#build --copt=-Werror=unused-parameter           # Неиспользуемые параметры
+build --copt=-Werror=uninitialized              # Неинициализированные переменные
+build --copt=-Werror=delete-non-virtual-dtor    # Удаление через базовый класс без виртуального деструктора
+
 # C++ standard settings per platforms for external too (boost.asio w/ coroutines needs C++20 at least)
 # Prefer setting via env for rules_cc (BAZEL_CXXOPTS not via --cxxopt) to disable default C++17 applied
 build:linux --repo_env=BAZEL_CXXOPTS=-std=c++23

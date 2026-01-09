@@ -7,12 +7,12 @@
 
 namespace App::Loop
 {
-    std::shared_ptr<Loop::IRunner> CreateDefaultRunner()
+    std::shared_ptr<IRunner> CreateDefaultRunner()
     {
 #if __EMSCRIPTEN__
-        return std::make_shared<Loop::WasmRunner>(Loop::WasmRunner{{.Fps = 120}});
+        return std::make_shared<WasmRunner>(WasmRunner{{.Fps = 120}});
 #else
-        return std::make_shared<Loop::TightRunner>();
+        return std::make_shared<TightRunner>();
 #endif
     }
 }

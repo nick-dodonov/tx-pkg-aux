@@ -45,6 +45,7 @@ AlwaysBreakTemplateDeclarations: Yes
 # constructor initializer formatting
 PackConstructorInitializers: Never
 BreakConstructorInitializers: BeforeComma
+BreakInheritanceList: BeforeComma
 
 # brace wrapping
 # BreakBeforeBraces: Linux
@@ -88,6 +89,7 @@ AllowShortIfStatementsOnASingleLine: false
 AllowShortLoopsOnASingleLine: false
 SpaceAfterCStyleCast: false
 SpaceBeforeParens: ControlStatements
+SpaceBeforeInheritanceColon: false
 FixNamespaceComments: false
 InsertNewlineAtEOF: true
 

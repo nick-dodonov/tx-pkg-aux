@@ -3,5 +3,5 @@
 namespace App::Loop
 {
     /// Factory for simple console runner based on platform
-    std::shared_ptr<Loop::IRunner> CreateDefaultRunner();
+    std::shared_ptr<IRunner> CreateDefaultRunner();
 }
