@@ -1,7 +1,5 @@
 try-import %workspace%/.init.bazelrc
-common --registry=https://raw.githubusercontent.com/nick-dodonov/tx-kit-registry/main
-common --registry=https://bcr.bazel.build/
-common --enable_platform_specific_config
+import %workspace%/uni/uni.bazelrc
 
 # Local dependencies overrides (simplify mutual development)
 common:local-deps --override_module=tx-kit-ext=../tx-kit-ext
