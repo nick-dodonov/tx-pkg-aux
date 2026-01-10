@@ -77,13 +77,6 @@ int main(const int argc, const char* argv[])
 {
     auto domain = std::make_shared<App::Domain>(argc, argv);
     auto runner = App::Loop::CreateDefaultRunner(domain);
-    auto exitCode = 0;
-    if (argc > 1) {
-        int result = 0;
-        auto [ptr, ec] = std::from_chars(argv[1], argv[1] + std::strlen(argv[1]), result);
-        if (ec == std::errc()) {
-            exitCode = result;
-        }
-    }
+    auto exitCode = domain->GetCliArgs().GetIntArg(1).value_or(0);
     return domain->RunCoroMain(runner, CoroMain(exitCode));
 }
