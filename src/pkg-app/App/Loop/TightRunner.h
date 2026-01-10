@@ -1,10 +1,11 @@
 #pragma once
-#include "IRunner.h"
+#include "Handler.h"
+#include "Runner.h"
 
 namespace App::Loop
 {
     /// Runner that runs as fast as possible
-    class TightRunner final : public Runner<IHandler>
+    class TightRunner final: public Runner<IHandler>
     {
     public:
         using Runner<IHandler>::Runner;
