@@ -2,20 +2,20 @@
 
 namespace App::Loop
 {
-    void TightRunner::Start(const HandlerPtr handler)
+    void TightRunner::Start()
     {
         UpdateCtx updateCtx{*this};
         updateCtx.Initialize();
 
         _running = true;
-        handler->Started(*this);
+        _handler->Started(*this);
 
         while (_running) {
             updateCtx.Tick();
-            _running = handler->Update(*this, updateCtx);
+            _running = _handler->Update(*this, updateCtx);
         }
 
-        handler->Stopping(*this);
+        _handler->Stopping(*this);
         _running = false;
     }
 

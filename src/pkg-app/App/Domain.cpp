@@ -1,21 +1,15 @@
 #include "Domain.h"
 #include "Log/Log.h"
 #include "Boot/Boot.h"
-#include "Loop/Runner.h"
 
 namespace App
 {
-    Domain::Domain(const int argc, const char** argv, std::shared_ptr<Loop::IRunner> runner)
-        : Domain{Boot::CliArgs(argc, argv), std::move(runner)}
+    Domain::Domain(const int argc, const char** argv)
+        : Domain{Boot::CliArgs(argc, argv)}
     {}
 
     Domain::Domain(Boot::CliArgs cliArgs)
-        : Domain{std::move(cliArgs), Loop::CreateDefaultRunner()}
-    {}
-
-    Domain::Domain(Boot::CliArgs cliArgs, std::shared_ptr<Loop::IRunner> runner)
         : _cliArgs{std::move(cliArgs)}
-        , _runner{std::move(runner)}
     {
         Boot::LogHeader(_cliArgs);
         Boot::SetupAbortHandlers();
@@ -31,24 +25,24 @@ namespace App
         Log::Trace("destroy");
     }
 
-    int Domain::RunCoroMain(boost::asio::awaitable<int> coroMain)
+    int Domain::RunCoroMain(const std::shared_ptr<Loop::IRunner>& runner, boost::asio::awaitable<int> coroMain)
     {
         Log::Trace("starting");
         boost::asio::co_spawn(
             _io_context,
             std::move(coroMain),
-            [this](const std::exception_ptr& ex, const int exitCode) {
+            [this, runner](const std::exception_ptr& ex, const int exitCode) {
                 if (!ex) {
                     Log::Trace("finished: {}", exitCode);
                     _exitCode = exitCode;
-                    _runner->Finish(Loop::FinishData{exitCode});
+                    runner->Finish(Loop::FinishData{exitCode});
                 } else {
                     Log::Fatal("finished w/ unhandled exception");
                     std::rethrow_exception(ex);
                 }
             });
 
-        _runner->Start(shared_from_this());
+        runner->Start();
         return _exitCode;
     }
 

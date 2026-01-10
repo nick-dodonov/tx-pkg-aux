@@ -6,14 +6,14 @@
 
 namespace App::Loop
 {
-    WasmRunner::WasmRunner(Options options)
-        : _options{options}
+    WasmRunner::WasmRunner(HandlerPtr handler, Options options)
+        : Runner{std::move(handler)}
+        , _options{options}
         , _updateCtx{*this}
     {}
 
-    void WasmRunner::Start(HandlerPtr handler)
+    void WasmRunner::Start()
     {
-        _handler = std::move(handler);
         _updateCtx.Initialize();
 
         _handler->Started(*this);

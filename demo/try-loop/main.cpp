@@ -117,9 +117,9 @@ void Foo()
     // compositeAction.AddAction(std::make_shared<IStartAction>(std::move(startAction1)));
     // compositeAction.AddAction(std::make_shared<IStartAction>(std::move(startAction2)));
 
-    IStartAction* actionPtr = &startAction1;
-    TightRunner runner;
-    actionPtr->operator()(runner);
+    //IStartAction* actionPtr = &startAction1;
+    //TightRunner runner;
+    //actionPtr->operator()(runner);
 }
 
 // //////////////////////////////////////////////////////
