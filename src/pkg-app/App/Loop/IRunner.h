@@ -19,9 +19,6 @@ namespace App::Loop
     ////////////////////////////////////////////////
     class IRunner;
 
-    template<typename TRunner>
-    class Runner;
-
     /// Base loop handler
     class IHandler
     {
@@ -38,8 +35,7 @@ namespace App::Loop
     public:
         virtual ~IRunner() = default;
 
-        using HandlerPtr = std::shared_ptr<IHandler>;
-        virtual void Start(HandlerPtr handler) = 0;
+        virtual void Start() = 0;
         virtual void Finish(const FinishData& finishData) = 0;
     };
 
@@ -66,27 +62,11 @@ namespace App::Loop
     {
     public:
         using HandlerPtr = std::shared_ptr<THandler>;
-        virtual void Start(HandlerPtr handler) = 0;
+        Runner(HandlerPtr handler)
+            : _handler(std::move(handler))
+        {}
 
-    private:
-        void Start(IRunner::HandlerPtr handler) override
-        { 
-            auto specific = std::dynamic_pointer_cast<THandler>(std::move(handler));
-            if (specific) {
-                this->Start(std::move(specific));
-            } else {
-                struct Wrap : THandler {
-                    IRunner::HandlerPtr _handler;
-                    enum Tag { Dummy };
-                    explicit Wrap(Tag tag, IRunner::HandlerPtr handler)
-                        : _handler(std::move(handler))
-                    {}
-                    bool Started(typename THandler::Runner& runner) override { return _handler->Started(runner); }
-                    void Stopping(typename THandler::Runner& runner) override { _handler->Stopping(runner); }
-                    bool Update(typename THandler::Runner& runner, const UpdateCtx& ctx) override { return _handler->Update(runner, ctx); }
-                };
-                this->Start(std::static_pointer_cast<THandler>(std::make_shared<Wrap>(Wrap::Tag::Dummy, std::move(handler))));
-            }
-        }
+    protected:
+        HandlerPtr _handler;
     };
 }

@@ -12,7 +12,7 @@ static asio::awaitable<void> Sub()
     auto _ = Log::Scope{};
 
     auto timer = asio::steady_timer(co_await asio::this_coro::executor);
-    timer.expires_after(std::chrono::milliseconds(300));
+    timer.expires_after(std::chrono::milliseconds(150));
     co_await timer.async_wait(asio::use_awaitable);
 }
 
@@ -75,8 +75,8 @@ static asio::awaitable<int> CoroMain(int exitCode)
 
 int main(const int argc, const char* argv[])
 {
-    auto runner = App::Loop::CreateDefaultRunner();
-    auto domain = std::make_shared<App::Domain>(argc, argv, runner);
+    auto domain = std::make_shared<App::Domain>(argc, argv);
+    auto runner = App::Loop::CreateDefaultRunner(domain);
     auto exitCode = 0;
     if (argc > 1) {
         int result = 0;
@@ -85,5 +85,5 @@ int main(const int argc, const char* argv[])
             exitCode = result;
         }
     }
-    return domain->RunCoroMain(CoroMain(exitCode));
+    return domain->RunCoroMain(runner, CoroMain(exitCode));
 }

@@ -4,10 +4,12 @@
 namespace App::Loop
 {
     /// Runner that runs as fast as possible
-    class TightRunner final : public IRunner
+    class TightRunner final : public Runner<IHandler>
     {
     public:
-        void Start(HandlerPtr handler) override;
+        using Runner<IHandler>::Runner;
+
+        void Start() override;
         void Finish(const FinishData& finishData) override;
 
     private:
