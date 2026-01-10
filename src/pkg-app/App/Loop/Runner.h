@@ -28,6 +28,7 @@ namespace App::Loop
 
     /// Typed runner for specific runner type
     template <typename THandler>
+    requires std::is_base_of_v<IHandler, THandler>
     class Runner: public IRunner
     {
     public:
@@ -37,6 +38,13 @@ namespace App::Loop
         {}
 
     protected:
+        [[nodiscard]] const HandlerPtr& GetHandler() const { return _handler; }
+
+        [[nodiscard]] bool InvokeStarted() { return std::static_pointer_cast<IHandler>(_handler)->Started(*this); }
+        void InvokeStopping() { std::static_pointer_cast<IHandler>(_handler)->Stopping(*this); }
+        [[nodiscard]] bool InvokeUpdate(const UpdateCtx& ctx) { return std::static_pointer_cast<IHandler>(_handler)->Update(*this, ctx); }
+
+    private:
         HandlerPtr _handler;
     };
 

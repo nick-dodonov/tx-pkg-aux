@@ -1,4 +1,5 @@
 #include "TightRunner.h"
+#include "Log/Log.h"
 
 namespace App::Loop
 {
@@ -8,14 +9,18 @@ namespace App::Loop
         updateCtx.Initialize();
 
         _running = true;
-        _handler->Started(*this);
+        if (!InvokeStarted()) {
+            Log::Error("Started handler failed");
+            _running = false;
+            return;
+        }
 
         while (_running) {
             updateCtx.Tick();
-            _running = _handler->Update(*this, updateCtx);
+            _running = InvokeUpdate(updateCtx);
         }
 
-        _handler->Stopping(*this);
+        InvokeStopping();
         _running = false;
     }
 

@@ -1,5 +1,4 @@
 #include "Runner.h"
-#include <memory>
 #if __EMSCRIPTEN__
     #include "WasmRunner.h"
 #else
