@@ -1,12 +1,10 @@
 #include "UpdateCtx.h"
-#include "IRunner.h"
 
 namespace App::Loop
 {
     UpdateCtx::UpdateCtx(IRunner& runner)
         : Runner(runner)
-    {
-    }
+    {}
 
     void UpdateCtx::Initialize()
     {

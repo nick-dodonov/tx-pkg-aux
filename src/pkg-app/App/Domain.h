@@ -1,6 +1,7 @@
 #pragma once
 #include "Boot/CliArgs.h"
-#include "Loop/IRunner.h"
+#include "Loop/Handler.h"
+#include "Loop/Runner.h"
 #include <boost/asio.hpp>
 #include <boost/core/noncopyable.hpp>
 #include <memory>
