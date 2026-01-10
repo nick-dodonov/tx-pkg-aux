@@ -16,7 +16,11 @@ namespace App::Loop
     {
         _updateCtx.Initialize();
 
-        _handler->Started(*this);
+        if (!InvokeStarted()) {
+            Log::Error("Started handler failed");
+            return;
+        }
+
         emscripten_set_main_loop_arg(
             [](void* arg) {
                 auto& self = *static_cast<WasmRunner*>(arg);
@@ -32,7 +36,7 @@ namespace App::Loop
     {
         _updateCtx.Tick();
 
-        auto proceed = _handler->Update(*this, _updateCtx);
+        auto proceed = InvokeUpdate(_updateCtx);
         if (!proceed) {
             Log::Debug("emscripten_cancel_main_loop");
             emscripten_cancel_main_loop();
@@ -49,7 +53,7 @@ namespace App::Loop
 
     void WasmRunner::Finish(const FinishData& finishData)
     {
-        _handler->Stopping(*this);
+        InvokeStopping();
 
         // WASM explicit exit because emscripten_set_main_loop_arg() never returns
         auto exitCode = finishData.ExitCode;
