@@ -42,19 +42,6 @@
                 "focus": true,
             },
             "problemMatcher": "$gcc",
-        },
-        {
-            "type": "shell",
-            "label": "build demo <relative>",
-            "command": "bazel build ${relativeFileDirname} --platform_suffix=vs",
-            "group": {
-                "kind": "build",
-                "isDefault": true
-            },
-            "presentation": {
-                "focus": true,
-            },
-            "problemMatcher": "$gcc",
-        },
+        }
     ]
 }
