@@ -17,19 +17,6 @@
                 "command source ${workspaceFolder}/.lldbinit",
             ],
             "preLaunchTask": "build demo <user>",
-        },
-        {
-            "name": "demo <relative> (LLDB)",
-            "type": "lldb",
-            "request": "launch",
-            "program": "${workspaceFolder}/bazel-bin/${relativeFileDirname}",
-            "cwd": "${workspaceFolder}",
-            "initCommands": [
-                "platform setting -w ${workspaceFolder}",
-                "command source ${env:HOME}/.lldbinit",
-                "command source ${workspaceFolder}/.lldbinit",
-            ],
-            "preLaunchTask": "build demo <relative>",
-        },
+        }
     ]
 }

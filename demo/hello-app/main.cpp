@@ -1,5 +1,7 @@
 #include "App/Domain.h"
+#include "App/Loop/Runner.h"
 #include "Log/Scope.h"
+#include <cstddef>
 
 namespace asio = boost::asio;
 
@@ -8,7 +10,7 @@ static asio::awaitable<void> Sub()
     auto _ = Log::Scope{};
 
     auto timer = asio::steady_timer(co_await asio::this_coro::executor);
-    timer.expires_after(std::chrono::milliseconds(500));
+    timer.expires_after(std::chrono::milliseconds(150));
     co_await timer.async_wait(asio::use_awaitable);
 }
 
@@ -48,7 +50,7 @@ auto FooAsync(int input, CompletionToken&& token) // NOLINT(cppcoreguidelines-mi
     );
 }
 
-static asio::awaitable<int> CoroMain()
+static asio::awaitable<int> CoroMain(int exitCode)
 {
     auto _ = Log::Scope{"."};
     {
@@ -64,11 +66,15 @@ static asio::awaitable<int> CoroMain()
         auto [result] = co_await FooAsync(3, asio::as_tuple(asio::use_awaitable));
         Log::Info("FooAsync(3): {}", result);
     }
-    co_return 111;
+
+    Log::Info("exiting with code: {}", exitCode);
+    co_return exitCode;
 }
 
 int main(const int argc, const char* argv[])
 {
-    App::Domain domain{argc, argv};
-    return domain.RunCoroMain(CoroMain());
+    auto domain = std::make_shared<App::Domain>(argc, argv);
+    auto runner = App::Loop::CreateDefaultRunner(domain);
+    auto exitCode = domain->GetCliArgs().GetIntArg(1).value_or(0);
+    return domain->RunCoroMain(runner, CoroMain(exitCode));
 }

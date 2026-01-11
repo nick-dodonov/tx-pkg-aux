@@ -1,43 +1,17 @@
 #include "Domain.h"
 #include "Log/Log.h"
 #include "Boot/Boot.h"
-#include <memory>
-
-#if __EMSCRIPTEN__
-    #include "Loop/WasmLooper.h"
-#else
-    #include "Loop/TightLooper.h"
-#endif
+#include "Loop/Runner.h"
+#include <chrono>
 
 namespace App
 {
-    namespace
-    {
-        std::shared_ptr<Loop::ILooper> CreateDefaultLooper()
-        {
-#if __EMSCRIPTEN__
-            return std::make_shared<Loop::WasmLooper>(Loop::WasmLooper{{.Fps = 120}});
-#else
-            return std::make_shared<Loop::TightLooper>();
-#endif
-        }
-    }
-
     Domain::Domain(const int argc, const char** argv)
         : Domain{Boot::CliArgs(argc, argv)}
     {}
 
-    Domain::Domain(const int argc, const char** argv, std::shared_ptr<Loop::ILooper> looper)
-        : Domain{Boot::CliArgs(argc, argv), std::move(looper)}
-    {}
-
     Domain::Domain(Boot::CliArgs cliArgs)
-        : Domain{std::move(cliArgs), CreateDefaultLooper()}
-    {}
-
-    Domain::Domain(Boot::CliArgs cliArgs, std::shared_ptr<Loop::ILooper> looper)
         : _cliArgs{std::move(cliArgs)}
-        , _looper{std::move(looper)}
     {
         Boot::LogHeader(_cliArgs);
         Boot::SetupAbortHandlers();
@@ -53,42 +27,84 @@ namespace App
         Log::Trace("destroy");
     }
 
-    void Domain::RunContext()
-    {
-        // _io_context.run();
-        // asio::detail::global<asio::system_context>().join();
-
-        _looper->Start([&](const Loop::UpdateCtx& ctx) -> bool {
-            //Log::Trace("frame={} delta={} µs", ctx.frame.index, ctx.frame.delta.count());
-            if (_io_context.stopped()) {
-                Log::Debug("stopped on frame={}", ctx.frame.index);
-                return false;
-            }
-            if (const auto count = _io_context.poll(); count > 0) {
-                Log::Trace("polled {} tasks on frame={}", count, ctx.frame.index);
-            }
-            return true;
-        });
-    }
-
-    int Domain::RunCoroMain(boost::asio::awaitable<int> coroMain)
+    int Domain::RunCoroMain(const std::shared_ptr<Loop::IRunner>& runner, boost::asio::awaitable<int> coroMain)
     {
         Log::Trace("starting");
         boost::asio::co_spawn(
             _io_context,
             std::move(coroMain),
-            [this](const std::exception_ptr& ex, const int exitCode) {
+            [runner](const std::exception_ptr& ex, const int exitCode) {
                 if (!ex) {
                     Log::Trace("finished: {}", exitCode);
-                    _exitCode = exitCode;
-                    _looper->Finish(Loop::FinishData{exitCode});
+                    runner->Exit(exitCode);
                 } else {
                     Log::Fatal("finished w/ unhandled exception");
                     std::rethrow_exception(ex);
                 }
             });
 
-        RunContext();
-        return _exitCode;
+        return runner->Run();
+    }
+
+    boost::asio::awaitable<boost::system::error_code> Domain::AsyncStopped()
+    {
+        Log::Trace("waiting...");
+        auto executor = co_await boost::asio::this_coro::executor;
+
+        std::shared_ptr<StopChannel> channel;
+        {
+            Async::LockGuard lock(_mutex);
+            if (!_stopChannel) {
+                _stopChannel = std::make_shared<StopChannel>(executor, 1);
+            }
+            channel = _stopChannel;
+        }
+
+        auto [ec] = co_await channel->async_receive(boost::asio::as_tuple(boost::asio::use_awaitable));
+        Log::Trace("complete: {}", ec ? ec.what(): "<success>");
+        co_return ec;
+    }
+
+    bool Domain::Start()
+    {
+        Log::Debug(".");
+        return true;
+    }
+
+    void Domain::Stop()
+    {
+        // Notify waiters if any
+        std::shared_ptr<StopChannel> channel;
+        {
+            Async::LockGuard lock(_mutex);
+            _stopChannel.swap(channel);
+        }
+        if (channel) {
+            Log::Trace("notifying waiters");
+            channel->try_send(boost::system::error_code{});
+        } else {
+            Log::Trace("without waiters");
+        }
+
+        // Allow io_context to handle remaining tasks
+        if (!_io_context.stopped()) {
+            //auto count = _io_context.run_for(std::chrono::milliseconds(500));
+            auto count = _io_context.poll();
+            if (count > 0) {
+                Log::Trace("polled {} tasks on stop", count);
+            }
+        }
+    }
+
+    void Domain::Update(const Loop::UpdateCtx& ctx)
+    {
+        //Log::Trace("frame={} delta={} µs", ctx.frame.index, ctx.frame.delta.count());
+        if (_io_context.stopped()) {
+            Log::Debug("stopped on frame={}", ctx.frame.index);
+            return;
+        }
+        if (const auto count = _io_context.poll(); count > 0) {
+            Log::Trace("polled {} tasks on frame={}", count, ctx.frame.index);
+        }
     }
 }

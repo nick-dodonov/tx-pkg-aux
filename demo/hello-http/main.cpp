@@ -1,4 +1,5 @@
 #include "App/Domain.h"
+#include "App/Loop/Runner.h"
 #include "Http/LiteClient.h"
 #include "Log/Log.h"
 #include <boost/asio/experimental/channel.hpp>
@@ -83,5 +84,6 @@ static boost::asio::awaitable<int> CoroMain(const std::shared_ptr<App::Domain> d
 int main(const int argc, const char* argv[])
 {
     const auto domain = std::make_shared<App::Domain>(argc, argv);
-    return domain->RunCoroMain(CoroMain(domain));
+    auto runner = App::Loop::CreateDefaultRunner(domain);
+    return domain->RunCoroMain(runner, CoroMain(domain));
 }
