@@ -113,7 +113,7 @@ namespace Log::Detail
 #else
     #define SEC_FRAC_FORMAT "%f" // NOLINT(cppcoreguidelines-macro-usage)
 #endif
-        formatter->set_pattern("(%T." SEC_FRAC_FORMAT ") %t %^[%L]%$ %16!N: %&%v");
+        formatter->set_pattern("(%T." SEC_FRAC_FORMAT ") %t %^[%L]%$ %12!N: %&%v");
         spdlog::set_formatter(std::move(formatter));
     }
 }

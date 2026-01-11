@@ -2,6 +2,7 @@
 #include "Log/Log.h"
 #include "Boot/Boot.h"
 #include "Loop/Runner.h"
+#include <chrono>
 
 namespace App
 {
@@ -45,6 +46,25 @@ namespace App
         return runner->Run();
     }
 
+    boost::asio::awaitable<boost::system::error_code> Domain::AsyncStopped()
+    {
+        Log::Trace("waiting...");
+        auto executor = co_await boost::asio::this_coro::executor;
+
+        std::shared_ptr<StopChannel> channel;
+        {
+            Async::LockGuard lock(_mutex);
+            if (!_stopChannel) {
+                _stopChannel = std::make_shared<StopChannel>(executor, 1);
+            }
+            channel = _stopChannel;
+        }
+
+        auto [ec] = co_await channel->async_receive(boost::asio::as_tuple(boost::asio::use_awaitable));
+        Log::Trace("complete: {}", ec ? ec.what(): "<success>");
+        co_return ec;
+    }
+
     bool Domain::Start()
     {
         Log::Debug(".");
@@ -53,7 +73,27 @@ namespace App
 
     void Domain::Stop()
     {
-        Log::Debug(".");
+        // Notify waiters if any
+        std::shared_ptr<StopChannel> channel;
+        {
+            Async::LockGuard lock(_mutex);
+            _stopChannel.swap(channel);
+        }
+        if (channel) {
+            Log::Trace("notifying waiters");
+            channel->try_send(boost::system::error_code{});
+        } else {
+            Log::Trace("without waiters");
+        }
+
+        // Allow io_context to handle remaining tasks
+        if (!_io_context.stopped()) {
+            //auto count = _io_context.run_for(std::chrono::milliseconds(500));
+            auto count = _io_context.poll();
+            if (count > 0) {
+                Log::Trace("polled {} tasks on stop", count);
+            }
+        }
     }
 
     void Domain::Update(const Loop::UpdateCtx& ctx)
