@@ -31,19 +31,17 @@ namespace App
         boost::asio::co_spawn(
             _io_context,
             std::move(coroMain),
-            [this, runner](const std::exception_ptr& ex, const int exitCode) {
+            [runner](const std::exception_ptr& ex, const int exitCode) {
                 if (!ex) {
                     Log::Trace("finished: {}", exitCode);
-                    _exitCode = exitCode;
-                    runner->Finish(Loop::FinishData{exitCode});
+                    runner->Exit(exitCode);
                 } else {
                     Log::Fatal("finished w/ unhandled exception");
                     std::rethrow_exception(ex);
                 }
             });
 
-        runner->Start();
-        return _exitCode;
+        return runner->Run();
     }
 
     bool Domain::Started(Loop::IRunner& runner)

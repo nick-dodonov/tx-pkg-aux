@@ -12,13 +12,13 @@ namespace App::Loop
         , _updateCtx{*this}
     {}
 
-    void WasmRunner::Start()
+    int WasmRunner::Run()
     {
         _updateCtx.Initialize();
 
         if (!InvokeStarted()) {
             Log::Error("Started handler failed");
-            return;
+            return NotStartedExitCode;
         }
 
         emscripten_set_main_loop_arg(
@@ -30,6 +30,9 @@ namespace App::Loop
             _options.Fps,
             true
         );
+        // emscripten_set_main_loop_arg never returns control
+        __builtin_unreachable();
+        return NotStartedExitCode;
     }
 
     void WasmRunner::Update()
@@ -51,12 +54,10 @@ namespace App::Loop
         }
     }
 
-    void WasmRunner::Finish(const FinishData& finishData)
+    void WasmRunner::Exit(int exitCode)
     {
+        SetExitCode(exitCode);
         InvokeStopping();
-
-        // WASM explicit exit because emscripten_set_main_loop_arg() never returns
-        auto exitCode = finishData.ExitCode;
 
         // TODO: find what stops the exit with error message: "program exited (with status: 1), but keepRuntimeAlive() is set (counter=1) due to an async
         // operation, so halting execution but not exiting the runtime or preventing further async execution (you can use emscripten_force_exit, if you want to
@@ -64,6 +65,7 @@ namespace App::Loop
         //  Log::Trace("wasm: exit: {}", exitCode);
         //  exit(exitCode);
 
+        // WASM explicit exit because emscripten_set_main_loop_arg() never returns
         Log::Trace("wasm: emscripten_force_exit: {}", exitCode);
         emscripten_force_exit(exitCode);
     }

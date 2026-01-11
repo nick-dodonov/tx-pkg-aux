@@ -9,7 +9,7 @@
 namespace App
 {
     class Domain
-        : public Loop::IHandler
+        : public Loop::Handler
         , public std::enable_shared_from_this<class Domain>
         , boost::noncopyable
     {
@@ -27,7 +27,6 @@ namespace App
         Boot::CliArgs _cliArgs;
 
         boost::asio::io_context _io_context;
-        int _exitCode{};
 
         bool Started(Loop::IRunner& runner) override;
         void Stopping(Loop::IRunner& runner) override;
