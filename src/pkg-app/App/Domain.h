@@ -30,6 +30,6 @@ namespace App
 
         bool Started(Loop::IRunner& runner) override;
         void Stopping(Loop::IRunner& runner) override;
-        bool Update(Loop::IRunner& runner, const Loop::UpdateCtx& ctx) override;
+        void Update(const Loop::UpdateCtx& ctx) override;
     };
 }

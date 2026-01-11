@@ -38,26 +38,16 @@ namespace App::Loop
     void WasmRunner::Update()
     {
         _updateCtx.Tick();
-
-        auto proceed = InvokeUpdate(_updateCtx);
-        if (!proceed) {
-            Log::Debug("emscripten_cancel_main_loop");
-            emscripten_cancel_main_loop();
-            // emscripten_async_call(
-            //     [](void*) {
-            //         Log::Trace("emscripten_force_exit(0)");
-            //         emscripten_force_exit(0);
-            //     },
-            //     nullptr,
-            //     0
-            // );
-        }
+        InvokeUpdate(_updateCtx);
     }
 
     void WasmRunner::Exit(int exitCode)
     {
         SetExitCode(exitCode);
         InvokeStopping();
+
+        Log::Debug("emscripten_cancel_main_loop");
+        emscripten_cancel_main_loop();
 
         // TODO: find what stops the exit with error message: "program exited (with status: 1), but keepRuntimeAlive() is set (counter=1) due to an async
         // operation, so halting execution but not exiting the runtime or preventing further async execution (you can use emscripten_force_exit, if you want to
@@ -66,8 +56,17 @@ namespace App::Loop
         //  exit(exitCode);
 
         // WASM explicit exit because emscripten_set_main_loop_arg() never returns
-        Log::Trace("wasm: emscripten_force_exit: {}", exitCode);
-        emscripten_force_exit(exitCode);
+        // When calling from inside emscripten_set_main_loop callback, 
+        //  calling emscripten_force_exit(exitCode) directly can cause issues.
+        emscripten_async_call(
+            [](void* arg) {
+                auto exitCode = static_cast<WasmRunner*>(arg)->GetExitCode().value_or(0);
+                Log::Trace("emscripten_force_exit({})", exitCode);
+                emscripten_force_exit(exitCode);
+            },
+            this,
+            0
+        );
     }
 }
 #endif

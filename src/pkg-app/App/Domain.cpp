@@ -55,16 +55,15 @@ namespace App
         Log::Debug("runner stopping");
     }
 
-    bool Domain::Update(Loop::IRunner& runner, const Loop::UpdateCtx& ctx)
+    void Domain::Update(const Loop::UpdateCtx& ctx)
     {
         //Log::Trace("frame={} delta={} µs", ctx.frame.index, ctx.frame.delta.count());
         if (_io_context.stopped()) {
             Log::Debug("stopped on frame={}", ctx.frame.index);
-            return false;
+            return;
         }
         if (const auto count = _io_context.poll(); count > 0) {
             Log::Trace("polled {} tasks on frame={}", count, ctx.frame.index);
         }
-        return true;
     }
 }
