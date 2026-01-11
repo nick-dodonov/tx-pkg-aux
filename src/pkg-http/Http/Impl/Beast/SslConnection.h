@@ -1,10 +1,12 @@
 #pragma once
-#if !__EMSCRIPTEN__
+#if !__EMSCRIPTEN__ && defined(HTTP_CLIENT_WITH_SSL)
 #include <boost/asio/ip/tcp.hpp>
 #include <boost/asio/ssl/stream.hpp>
 
 namespace Http
 {
+    void LogSslConnected(const SSL* ssl_handle);
+
     struct SslConnection
     {
         using Socket = boost::asio::ip::tcp::socket;
