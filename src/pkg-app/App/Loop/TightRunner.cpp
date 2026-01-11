@@ -8,7 +8,7 @@ namespace App::Loop
         UpdateCtx updateCtx{*this};
         updateCtx.Initialize();
 
-        if (!InvokeStarted()) {
+        if (!InvokeStart()) {
             Log::Error("Started handler failed");
             return NotStartedExitCode;
         }
@@ -19,7 +19,7 @@ namespace App::Loop
             InvokeUpdate(updateCtx);
         }
 
-        InvokeStopping();
+        InvokeStop();
         return GetExitCode().value_or(SuccessExitCode);
     }
 
