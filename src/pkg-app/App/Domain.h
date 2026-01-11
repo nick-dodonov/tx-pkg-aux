@@ -27,8 +27,8 @@ namespace App
 
         boost::asio::io_context _io_context;
 
-        bool Started() override;
-        void Stopping() override;
+        bool Start() override;
+        void Stop() override;
         void Update(const Loop::UpdateCtx& ctx) override;
     };
 }

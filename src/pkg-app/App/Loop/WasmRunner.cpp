@@ -16,7 +16,7 @@ namespace App::Loop
     {
         _updateCtx.Initialize();
 
-        if (!InvokeStarted()) {
+        if (!InvokeStart()) {
             Log::Error("Started handler failed");
             return NotStartedExitCode;
         }
@@ -44,7 +44,7 @@ namespace App::Loop
     void WasmRunner::Exit(int exitCode)
     {
         SetExitCode(exitCode);
-        InvokeStopping();
+        InvokeStop();
 
         Log::Debug("emscripten_cancel_main_loop");
         emscripten_cancel_main_loop();

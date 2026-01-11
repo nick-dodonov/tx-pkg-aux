@@ -45,13 +45,13 @@ namespace App
         return runner->Run();
     }
 
-    bool Domain::Started()
+    bool Domain::Start()
     {
         Log::Debug("runner started");
         return true;
     }
 
-    void Domain::Stopping()
+    void Domain::Stop()
     {
         Log::Debug("runner stopping");
     }

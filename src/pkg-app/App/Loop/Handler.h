@@ -10,8 +10,8 @@ namespace App::Loop
     {
     public:
         virtual ~IHandler() = default;
-        virtual bool Started() { return true; }
-        virtual void Stopping() {}
+        virtual bool Start() { return true; }
+        virtual void Stop() {}
         virtual void Update(const UpdateCtx& ctx) = 0;
     };
 
@@ -21,8 +21,8 @@ namespace App::Loop
         WrapHandler(T inner)
             : _inner(std::move(inner))
         {}
-        bool Started() override { return get().Started(); }
-        void Stopping() override { get().Stopping(); }
+        bool Start() override { return get().Start(); }
+        void Stop() override { get().Stop(); }
         void Update(const UpdateCtx& ctx) override { get().Update(ctx); }
 
     private:

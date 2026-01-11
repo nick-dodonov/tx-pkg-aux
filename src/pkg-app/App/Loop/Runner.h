@@ -42,8 +42,8 @@ namespace App::Loop
         [[nodiscard]] std::optional<int> GetExitCode() const { return _exitCode; }
         void SetExitCode(int exitCode) { _exitCode = exitCode; }
 
-        [[nodiscard]] bool InvokeStarted() { return _handler->Started(); }
-        void InvokeStopping() { _handler->Stopping(); }
+        [[nodiscard]] bool InvokeStart() { return _handler->Start(); }
+        void InvokeStop() { _handler->Stop(); }
         void InvokeUpdate(const UpdateCtx& ctx) { _handler->Update(ctx); }
 
     private:
