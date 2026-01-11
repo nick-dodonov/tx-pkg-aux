@@ -10,8 +10,8 @@ namespace App::Loop
     {
     public:
         virtual ~IHandler() = default;
-        virtual bool Started(IRunner& runner) { return true; }
-        virtual void Stopping(IRunner& runner) {}
+        virtual bool Started() { return true; }
+        virtual void Stopping() {}
         virtual void Update(const UpdateCtx& ctx) = 0;
     };
 
@@ -21,9 +21,9 @@ namespace App::Loop
         WrapHandler(T inner)
             : _inner(std::move(inner))
         {}
-        bool Started(IRunner& runner) override { return get().Started(runner); }
-        void Stopping(IRunner& runner) override { return get().Stopping(runner); }
-        void Update(const UpdateCtx& ctx) override { return get().Update(ctx); }
+        bool Started() override { return get().Started(); }
+        void Stopping() override { get().Stopping(); }
+        void Update(const UpdateCtx& ctx) override { get().Update(ctx); }
 
     private:
         T _inner;
@@ -40,10 +40,14 @@ namespace App::Loop
     /// Typed handler for specific runner type
     class Handler: public IHandler
     {
+    public:
+        [[nodiscard]] const IRunner* GetRunner() const { return _runner; }
+        [[nodiscard]] IRunner* GetRunner() { return _runner; }
+
     private:
         friend class Runner;
-        void SetParent(IRunner* runner) { _runner = runner; }
+        void SetRunner(IRunner* runner) { _runner = runner; }
 
-        IRunner* _runner;
+        IRunner* _runner{};
     };
 }
