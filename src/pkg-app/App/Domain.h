@@ -1,40 +1,42 @@
 #pragma once
+#include "Async/Mutex.h"
 #include "Boot/CliArgs.h"
-#include "Loop/ILooper.h"
+#include "Loop/Handler.h"
 #include <boost/asio.hpp>
+#include <boost/asio/experimental/channel.hpp>
 #include <boost/core/noncopyable.hpp>
+#include <memory>
 
 namespace App
 {
     class Domain
-        : public std::enable_shared_from_this<Domain>
+        : public Loop::Handler
+        , public std::enable_shared_from_this<class Domain>
         , boost::noncopyable
     {
     public:
         Domain(int argc, const char** argv);
-        Domain(int argc, const char** argv, std::shared_ptr<Loop::ILooper> looper);
         explicit Domain(Boot::CliArgs cliArgs);
-        Domain(Boot::CliArgs cliArgs, std::shared_ptr<Loop::ILooper> looper);
         ~Domain();
 
-        /// Get the looper, optionally cast to a specific type
-        template<typename T = Loop::ILooper>
-        std::shared_ptr<T> GetLooper() const {
-            return std::dynamic_pointer_cast<T>(_looper);
-        }
-
-        const auto& GetCliArgs() const { return _cliArgs; }
-
+        [[nodiscard]] const auto& GetCliArgs() const { return _cliArgs; }
         [[nodiscard]] auto GetExecutor() { return _io_context.get_executor(); }
-        void RunContext();
 
-        int RunCoroMain(boost::asio::awaitable<int> coroMain);
+        int RunCoroMain(const std::shared_ptr<Loop::IRunner>& runner, boost::asio::awaitable<int> coroMain);
+        boost::asio::awaitable<boost::system::error_code> AsyncStopped();
 
     private:
         Boot::CliArgs _cliArgs;
-        std::shared_ptr<Loop::ILooper> _looper;
 
         boost::asio::io_context _io_context;
-        int _exitCode{};
+
+        using StopChannel = boost::asio::experimental::channel<void(boost::system::error_code)>;
+        Async::Mutex _mutex;
+        std::shared_ptr<StopChannel> _stopChannel ASYNC_GUARDED_BY(_mutex);
+
+        // Loop::Handler interface
+        bool Start() override;
+        void Stop() override;
+        void Update(const Loop::UpdateCtx& ctx) override;
     };
 }
