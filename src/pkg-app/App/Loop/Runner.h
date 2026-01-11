@@ -36,9 +36,9 @@ namespace App::Loop
         Runner& operator=(Runner&&) = default;
 
     protected:
-        static constexpr int UnknownExitCode = -1;
         static constexpr int SuccessExitCode = 0;
         static constexpr int NotStartedExitCode = 101;
+        static constexpr int FailureExitCode = 202;
         [[nodiscard]] std::optional<int> GetExitCode() const { return _exitCode; }
         void SetExitCode(int exitCode) { _exitCode = exitCode; }
 

@@ -47,13 +47,13 @@ namespace App
 
     bool Domain::Start()
     {
-        Log::Debug("runner started");
+        Log::Debug(".");
         return true;
     }
 
     void Domain::Stop()
     {
-        Log::Debug("runner stopping");
+        Log::Debug(".");
     }
 
     void Domain::Update(const Loop::UpdateCtx& ctx)
