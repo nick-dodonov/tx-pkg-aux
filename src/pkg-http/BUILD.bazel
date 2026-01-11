@@ -5,6 +5,11 @@ tx_library(
     srcs = glob(["**/*.cpp"]),
     hdrs = glob(["**/*.h"]),
     strip_include_prefix = ".",
+    defines = select({
+        "@boost.asio//:openssl": ["HTTP_CLIENT_WITH_SSL"],
+        "@boost.asio//:boringssl": ["HTTP_CLIENT_WITH_SSL"],
+        "//conditions:default": [],
+    }),
     deps = [
         "//:pkg-log",
         "@boost.asio//:boost.asio",
