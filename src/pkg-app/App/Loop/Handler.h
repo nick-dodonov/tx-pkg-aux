@@ -12,7 +12,7 @@ namespace App::Loop
         virtual ~IHandler() = default;
         virtual bool Started(IRunner& runner) { return true; }
         virtual void Stopping(IRunner& runner) {}
-        virtual bool Update(IRunner& runner, const UpdateCtx& ctx) = 0;
+        virtual void Update(const UpdateCtx& ctx) = 0;
     };
 
     template <typename T>
@@ -22,8 +22,8 @@ namespace App::Loop
             : _inner(std::move(inner))
         {}
         bool Started(IRunner& runner) override { return get().Started(runner); }
-        void Stopping(IRunner& runner) override { get().Stopping(runner); }
-        bool Update(IRunner& runner, const UpdateCtx& ctx) override { return get().Update(runner, ctx); }
+        void Stopping(IRunner& runner) override { return get().Stopping(runner); }
+        void Update(const UpdateCtx& ctx) override { return get().Update(ctx); }
 
     private:
         T _inner;

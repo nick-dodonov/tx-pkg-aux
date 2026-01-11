@@ -36,13 +36,12 @@ namespace App::Loop
         static constexpr int UnknownExitCode = -1;
         static constexpr int SuccessExitCode = 0;
         static constexpr int NotStartedExitCode = 101;
-        [[nodiscard]] bool IsRunning() const { return !_exitCode.has_value(); }
         [[nodiscard]] std::optional<int> GetExitCode() const { return _exitCode; }
         void SetExitCode(int exitCode) { _exitCode = exitCode; }
 
         [[nodiscard]] bool InvokeStarted() { return _handler->Started(*this); }
         void InvokeStopping() { _handler->Stopping(*this); }
-        [[nodiscard]] bool InvokeUpdate(const UpdateCtx& ctx) { return _handler->Update(*this, ctx); }
+        void InvokeUpdate(const UpdateCtx& ctx) { _handler->Update(ctx); }
 
     private:
         HandlerPtr _handler;
