@@ -1,6 +1,7 @@
 #include "Domain.h"
 #include "Log/Log.h"
 #include "Boot/Boot.h"
+#include "Loop/Runner.h"
 
 namespace App
 {
@@ -44,13 +45,13 @@ namespace App
         return runner->Run();
     }
 
-    bool Domain::Started(Loop::IRunner& runner)
+    bool Domain::Started()
     {
         Log::Debug("runner started");
         return true;
     }
 
-    void Domain::Stopping(Loop::IRunner& runner)
+    void Domain::Stopping()
     {
         Log::Debug("runner stopping");
     }

@@ -22,10 +22,13 @@ namespace App::Loop
         Runner(HandlerPtr handler)
             : _handler(std::move(handler))
         {
-            _handler->SetParent(this);
+            _handler->SetRunner(this);
         }
 
-        ~Runner() { _handler->SetParent(nullptr); }
+        ~Runner()
+        {
+            _handler->SetRunner(nullptr);
+        }
 
         Runner(const Runner&) = delete;
         Runner& operator=(const Runner&) = delete;
@@ -39,8 +42,8 @@ namespace App::Loop
         [[nodiscard]] std::optional<int> GetExitCode() const { return _exitCode; }
         void SetExitCode(int exitCode) { _exitCode = exitCode; }
 
-        [[nodiscard]] bool InvokeStarted() { return _handler->Started(*this); }
-        void InvokeStopping() { _handler->Stopping(*this); }
+        [[nodiscard]] bool InvokeStarted() { return _handler->Started(); }
+        void InvokeStopping() { _handler->Stopping(); }
         void InvokeUpdate(const UpdateCtx& ctx) { _handler->Update(ctx); }
 
     private:

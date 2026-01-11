@@ -1,7 +1,6 @@
 #pragma once
 #include "Boot/CliArgs.h"
 #include "Loop/Handler.h"
-#include "Loop/Runner.h"
 #include <boost/asio.hpp>
 #include <boost/core/noncopyable.hpp>
 #include <memory>
@@ -28,8 +27,8 @@ namespace App
 
         boost::asio::io_context _io_context;
 
-        bool Started(Loop::IRunner& runner) override;
-        void Stopping(Loop::IRunner& runner) override;
+        bool Started() override;
+        void Stopping() override;
         void Update(const Loop::UpdateCtx& ctx) override;
     };
 }
