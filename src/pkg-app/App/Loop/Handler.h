@@ -15,20 +15,35 @@ namespace App::Loop
         virtual bool Update(IRunner& runner, const UpdateCtx& ctx) = 0;
     };
 
-    /// Typed handler for specific runner type
-    template <typename TRunner>
-    class Handler: public IHandler
+    template <typename T>
+    struct WrapHandler: IHandler
     {
-    public:
-        using Runner = TRunner;
-
-        virtual bool Started(TRunner& runner) { return true; }
-        virtual void Stopping(TRunner& runner) {}
-        virtual bool Update(TRunner& runner, const UpdateCtx& ctx) = 0;
+        WrapHandler(T inner)
+            : _inner(std::move(inner))
+        {}
+        bool Started(IRunner& runner) override { return get().Started(runner); }
+        void Stopping(IRunner& runner) override { get().Stopping(runner); }
+        bool Update(IRunner& runner, const UpdateCtx& ctx) override { return get().Update(runner, ctx); }
 
     private:
-        bool Started(IRunner& runner) override { return this->Started(static_cast<TRunner&>(runner)); }
-        void Stopping(IRunner& runner) override { this->Stopping(static_cast<TRunner&>(runner)); }
-        bool Update(IRunner& runner, const UpdateCtx& ctx) override { return this->Update(static_cast<TRunner&>(runner), ctx); }
+        T _inner;
+        decltype(auto) get()
+        {
+            if constexpr (requires { *_inner; }) {
+                return *_inner;
+            } else {
+                return _inner;
+            }
+        }
+    };
+
+    /// Typed handler for specific runner type
+    class Handler: public IHandler
+    {
+    private:
+        friend class Runner;
+        void SetParent(IRunner* runner) { _runner = runner; }
+
+        IRunner* _runner;
     };
 }

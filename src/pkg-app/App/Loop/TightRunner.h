@@ -5,13 +5,13 @@
 namespace App::Loop
 {
     /// Runner that runs as fast as possible
-    class TightRunner final: public Runner<IHandler>
+    class TightRunner final: public Runner
     {
     public:
-        using Runner<IHandler>::Runner;
+        using Runner::Runner;
 
-        void Start() override;
-        void Finish(const FinishData& finishData) override;
+        int Run() override;
+        void Exit(int exitCode) override;
 
     private:
         bool _running{};

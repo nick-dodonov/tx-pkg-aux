@@ -1,53 +1,54 @@
 #pragma once
 #include "Handler.h"
 #include <memory>
+#include <optional>
 
 namespace App::Loop
 {
-    /// Context passed to the runner when updating is finished.
-    /// Used to signal exit code or other finalization options
-    /// in several runner implementations that cannot exit from the synchronous Start().
-    struct FinishData
-    {
-        explicit FinishData(const int exitCode)
-            : ExitCode(exitCode)
-        {}
-
-        int ExitCode{};
-    };
-
     /// Base runner that runs the update action while the handler returns true
     class IRunner: public std::enable_shared_from_this<IRunner>
     {
     public:
         virtual ~IRunner() = default;
 
-        virtual void Start() = 0;
-        virtual void Finish(const FinishData& finishData) = 0;
+        virtual int Run() = 0;
+        virtual void Exit(int exitCode) = 0;
     };
 
-    /// Typed runner for specific runner type
-    template <typename THandler>
-    requires std::is_base_of_v<IHandler, THandler>
     class Runner: public IRunner
     {
     public:
-        using HandlerPtr = std::shared_ptr<THandler>;
+        using HandlerPtr = std::shared_ptr<Handler>;
         Runner(HandlerPtr handler)
             : _handler(std::move(handler))
-        {}
+        {
+            _handler->SetParent(this);
+        }
+
+        ~Runner() { _handler->SetParent(nullptr); }
+
+        Runner(const Runner&) = delete;
+        Runner& operator=(const Runner&) = delete;
+        Runner(Runner&&) = default;
+        Runner& operator=(Runner&&) = default;
 
     protected:
-        [[nodiscard]] const HandlerPtr& GetHandler() const { return _handler; }
+        static constexpr int UnknownExitCode = -1;
+        static constexpr int SuccessExitCode = 0;
+        static constexpr int NotStartedExitCode = 101;
+        [[nodiscard]] bool IsRunning() const { return !_exitCode.has_value(); }
+        [[nodiscard]] std::optional<int> GetExitCode() const { return _exitCode; }
+        void SetExitCode(int exitCode) { _exitCode = exitCode; }
 
-        [[nodiscard]] bool InvokeStarted() { return std::static_pointer_cast<IHandler>(_handler)->Started(*this); }
-        void InvokeStopping() { std::static_pointer_cast<IHandler>(_handler)->Stopping(*this); }
-        [[nodiscard]] bool InvokeUpdate(const UpdateCtx& ctx) { return std::static_pointer_cast<IHandler>(_handler)->Update(*this, ctx); }
+        [[nodiscard]] bool InvokeStarted() { return _handler->Started(*this); }
+        void InvokeStopping() { _handler->Stopping(*this); }
+        [[nodiscard]] bool InvokeUpdate(const UpdateCtx& ctx) { return _handler->Update(*this, ctx); }
 
     private:
         HandlerPtr _handler;
+        std::optional<int> _exitCode;
     };
 
     /// Factory for simple console runner based on platform
-    std::shared_ptr<IRunner> CreateDefaultRunner(std::shared_ptr<IHandler> handler);
+    std::shared_ptr<IRunner> CreateDefaultRunner(std::shared_ptr<Handler> handler);
 }
