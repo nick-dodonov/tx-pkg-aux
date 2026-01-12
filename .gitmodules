@@ -1,0 +1,6 @@
+# https://git-scm.com/docs/gitmodules
+# branch - special value of . is used to indicate that the name of the branch in the submodule should be the same name as the current branch in the current repository.
+[submodule "uni"]
+	path = uni
+	url = ../tx-kit-uni.git
+	branch = .
