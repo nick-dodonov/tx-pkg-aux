@@ -6,7 +6,7 @@ module(
 )
 
 #TODO: setup Renovate to auto-update https://github.com/renovatebot/renovate
-bazel_dep(name = "apple_support", version = "2.0.0")
+bazel_dep(name = "apple_support", version = "2.1.0")
 bazel_dep(name = "platforms", version = "1.0.0")
 bazel_dep(name = "rules_cc", version = "0.2.16")
 bazel_dep(name = "rules_foreign_cc", version = "0.15.1")
@@ -35,13 +35,13 @@ git_override(
 )
 
 # src dependencies
-bazel_dep(name = "spdlog", version = "1.16.0.bcr.2")
-bazel_dep(name = "ada-url", version = "3.3.0")
+bazel_dep(name = "spdlog", version = "1.17.0")
+bazel_dep(name = "ada-url", version = "3.4.1")
 bazel_dep(name = "boost.throw_exception", version = "1.89.0.bcr.1")
 bazel_dep(name = "boost.asio", version = "1.89.0.bcr.1.1-tx.1")  # private registry
 bazel_dep(name = "boost.beast", version = "1.89.0.bcr.1")
 bazel_dep(name = "boringssl", version = "0.20251124.0")
-bazel_dep(name = "gsl", version = "4.0.0")
+bazel_dep(name = "gsl", version = "4.2.1")
 
 # test dependencies
 bazel_dep(name = "googletest", version = "1.17.0.bcr.2", dev_dependency = True)
