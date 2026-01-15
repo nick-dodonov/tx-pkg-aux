@@ -19,16 +19,8 @@ namespace App::Loop
     {
     public:
         using HandlerPtr = std::shared_ptr<Handler>;
-        Runner(HandlerPtr handler)
-            : _handler(std::move(handler))
-        {
-            _handler->SetRunner(this);
-        }
-
-        ~Runner()
-        {
-            _handler->SetRunner(nullptr);
-        }
+        Runner(HandlerPtr handler);
+        ~Runner();
 
         Runner(const Runner&) = delete;
         Runner& operator=(const Runner&) = delete;
@@ -50,7 +42,4 @@ namespace App::Loop
         HandlerPtr _handler;
         std::optional<int> _exitCode;
     };
-
-    /// Factory for simple console runner based on platform
-    std::shared_ptr<IRunner> CreateDefaultRunner(std::shared_ptr<Handler> handler);
 }
