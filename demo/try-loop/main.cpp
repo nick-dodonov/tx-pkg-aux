@@ -8,6 +8,7 @@
 #include <cassert>
 
 #include "App/Loop/TightRunner.h"
+#include "src/pkg-boot/Boot/Boot.h"
 
 using IRunner = App::Loop::IRunner;
 using UpdateCtx = App::Loop::UpdateCtx;
@@ -266,8 +267,7 @@ struct MyUpdater: Updater
 
 int main(const int argc, const char** argv)
 {
-    Boot::LogHeader(argc, argv);
-    Boot::SetupAbortHandlers();
+    Boot::DefaultInit(argc, argv);
     auto multiRunner = std::make_shared<MultiRunner>();
     auto osRunner = SimpleRunner{multiRunner};
 

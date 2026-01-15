@@ -1,21 +1,11 @@
 #include "Domain.h"
 #include "Log/Log.h"
-#include "Boot/Boot.h"
 #include "Loop/Runner.h"
-#include <chrono>
 
 namespace App
 {
-    Domain::Domain(const int argc, const char** argv)
-        : Domain{Boot::CliArgs(argc, argv)}
-    {}
-
-    Domain::Domain(Boot::CliArgs cliArgs)
-        : _cliArgs{std::move(cliArgs)}
+    Domain::Domain()
     {
-        Boot::LogHeader(_cliArgs);
-        Boot::SetupAbortHandlers();
-
         Log::Trace("initialize");
         // TODO: selector for executors strategy, i.e. support system_executor (thread pool)
         // auto executor = asio::system_executor();

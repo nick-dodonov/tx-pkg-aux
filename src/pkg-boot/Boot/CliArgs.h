@@ -11,14 +11,14 @@ namespace Boot
     class CliArgs: public CliArgsView
     {
     public:
-        CliArgs(const int argc, char** argv) noexcept
-            : CliArgsView(argv, argv + argc)
-        {}
-        CliArgs(const int argc, const char** argv) noexcept
+        CliArgs() noexcept = default; // {0, nullptr} supported for default initialization
+        template<typename T>
+            requires std::is_same_v<T, char*> || std::is_same_v<T, const char*>
+        CliArgs(const int argc, T* argv) noexcept
             : CliArgsView(argv, argv + argc)
         {}
 
         [[nodiscard]] bool Contains(std::string_view str) const noexcept;
-        [[nodiscard]] std::expected<int, std::error_code> GetIntArg(const size_t index) const noexcept;
+        [[nodiscard]] std::expected<int, std::error_code> GetIntArg(size_t index) const noexcept;
     };
 }

@@ -28,10 +28,6 @@ namespace Boot
         return Log::Path::GetWithoutExtension(Log::Path::GetBasename(path));
     }
 
-    void LogHeader(int argc, char** argv) noexcept { LogHeader(CliArgs(argc, argv)); }
-
-    void LogHeader(const int argc, const char** argv) noexcept { LogHeader(CliArgs(argc, argv)); }
-
     void LogHeader(const CliArgs& args) noexcept
     {
         const auto appName = GetAppName(args);

@@ -1,3 +1,4 @@
+#include "Boot/Boot.h"
 #include "App/Domain.h"
 #include "App/Loop/Factory.h"
 #include "Log/Scope.h"
@@ -73,8 +74,9 @@ static asio::awaitable<int> CoroMain(int exitCode)
 
 int main(const int argc, const char* argv[])
 {
-    auto domain = std::make_shared<App::Domain>(argc, argv);
+    auto args = Boot::DefaultInit(argc, argv);
+    auto domain = std::make_shared<App::Domain>();
     auto runner = App::Loop::CreateDefaultRunner(domain);
-    auto exitCode = domain->GetCliArgs().GetIntArg(1).value_or(0);
+    auto exitCode = args.GetIntArg(1).value_or(0);
     return domain->RunCoroMain(runner, CoroMain(exitCode));
 }
