@@ -1,7 +1,10 @@
+#include "Boot/Boot.h"
 #include "App/Domain.h"
 #include "App/Loop/Factory.h"
 #include "Http/LiteClient.h"
 #include "Log/Log.h"
+#include "src/pkg-boot/Boot/Boot.h"
+#include "src/pkg-boot/Boot/CliArgs.h"
 #include <boost/asio/experimental/channel.hpp>
 
 static std::vector<std::string> ChooseTryUrls(const Boot::CliArgs& args)
@@ -33,11 +36,10 @@ static std::vector<std::string> ChooseTryUrls(const Boot::CliArgs& args)
     return selectedUrls;
 }
 
-static boost::asio::awaitable<int> CoroMain(const std::shared_ptr<App::Domain> domain)
+static boost::asio::awaitable<int> CoroMain(Boot::CliArgs args)
 {
     auto executor = co_await boost::asio::this_coro::executor;
 
-    const auto& args = domain->GetCliArgs();
     auto useJsFetchClient = !args.Contains("--em");
     const auto client = Http::LiteClient::MakeDefault({
         .executor = executor,
@@ -83,7 +85,8 @@ static boost::asio::awaitable<int> CoroMain(const std::shared_ptr<App::Domain> d
 
 int main(const int argc, const char* argv[])
 {
-    const auto domain = std::make_shared<App::Domain>(argc, argv);
+    auto args = Boot::DefaultInit(argc, argv);
+    const auto domain = std::make_shared<App::Domain>();
     auto runner = App::Loop::CreateDefaultRunner(domain);
-    return domain->RunCoroMain(runner, CoroMain(domain));
+    return domain->RunCoroMain(runner, CoroMain(std::move(args)));
 }

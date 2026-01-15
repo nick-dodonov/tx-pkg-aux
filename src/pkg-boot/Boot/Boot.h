@@ -1,11 +1,12 @@
 #pragma once
+#include <Boot/CliArgs.h>
 
 namespace Boot
 {
     class CliArgs;
+    CliArgs DefaultInit(int argc, const char** argv) noexcept;
+    //CliArgs DefaultInit(int argc, char** argv) noexcept  { return DefaultInit(argc, const_cast<const char**>(argv)); }
 
-    void LogHeader(int argc, char** argv) noexcept;
-    void LogHeader(int argc, const char** argv) noexcept;
     void LogHeader(const CliArgs& args) noexcept;
 
     void SetupAbortHandlers() noexcept;
