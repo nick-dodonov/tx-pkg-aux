@@ -27,8 +27,15 @@ namespace Log::Detail
                 // Skip append basename
                 // shortFilenameFormatter.format(msg, time, dest);
 
-                const auto basename = Path::GetBasename(source.filename);
-                const auto area = Path::GetWithoutExtension(basename);
+                std::string_view area;
+                const char* filename = source.filename;
+                if (filename != nullptr) {
+                    area = Path::GetBasename(filename);
+                    area = Path::GetWithoutExtension(area);
+                } else {
+                    filename = "<unknown>";
+                    area = filename;
+                }
 
                 spdlog::details::scoped_padder p{padinfo_.enabled() ? area.size(): 0, padinfo_, dest};
                 spdlog::details::fmt_helper::append_string_view(area, dest);
