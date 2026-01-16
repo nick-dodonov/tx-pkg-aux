@@ -8,6 +8,10 @@
 #include <iomanip>
 #include <filesystem>
 
+//TODO: add important env variables logging on start
+//#include <cstdlib>
+//extern char** environ;
+
 namespace Boot
 {
     static Log::Logger _log{"Boot"};
@@ -54,5 +58,20 @@ namespace Boot
         for (auto i = 0; i < args.size(); ++i) {
             Line("║  [{}] {}", i, args[i]);
         }
+
+        //TODO: add important env variables logging on start
+        // // environment variables
+        // Line("║ Environment:");
+        // const std::vector<std::string_view> prefixes = {"BUILD_", "RUNFILES_", "WORKSPACE_"};
+        // for (char** env = environ; *env != nullptr; ++env) {
+        //     const std::string_view envStr(*env);
+        //     //Line("║  {}", envStr);
+        //     for (const auto& prefix : prefixes) {
+        //         if (envStr.starts_with(prefix)) {
+        //             Line("║  {}", envStr);
+        //             break;
+        //         }
+        //     }
+        // }
     }
 }
