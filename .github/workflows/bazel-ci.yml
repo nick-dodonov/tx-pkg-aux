@@ -38,30 +38,44 @@ jobs:
           submodules: recursive
 
       - name: Diagnostics - Check repository contents
-        shell: bash
         run: |
           echo "=== Repository root contents ==="
-          ls -la || dir
+          dir /A
           echo ""
           echo "=== Checking symlinks ==="
-          if [ -L .lldb ]; then
-            echo ".lldb is a symlink -> $(readlink .lldb)"
-          else
-            echo ".lldb is NOT a symlink (or doesn't exist)"
-            ls -la .lldb 2>&1 || echo ".lldb not found"
-          fi
-          if [ -L .lldbinit ]; then
-            echo ".lldbinit is a symlink -> $(readlink .lldbinit)"
-          else
-            echo ".lldbinit is NOT a symlink (or doesn't exist)"
-            ls -la .lldbinit 2>&1 || echo ".lldbinit not found"
-          fi
-          if [ -L .bazelversion ]; then
-            echo ".bazelversion is a symlink -> $(readlink .bazelversion)"
-          else
-            echo ".bazelversion is NOT a symlink (or doesn't exist)"
-            ls -la .bazelversion 2>&1 || echo ".bazelversion not found"
-          fi
+          echo "Checking .lldb:"
+          if exist .lldb (
+            dir .lldb
+            if exist .lldb\* (
+              echo ".lldb directory is accessible"
+              dir .lldb
+            ) else (
+              echo ".lldb exists but content not accessible"
+            )
+          ) else (
+            echo ".lldb not found"
+          )
+          echo ""
+          echo "Checking .lldbinit:"
+          if exist .lldbinit (
+            type .lldbinit
+          ) else (
+            echo ".lldbinit not found"
+          )
+        shell: cmd
+
+      - name: Remove problematic symlinks on Windows
+        if: runner.os == 'Windows'
+        run: |
+          if exist .lldb (
+            echo "Removing .lldb symlink..."
+            del .lldb
+          )
+          if exist .lldbinit (
+            echo "Removing .lldbinit symlink..."
+            del .lldbinit
+          )
+        shell: cmd
 
       - name: Setup Bazel
         uses: bazel-contrib/setup-bazel@0.9.0
