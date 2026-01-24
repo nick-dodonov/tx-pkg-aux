@@ -9,31 +9,26 @@ on:
 jobs:
   build-and-test:
     name: Build and Test (${{ matrix.config.name }})
-    runs-on: ubuntu-latest
+    runs-on: ${{ matrix.config.os }}
     
     strategy:
       matrix:
         config:
           - name: Linux GCC
+            os: ubuntu-latest
             bazel-config: ''
           - name: WASM
+            os: ubuntu-latest
             bazel-config: '--config=wasm'
+          - name: macOS
+            os: macos-latest
+            bazel-config: ''
     
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
         with:
           submodules: recursive
-
-      # - name: Debug workspace contents
-      #   run: |
-      #     echo "Current directory:"
-      #     pwd
-      #     echo "Directory contents:"
-      #     ls -la
-      #     echo ".bazelversion:"
-      #     cat .bazelversion
-      #   shell: bash
 
       - name: Setup Bazel
         uses: bazel-contrib/setup-bazel@0.9.0
