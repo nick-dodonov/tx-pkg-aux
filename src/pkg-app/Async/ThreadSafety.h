@@ -1,5 +1,10 @@
 #pragma once
 
+// Workaround for __has_attribute not being defined (MSVC)
+#ifndef __has_attribute
+#  define __has_attribute(x) 0
+#endif
+
 #if defined(__clang__) && __has_attribute(guarded_by)
 
 // Thread Safety Analysis annotations (Clang only)
@@ -32,4 +37,9 @@
 #define ASYNC_ACQUIRE(...)
 #define ASYNC_RELEASE(...)
 
+#endif
+
+// Cleanup
+#ifdef __has_attribute
+#  undef __has_attribute
 #endif
