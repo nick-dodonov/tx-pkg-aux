@@ -1,4 +1,4 @@
-try-import %workspace%/.init.bazelrc
+try-import %workspace%/user.pre.bazelrc
 
 import %workspace%/uni/uni.bazelrc
 import %workspace%/uni/dev.bazelrc
@@ -6,4 +6,4 @@ import %workspace%/uni/dev.bazelrc
 # Local dependencies overrides (simplify mutual development)
 common:local-deps --override_module=tx-kit-ext=../tx-kit-ext
 
-try-import %workspace%/.user.bazelrc
+try-import %workspace%/user.post.bazelrc
