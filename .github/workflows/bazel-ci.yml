@@ -8,28 +8,36 @@ on:
 
 jobs:
   build-and-test:
-    name: Build and Test (${{ matrix.config.name }})
-    runs-on: ${{ matrix.config.os }}
-    
     strategy:
       matrix:
         config:
           # - name: Linux GCC
+          #   id: linux-gcc
           #   os: ubuntu-latest
           #   bazel-config: ''
+          #   default-shell: bash
           # - name: WASM
+          #   id: linux-wasm
           #   os: ubuntu-latest
           #   bazel-config: '--config=wasm'
+          #   default-shell: bash
           # - name: macOS
+          #   id: macos
           #   os: macos-latest
           #   bazel-config: ''
+          #   default-shell: bash
           - name: Windows
+            id: windows
             os: windows-latest
             bazel-config: ''
-    
+            default-shell: cmd
+
+    name: Build and Test (${{ matrix.config.name }})
+    runs-on: ${{ matrix.config.os }}
+
     steps:
       - name: Enable symlinks for Windows
-        if: runner.os == 'Windows'
+        if: runner.os == 'windows'
         run: git config --global core.symlinks true
 
       - name: Checkout code
@@ -38,6 +46,8 @@ jobs:
           submodules: recursive
 
       - name: Diagnostics - Check repository contents
+        if: runner.os == 'Windows'
+        shell: cmd
         run: |
           echo "=== Repository root contents ==="
           dir /A
@@ -62,10 +72,12 @@ jobs:
           ) else (
             echo ".lldbinit not found"
           )
-        shell: cmd
 
+      #TODO: workaround replacing symlinkgs with actual files on Windows
+      # fix "Setup Bazel" fails on Windows due to symlink issues with .lldb and .lldbinit
       - name: Remove problematic symlinks on Windows
         if: runner.os == 'Windows'
+        shell: cmd
         run: |
           if exist .lldb (
             echo "Removing .lldb symlink..."
@@ -75,26 +87,26 @@ jobs:
             echo "Removing .lldbinit symlink..."
             del .lldbinit
           )
-        shell: cmd
 
       - name: Setup Bazel
         uses: bazel-contrib/setup-bazel@0.9.0
         with:
           bazelisk-cache: true
-          disk-cache: ${{ github.workflow }}-${{ matrix.config.name }}
+          disk-cache: ${{ github.workflow }}-${{ matrix.config.id }}
           repository-cache: true
 
-      - run: bazel version
-        shell: bash
+      - name: Bazel version and configuration
+        run: |
+          bazel version
+          echo ""
+          echo "=== Bazel configuration ==="
+          bazel info
 
       - name: Build all targets
         run: bazel build //... ${{ matrix.config.bazel-config }}
-        shell: bash
 
       - name: Run demo target (verify runtime info)
         run: bazel run demo/hello-app ${{ matrix.config.bazel-config }}
-        shell: bash
 
       - name: Run all tests
         run: bazel test //... ${{ matrix.config.bazel-config }}
-        shell: bash
