@@ -27,17 +27,17 @@ jobs:
           #   bazel-config: ''
           #   default-shell: bash
           - name: Windows MSVC x64
-            id: windows-x64
+            id: windows-msvc-x64
             os: windows-latest
             bazel-config: ''
             default-shell: cmd
-          - name: Windows MSVC arm64
-            id: windows-arm64
+          - name: Windows MSVC ARM64
+            id: windows-msvc-arm64
             os: windows-11-arm
             bazel-config: ''
             default-shell: cmd
 
-    name: Build and Test (${{ matrix.config.name }})
+    name: Check (${{ matrix.config.name }})
     runs-on: ${{ matrix.config.os }}
 
     steps:
@@ -78,8 +78,10 @@ jobs:
             echo ".lldbinit not found"
           )
 
-      #TODO: workaround replacing symlinkgs with actual files on Windows
-      # fix "Setup Bazel" fails on Windows due to symlink issues with .lldb and .lldbinit
+      #TODO: workaround fixing symlinkgs to submodule directory on Windows 
+      # (it incorrectly makes it <SYMLINK> instead of <SYMLINKD>, so after pull it need to be fixed possibly by hook replacing them to mklink /d)
+
+      # Workaround fix for "Setup Bazel" that fails on Windows due to symlink issues with .lldb and .lldbinit
       - name: Remove problematic symlinks on Windows
         if: runner.os == 'Windows'
         shell: cmd
