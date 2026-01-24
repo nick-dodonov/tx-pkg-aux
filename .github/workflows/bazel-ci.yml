@@ -7,7 +7,7 @@ on:
 
 jobs:
   build-and-test-native:
-    name: Build and Test (Native)
+    name: Build and Test (Linux GCC)
     runs-on: ubuntu-latest
     
     steps:

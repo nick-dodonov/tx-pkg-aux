@@ -1,7 +1,6 @@
 #include "Boot.h"
 
 #include <exception>
-#include <print>
 #include <cstdio>
 
 #if !__EMSCRIPTEN__

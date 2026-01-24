@@ -55,7 +55,7 @@ namespace Boot
         }
 
         Line("║ Command:");
-        for (auto i = 0; i < args.size(); ++i) {
+        for (size_t i = 0; i < args.size(); ++i) {
             Line("║  [{}] {}", i, args[i]);
         }
 
