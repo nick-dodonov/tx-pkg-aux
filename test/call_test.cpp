@@ -1,5 +1,6 @@
 #include <benchmark/benchmark.h>
 #include <functional>
+#include "Cross/Defines.h"
 
 // Интерфейс
 class ICaller {
@@ -24,7 +25,7 @@ public:
 };
 
 // Фабрика для предотвращения девиртуализации
-__attribute__((noinline)) ICaller* create_caller(int type) {
+CROSS_NOINLINE ICaller* create_caller(int type) {
     if (type == 1) {
         return new Caller1();
     }

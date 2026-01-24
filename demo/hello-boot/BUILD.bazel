@@ -12,7 +12,10 @@ tx_library(
     name = "hello-sublib",
     srcs = ["sublib.cpp"],
     hdrs = ["sublib.h"],
-    cxxopts = ["-fexceptions"],
+    cxxopts = select({
+        "@platforms//os:windows": ["/EHsc"],  # MSVC
+        "//conditions:default": ["-fexceptions"],  # Default to GCC/Clang
+    }),
     deps = [
         "//:pkg-log",
     ],

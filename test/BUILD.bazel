@@ -22,6 +22,7 @@ tx_test(
     name = "call",
     srcs = ["call_test.cpp"],
     deps = [
+        "//:pkg-boot",
         "@google_benchmark//:benchmark",
     ],
 )
