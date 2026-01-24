@@ -23,6 +23,9 @@ jobs:
           - name: macOS
             os: macos-latest
             bazel-config: ''
+          - name: Windows
+            os: windows-latest
+            bazel-config: ''
     
     steps:
       - name: Checkout code
