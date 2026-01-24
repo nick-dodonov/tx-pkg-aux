@@ -1,0 +1,53 @@
+name: Bazel CI
+
+on:
+  push:
+    tags:
+      - '*'
+
+jobs:
+  build-and-test-native:
+    name: Build and Test (Native)
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      
+      - name: Setup Bazel
+        uses: bazel-contrib/setup-bazel@0.9.0
+        with:
+          bazelisk-cache: true
+          disk-cache: ${{ github.workflow }}
+          repository-cache: true
+      
+      - name: Build all targets
+        run: bazel build //...
+        shell: bash
+      
+      - name: Run all tests
+        run: bazel test //...
+        shell: bash
+
+  build-and-test-wasm:
+    name: Build and Test (WASM)
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      
+      - name: Setup Bazel
+        uses: bazel-contrib/setup-bazel@0.9.0
+        with:
+          bazelisk-cache: true
+          disk-cache: ${{ github.workflow }}
+          repository-cache: true
+      
+      - name: Build all targets (WASM)
+        run: bazel build //... --config=wasm
+        shell: bash
+      
+      - name: Run all tests (WASM)
+        run: bazel test //... --config=wasm
+        shell: bash
