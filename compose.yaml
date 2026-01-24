@@ -1,0 +1,8 @@
+include:
+  - ./uni/compose.yaml
+
+services:
+  linux-gcc:
+    volumes:
+      - ./build/docker-root-cache:/root/.cache
+      - ./:/repo

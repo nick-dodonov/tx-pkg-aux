@@ -4,6 +4,7 @@
 #  https://bazel.build/rules/lib/globals/repo#ignore_directories
 ignore_directories([
     # ".*", # cannot be used alone, as it would also ignore .clwb which is required for CLion Bazel plugin
+    "local-registry",
     ".external*",
     ".git",
     ".github",

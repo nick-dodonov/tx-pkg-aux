@@ -3,12 +3,14 @@
 MODULE.bazel.lock
 .*.bazelrc
 /external
+/local-registry
 
 # CLion
 /.idea/
 /.clwb/
 
 # OS/caches/temp files
+/build*/
 .DS_Store
 Thumbs.db
 *.bak
