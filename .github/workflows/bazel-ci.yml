@@ -3,7 +3,8 @@ name: Bazel CI
 on:
   push:
     tags:
-      - '*'
+      - 'v/*'
+      - 'test/*'
 
 jobs:
   build-and-test-native:
