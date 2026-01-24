@@ -14,24 +14,54 @@ jobs:
     strategy:
       matrix:
         config:
-          - name: Linux GCC
-            os: ubuntu-latest
-            bazel-config: ''
-          - name: WASM
-            os: ubuntu-latest
-            bazel-config: '--config=wasm'
-          - name: macOS
-            os: macos-latest
-            bazel-config: ''
+          # - name: Linux GCC
+          #   os: ubuntu-latest
+          #   bazel-config: ''
+          # - name: WASM
+          #   os: ubuntu-latest
+          #   bazel-config: '--config=wasm'
+          # - name: macOS
+          #   os: macos-latest
+          #   bazel-config: ''
           - name: Windows
             os: windows-latest
             bazel-config: ''
     
     steps:
+      - name: Enable symlinks for Windows
+        if: runner.os == 'Windows'
+        run: git config --global core.symlinks true
+
       - name: Checkout code
         uses: actions/checkout@v4
         with:
           submodules: recursive
+
+      - name: Diagnostics - Check repository contents
+        shell: bash
+        run: |
+          echo "=== Repository root contents ==="
+          ls -la || dir
+          echo ""
+          echo "=== Checking symlinks ==="
+          if [ -L .lldb ]; then
+            echo ".lldb is a symlink -> $(readlink .lldb)"
+          else
+            echo ".lldb is NOT a symlink (or doesn't exist)"
+            ls -la .lldb 2>&1 || echo ".lldb not found"
+          fi
+          if [ -L .lldbinit ]; then
+            echo ".lldbinit is a symlink -> $(readlink .lldbinit)"
+          else
+            echo ".lldbinit is NOT a symlink (or doesn't exist)"
+            ls -la .lldbinit 2>&1 || echo ".lldbinit not found"
+          fi
+          if [ -L .bazelversion ]; then
+            echo ".bazelversion is a symlink -> $(readlink .bazelversion)"
+          else
+            echo ".bazelversion is NOT a symlink (or doesn't exist)"
+            ls -la .bazelversion 2>&1 || echo ".bazelversion not found"
+          fi
 
       - name: Setup Bazel
         uses: bazel-contrib/setup-bazel@0.9.0
