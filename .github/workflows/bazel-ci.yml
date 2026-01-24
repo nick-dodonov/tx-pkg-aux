@@ -26,9 +26,14 @@ jobs:
           #   os: macos-latest
           #   bazel-config: ''
           #   default-shell: bash
-          - name: Windows
-            id: windows
+          - name: Windows MSVC x64
+            id: windows-x64
             os: windows-latest
+            bazel-config: ''
+            default-shell: cmd
+          - name: Windows MSVC arm64
+            id: windows-arm64
+            os: windows-11-arm
             bazel-config: ''
             default-shell: cmd
 
