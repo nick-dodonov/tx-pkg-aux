@@ -3,8 +3,6 @@
 #include "App/Loop/Factory.h"
 #include "Http/LiteClient.h"
 #include "Log/Log.h"
-#include "src/pkg-boot/Boot/Boot.h"
-#include "src/pkg-boot/Boot/CliArgs.h"
 #include <boost/asio/experimental/channel.hpp>
 
 static std::vector<std::string> ChooseTryUrls(const Boot::CliArgs& args)
