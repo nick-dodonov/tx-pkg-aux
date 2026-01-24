@@ -3,97 +3,56 @@ name: Bazel CI
 on:
   push:
     tags:
-      - 'v/*'
-      - 'test/*'
+      - '*'
+      - '*/*'
 
 jobs:
-  build-and-test-native:
-    name: Build and Test (Linux GCC)
+  build-and-test:
+    name: Build and Test (${{ matrix.config.name }})
     runs-on: ubuntu-latest
-
+    
+    strategy:
+      matrix:
+        config:
+          - name: Linux GCC
+            bazel-config: ''
+          - name: WASM
+            bazel-config: '--config=wasm'
+    
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
         with:
           submodules: recursive
 
-      - name: Debug - List workspace contents
-        run: |
-          echo "Current directory:"
-          pwd
-          echo "Directory contents:"
-          ls -la
-          echo ".bazelversion exists:"
-          test -f .bazelversion && echo "YES" || echo "NO"
-          if [ -f .bazelversion ]; then
-            echo ".bazelversion content:"
-            cat .bazelversion
-          fi
-        shell: bash
+      # - name: Debug workspace contents
+      #   run: |
+      #     echo "Current directory:"
+      #     pwd
+      #     echo "Directory contents:"
+      #     ls -la
+      #     echo ".bazelversion:"
+      #     cat .bazelversion
+      #   shell: bash
 
       - name: Setup Bazel
         uses: bazel-contrib/setup-bazel@0.9.0
         with:
           bazelisk-cache: true
-          disk-cache: ${{ github.workflow }}
+          disk-cache: ${{ github.workflow }}-${{ matrix.config.name }}
           repository-cache: true
 
       - run: bazel version
         shell: bash
 
       - name: Build all targets
-        run: bazel build //...
+        run: bazel build //... ${{ matrix.config.bazel-config }}
         shell: bash
 
       - name: Run demo target (verify runtime info)
-        run: bazel run demo/hello-app
+        run: bazel run demo/hello-app ${{ matrix.config.bazel-config }}
         shell: bash
 
       - name: Run all tests
-        run: bazel test //...
-        shell: bash
-
-  build-and-test-wasm:
-    name: Build and Test (WASM)
-    runs-on: ubuntu-latest
-
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-        with:
-          submodules: recursive
-
-      - name: Debug - List workspace contents
-        run: |
-          echo "Current directory:"
-          pwd
-          echo "Directory contents:"
-          ls -la
-          echo ".bazelversion exists:"
-          test -f .bazelversion && echo "YES" || echo "NO"
-          if [ -f .bazelversion ]; then
-            echo ".bazelversion content:"
-            cat .bazelversion
-          fi
-        shell: bash
-
-      - name: Setup Bazel
-        uses: bazel-contrib/setup-bazel@0.9.0
-        with:
-          bazelisk-cache: true
-          disk-cache: ${{ github.workflow }}
-          repository-cache: true
-          bazelrc: |
-            build --config=wasm
-
-      - name: Build all targets
-        run: bazel build //...
-        shell: bash
-
-      - name: Run demo target (verify runtime info)
-        run: bazel run demo/hello-app
-        shell: bash
-
-      - name: Run all tests
-        run: bazel test //...
+        run: bazel test //... ${{ matrix.config.bazel-config }}
         shell: bash
