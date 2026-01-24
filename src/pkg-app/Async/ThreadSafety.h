@@ -38,8 +38,3 @@
 #define ASYNC_RELEASE(...)
 
 #endif
-
-// Cleanup
-#ifdef __has_attribute
-#  undef __has_attribute
-#endif

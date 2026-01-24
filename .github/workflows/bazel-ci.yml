@@ -11,35 +11,33 @@ jobs:
     strategy:
       matrix:
         config:
-          # - name: Linux GCC
-          #   id: linux-gcc
-          #   os: ubuntu-latest
-          #   bazel-config: ''
-          #   default-shell: bash
-          # - name: WASM
-          #   id: linux-wasm
-          #   os: ubuntu-latest
-          #   bazel-config: '--config=wasm'
-          #   default-shell: bash
-          # - name: macOS
-          #   id: macos
-          #   os: macos-latest
-          #   bazel-config: ''
-          #   default-shell: bash
-          # - name: Windows MSVC x64
-          #   id: windows-msvc-x64
-          #   os: windows-latest
-          #   bazel-config: ''
-          #   default-shell: cmd
-          #   output-base: ''
-          - name: Windows MSVC ARM64
-            id: windows-msvc-arm64
+          - name: macOS ARM64 Clang
+            id: mac-arm64
+            os: macos-latest
+            bazel-config: ''
+            default-shell: bash
+          - name: Windows x64 MSVC 
+            id: win-x64-msvc
+            os: windows-latest
+            bazel-config: ''
+            default-shell: cmd
+          - name: Windows ARM64 MSVC
+            id: win-arm64-msvc
             os: windows-11-arm
             bazel-config: ''
             default-shell: cmd
-            output-base: C:/_bazel  # Workaround for bazel-contrib/setup-bazel action on Windows ARM64 runner
+          - name: Linux x64 GCC
+            id: linux-gcc
+            os: ubuntu-latest
+            bazel-config: ''
+            default-shell: bash
+          - name: Linux x64 → WASM Clang
+            id: linux-wasm
+            os: ubuntu-latest
+            bazel-config: '--config=wasm'
+            default-shell: bash
 
-    name: Check (${{ matrix.config.id }})
+    name: ${{ matrix.config.name }}
     runs-on: ${{ matrix.config.os }}
 
     steps:
@@ -103,7 +101,6 @@ jobs:
           bazelisk-cache: true
           disk-cache: ${{ github.workflow }}-${{ matrix.config.id }}
           repository-cache: true
-          # output-base: ${{ matrix.config.output-base }}
 
       - name: Bazel version and configuration
         run: |
