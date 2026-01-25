@@ -110,7 +110,7 @@ jobs:
           bazel info
 
       - name: Build all targets
-        run: bazel build //... ${{ matrix.config.bazel-config }}
+        run: bazel build //... --verbose_failures ${{ matrix.config.bazel-config }}
 
       - name: Run demo target (verify runtime info)
         run: bazel run demo/hello-app ${{ matrix.config.bazel-config }}
