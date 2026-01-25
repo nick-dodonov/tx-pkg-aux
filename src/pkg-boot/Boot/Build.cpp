@@ -7,15 +7,7 @@ namespace Build
     {
         std::ostringstream desc;
 
-// Build configuration
-#ifdef NDEBUG
-        desc << "Release";
-#else
-        desc << "Debug";
-#endif
-
         // Platform information
-        desc << " | ";
 #if defined(__wasm__) || defined(__EMSCRIPTEN__)
         desc << "WebAssembly";
     #ifdef __EMSCRIPTEN__
@@ -99,6 +91,14 @@ namespace Build
     #else
         desc << "<Unknown Standard>";
     #endif
+#endif
+
+// Build configuration
+        desc << " | ";
+#ifdef NDEBUG
+        desc << "Release";
+#else
+        desc << "Debug";
 #endif
 
         return desc.str();
