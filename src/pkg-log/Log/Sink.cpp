@@ -1,13 +1,20 @@
-#include "Sink.h"
 #include "Log.h"
-#include <spdlog/sinks/sink.h>
+#include "Sink.h"
+#include "StartupSink.h"
 
 namespace Log::Detail
 {
     void AddSink(std::shared_ptr<Sink> sink)
     {
         if (auto* logger = Detail::DefaultLoggerRaw()) {
-            logger->sinks().push_back(std::move(sink));
+            // Replay buffered startup messages to the new sink
+            if (auto startupSink = GetStartupSink()) {
+                startupSink->ReplayTo(*sink);
+                // Clear buffer after first replay to free memory
+                startupSink->ClearBuffer();
+            }
+
+            logger->sinks().emplace_back(std::move(sink));
         }
     }
 

@@ -7,16 +7,13 @@
 
 namespace Log::Detail
 {
-    void DefaultInit();
-
-    inline static spdlog::logger* _sdpRawLogger = []() { // NOLINT(cppcoreguidelines-avoid-non-const-global-variables)
-        DefaultInit();
-        return spdlog::default_logger_raw();
-    }();
+    spdlog::logger* InitLogger();
 
     inline spdlog::logger* DefaultLoggerRaw() noexcept
     {
-        return _sdpRawLogger;
+        //TODO: get rid of Meyer's Singleton (guaranteed single initialization, thread-safe) to avoid additional check
+        static spdlog::logger* logger = InitLogger();
+        return logger;
     }
 
     static constexpr auto AreaLoggerLine = -1;

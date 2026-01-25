@@ -1,6 +1,7 @@
 #include "Log.h"
 
 #include <Log/Path.h>
+#include <Log/StartupSink.h>
 #include <spdlog/pattern_formatter.h>
 
 namespace Log
@@ -104,7 +105,7 @@ namespace Log::Detail
         }
     };
 
-    void DefaultInit()
+    spdlog::logger* InitLogger()
     {
         spdlog::set_level(spdlog::level::trace);
 
@@ -122,5 +123,14 @@ namespace Log::Detail
 #endif
         formatter->set_pattern("(%T." SEC_FRAC_FORMAT ") %t %^[%L]%$ %12!N: %&%v");
         spdlog::set_formatter(std::move(formatter));
+
+        auto* logger = spdlog::default_logger_raw();
+
+        // Add StartupSink to buffer early logs before main sinks are ready
+        if (auto startupSink = GetStartupSink()) {
+            logger->sinks().emplace_back(std::move(startupSink));
+        }
+
+        return logger;
     }
 }
