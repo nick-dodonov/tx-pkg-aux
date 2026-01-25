@@ -3,6 +3,7 @@
 #include <Log/Path.h>
 #include <Log/StartupSink.h>
 #include <spdlog/pattern_formatter.h>
+#include <spdlog/sinks/ansicolor_sink.h>
 
 namespace Log
 {
@@ -125,6 +126,15 @@ namespace Log::Detail
         spdlog::set_formatter(std::move(formatter));
 
         auto* logger = spdlog::default_logger_raw();
+
+        // Fix ansicolor_sink trace level color (default is too light, make it gray)
+        for (auto& sink : logger->sinks()) {
+            if (auto* ansicolor = dynamic_cast<spdlog::sinks::ansicolor_stdout_sink_mt*>(sink.get())) {
+                ansicolor->set_color(spdlog::level::trace, ansicolor->dark);
+            } else if (auto* ansicolor = dynamic_cast<spdlog::sinks::ansicolor_stdout_sink_st*>(sink.get())) {
+                ansicolor->set_color(spdlog::level::trace, ansicolor->dark);
+            }
+        }
 
         // Add StartupSink to buffer early logs before main sinks are ready
         if (auto startupSink = GetStartupSink()) {
