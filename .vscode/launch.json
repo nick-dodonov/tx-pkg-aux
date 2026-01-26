@@ -4,9 +4,9 @@
     // For more information, visit: https://go.microsoft.com/fwlink/?linkid=830387
     "version": "0.2.0",
     "configurations": [
-        // ================ debug demo configurations
+        // ================ debug configurations of tx.debugTaskName (settings.json)
         {
-            "name": "demo <user> (LLDB)",
+            "name": "<user> (LLDB) (WSP)",
             "type": "lldb",
             "request": "launch",
             "program": "${workspaceFolder}/bazel-bin/${config:tx.debugTaskName}",
@@ -16,7 +16,37 @@
                 "command source ${env:HOME}/.lldbinit",
                 "command source ${workspaceFolder}/.lldbinit",
             ],
-            "preLaunchTask": "build demo <user>",
+            "preLaunchTask": "build <user>",
+        },
+        {
+            "name": "<user> (LLDB) (Runfiles)",
+            "type": "lldb",
+            "request": "launch",
+            "program": "${workspaceFolder}/bazel-bin/${config:tx.debugTaskName}",
+            "cwd": "${input:debugTask_RunfilesDir}",
+            "initCommands": [
+                "platform setting -w ${workspaceFolder}",
+                "command source ${env:HOME}/.lldbinit",
+                "command source ${workspaceFolder}/.lldbinit",
+            ],
+            "preLaunchTask": "build <user>",
+        }
+    ],
+    "inputs": [
+        {
+            "id": "debugTask_RunfilesDir",
+            "type": "command",
+            "command": "extension.commandvariable.transform",
+            "args": {
+                "text": "${configExpression:debugTaskName}",
+                "find": "^(.*/)(.*)$",
+                "replace": "${workspaceFolder}/bazel-bin/$1$2/$2.runfiles/_main",
+                "configExpression": {
+                    "debugTaskName": {
+                        "configVariable": "tx.debugTaskName"
+                    }
+                }
+            }
         }
     ]
 }
