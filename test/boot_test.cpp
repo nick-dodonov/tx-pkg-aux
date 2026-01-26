@@ -1,13 +1,17 @@
 #include "Boot/Build.h"
+#include "Boot/Boot.h"
+
 #include <gtest/gtest.h>
 #include <string>
 
-TEST(BuildTest, BuildDescriptionNotEmpty) {
+TEST(BuildTest, BuildDescriptionNotEmpty)
+{
     std::string desc = Build::BuildDescription();
     EXPECT_FALSE(desc.empty());
 }
 
-TEST(BuildTest, BuildDescriptionContainsRequiredInfo) {
+TEST(BuildTest, BuildDescriptionContainsRequiredInfo)
+{
     std::string desc = Build::BuildDescription();
     
     // Should contain build configuration
@@ -27,4 +31,11 @@ TEST(BuildTest, BuildDescriptionContainsRequiredInfo) {
     
     // Should contain C++ standard
     EXPECT_TRUE(desc.find("C++") != std::string::npos);
+}
+
+int main(int argc, char** argv)
+{
+    ::testing::InitGoogleTest(&argc, argv);
+    Boot::DefaultInit(argc, const_cast<const char**>(argv));
+    return RUN_ALL_TESTS();
 }

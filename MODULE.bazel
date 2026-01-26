@@ -31,7 +31,7 @@ bazel_dep(name = "tx-kit-ext")  # not private registry yet
 git_override(
     module_name = "tx-kit-ext",
     remote = "https://github.com/nick-dodonov/tx-kit-ext.git",
-    tag = "v/0.2.3",
+    tag = "v/0.2.4",
 )
 
 # src dependencies

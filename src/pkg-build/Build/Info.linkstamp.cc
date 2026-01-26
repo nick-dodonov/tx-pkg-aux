@@ -19,7 +19,7 @@
 #endif
 
 #ifndef BUILD_TIMESTAMP
-#define BUILD_TIMESTAMP unknown
+#define BUILD_TIMESTAMP 0000-00-00T00:00:00+00:00
 #endif
 
 #ifndef BUILD_USER

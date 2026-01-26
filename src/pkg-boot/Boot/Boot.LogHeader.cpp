@@ -58,14 +58,23 @@ namespace Boot
             // Split time "2026-01-26T21:50:00+01:00" into 3 parts without allocation
             const auto tPos = time.find('T');
             const auto tzPos = time.find_last_of("+-");
-            const auto date = time.substr(0, tPos);
-            const auto timeOfDay = time.substr(tPos + 1, tzPos - tPos - 1);
-            const auto timezone = time.substr(tzPos);
 
-            Line("║ Version: {} {} {} | {} {}{} | {}@{}", 
-                date, timeOfDay, timezone, branch, 
-                isDirty ? "*" : "", sha7,
-                user, host);
+            if (tPos != std::string_view::npos && tzPos != std::string_view::npos) {
+                const auto date = time.substr(0, tPos);
+                const auto timeOfDay = time.substr(tPos + 1, tzPos - tPos - 1);
+                const auto timezone = time.substr(tzPos);
+                
+                Line("║ Version: {} {} {} | {} {}{} | {}@{}", 
+                    date, timeOfDay, timezone, branch, 
+                    isDirty ? "*" : "", sha7,
+                    user, host);
+            } else {
+                // Fallback if timestamp format is invalid
+                Line("║ Version: {} | {} {}{} | {}@{}", 
+                    time, branch, 
+                    isDirty ? "*" : "", sha7,
+                    user, host);
+            }
         }
 
         // startup time

@@ -28,5 +28,4 @@ tx_binary(
         ":hello-sublib",
         "//src/pkg-boot",
     ],
-    stamp = 1,  # Enable stamping for build info
 )
