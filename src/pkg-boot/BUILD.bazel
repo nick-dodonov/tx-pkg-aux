@@ -11,7 +11,9 @@ tx_library(
         "//conditions:default": [],
     }),
     deps = [
-        "//:pkg-log",
+        "//src/pkg-log",
+        "//src/pkg-build",
+
         "@boost.throw_exception//:boost.throw_exception",
 
         # https://fuchsia.googlesource.com/fuchsia/+/HEAD/build/bazel/BAZEL_RUNFILES.md

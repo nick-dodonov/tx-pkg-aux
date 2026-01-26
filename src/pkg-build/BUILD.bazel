@@ -1,0 +1,11 @@
+load("@rules_cc//cc:defs.bzl", "cc_library")
+
+# Build info library using Bazel's linkstamp feature
+# The linkstamp file is recompiled on every link with fresh build information
+cc_library(
+    name = "pkg-build",
+    hdrs = ["Build/Info.h"],
+    linkstamp = "Build/Info.linkstamp.cc",
+    strip_include_prefix = ".",
+    visibility = ["//visibility:public"],
+)

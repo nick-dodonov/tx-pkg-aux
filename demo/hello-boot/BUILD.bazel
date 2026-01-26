@@ -17,7 +17,7 @@ tx_library(
         "//conditions:default": ["-fexceptions"],  # Default to GCC/Clang
     }),
     deps = [
-        "//:pkg-log",
+        "//src/pkg-log",
     ],
 )
 
@@ -26,6 +26,7 @@ tx_binary(
     srcs = ["main.cpp"],
     deps = [
         ":hello-sublib",
-        "//:pkg-boot",
+        "//src/pkg-boot",
     ],
+    stamp = 1,  # Enable stamping for build info
 )
