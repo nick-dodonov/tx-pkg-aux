@@ -11,17 +11,6 @@ using ::rules_cc::cc::runfiles::Runfiles;
 int main(const int argc, const char* argv[])
 {
     auto args = Boot::DefaultInit(argc, argv);
-
-    // Display build information
-    Log::Info("=== Build Information ===");
-    Log::Info("Git SHA   : {}", Build::Info::GitSha());
-    Log::Info("Git Branch: {}", Build::Info::GitBranch());
-    Log::Info("Git Status: {}", Build::Info::GitStatus());
-    Log::Info("Build Time: {}", Build::Info::BuildTime());
-    Log::Info("Build User: {}", Build::Info::BuildUser());
-    Log::Info("Build Host: {}", Build::Info::BuildHost());
-    Log::Info("========================");
-
     Log::Info("Hello Boot!");
 
     if (args.Contains("--abort")) {

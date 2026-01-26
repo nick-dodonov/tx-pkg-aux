@@ -4,8 +4,11 @@
 #include "Log/Log.h"
 #include <Log/Path.h>
 
+#include <Build/Info.h>
+
 #include <iomanip>
 #include <filesystem>
+#include <string_view>
 
 //TODO: add important env variables logging on start
 //#include <cstdlib>
@@ -35,13 +38,43 @@ namespace Boot
     {
         const auto appName = GetAppName(args);
         Line("║ App: {}", appName);
-        Line("║ Build: {}", Build::BuildDescription());
+        Line("║ Compile: {}", Build::BuildDescription());
+
+        // Build info: time branch sha[7:] user@host
+        {
+            std::string_view sha = Build::Info::GitSha();
+            std::string_view branch = Build::Info::GitBranch();
+            std::string_view status = Build::Info::GitStatus();
+            std::string_view user = Build::Info::BuildUser();
+            std::string_view host = Build::Info::BuildHost();
+            std::string_view time = Build::Info::BuildTime();
+
+            // Get first 7 chars of SHA
+            const auto sha7 = sha.substr(0, std::min<size_t>(7, sha.size()));
+
+            // Add * prefix if status is dirty
+            const bool isDirty = status == "dirty";
+            
+            // Split time "2026-01-26T21:50:00+01:00" into 3 parts without allocation
+            const auto tPos = time.find('T');
+            const auto tzPos = time.find_last_of("+-");
+            const auto date = time.substr(0, tPos);
+            const auto timeOfDay = time.substr(tPos + 1, tzPos - tPos - 1);
+            const auto timezone = time.substr(tzPos);
+
+            Line("║ Version: {} {} {} | {} {}{} | {}@{}", 
+                date, timeOfDay, timezone, branch, 
+                isDirty ? "*" : "", sha7,
+                user, host);
+        }
 
         // startup time
         const auto tm = spdlog::details::os::localtime();
         const auto tzOffset = spdlog::details::os::utc_minutes_offset(tm);
         std::ostringstream oss;
-        oss << std::put_time(&tm, "%Y-%m-%d %H:%M:%S ") << (tzOffset >= 0 ? "+" : "-") << std::abs(tzOffset) / 60 << ":00";
+        oss << std::put_time(&tm, "%Y-%m-%d %H:%M:%S ") 
+            << (tzOffset >= 0 ? "+" : "-") 
+            << std::setfill('0') << std::setw(2) << std::abs(tzOffset) / 60 << ":00";
         Line("║ Runtime: {}", oss.view());
 
         // current working directory
