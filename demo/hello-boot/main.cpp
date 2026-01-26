@@ -4,12 +4,12 @@
 
 #include "sublib.h"
 
+#include "rules_cc/cc/runfiles/runfiles.h"
+using ::rules_cc::cc::runfiles::Runfiles;
+
 int main(const int argc, const char* argv[])
 {
-    const Boot::CliArgs args{argc, argv};
-    Boot::LogHeader(args);
-    Boot::SetupAbortHandlers();
-
+    auto args = Boot::DefaultInit(argc, argv);
     Log::Info("Hello Boot!");
 
     if (args.Contains("--abort")) {
@@ -24,6 +24,18 @@ int main(const int argc, const char* argv[])
         const auto ep = sublib_make_exception_ptr();
         sublib_log_exception_ptr(ep);
         return 0;
+    }
+
+    // Runfiles example
+    {
+        std::string error;
+        std::unique_ptr<Runfiles> runfiles(Runfiles::Create(argv[0], &error));
+        if (runfiles == nullptr) {
+            Log::Error("Runfiles::Create failed: {}", error);
+            return 1;
+        }
+        std::string path = runfiles->Rlocation("demo/hello-boot/sample-data.txt");
+        Log::Info("Runfiles path for sample: {}", path);
     }
 
     const auto ec = argc - 1;

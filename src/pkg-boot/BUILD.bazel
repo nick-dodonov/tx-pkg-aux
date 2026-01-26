@@ -13,6 +13,12 @@ tx_library(
     deps = [
         "//:pkg-log",
         "@boost.throw_exception//:boost.throw_exception",
+
+        # https://fuchsia.googlesource.com/fuchsia/+/HEAD/build/bazel/BAZEL_RUNFILES.md
+        # Obsolete: 
+        #   "@bazel_tools//tools/cpp/runfiles",
+        #   as refers to rules_cc: https://github.com/bazelbuild/bazel/blob/master/tools/cpp/runfiles/runfiles.h
+        "@rules_cc//cc/runfiles",
     ],
     visibility = ["//visibility:public"],
 )

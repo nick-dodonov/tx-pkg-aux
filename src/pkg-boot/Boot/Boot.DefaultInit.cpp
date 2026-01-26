@@ -5,6 +5,11 @@ namespace Boot
     static bool _inited = false;
     static CliArgs _args;
 
+    const CliArgs& GetDefaultArgs() noexcept
+    {
+        return _args;
+    }
+
     CliArgs DefaultInit(int argc, const char** argv) noexcept
     {
         if (_inited) {
