@@ -13,6 +13,15 @@ int main(const int argc, const char* argv[])
     auto args = Boot::DefaultInit(argc, argv);
     Log::Info("Hello Boot!");
 
+    // Display build information
+    Log::Info("Build Info:");
+    Log::Info("  Git SHA: {}", Build::Info::GitSha());
+    Log::Info("  Git Branch: {}", Build::Info::GitBranch());
+    Log::Info("  Git Status: {}", Build::Info::GitStatus());
+    Log::Info("  Build Time: {}", Build::Info::BuildTime());
+    Log::Info("  Build User: {}", Build::Info::BuildUser());
+    Log::Info("  Build Host: {}", Build::Info::BuildHost());
+
     if (args.Contains("--abort")) {
         std::abort();
     }
@@ -40,6 +49,6 @@ int main(const int argc, const char* argv[])
     }
 
     const auto ec = argc - 1;
-    Log::Info("exiting: {}", ec);
+    Log::Info("exit status: {}", ec);
     return argc - 1;
 }

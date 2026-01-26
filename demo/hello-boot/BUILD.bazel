@@ -28,4 +28,5 @@ tx_binary(
         ":hello-sublib",
         "//src/pkg-boot",
     ],
+    stamp = 1,
 )

@@ -1,11 +1,19 @@
 load("@rules_cc//cc:defs.bzl", "cc_library")
+load("//uni/tools/build_info:generate_build_info.bzl", "generate_build_info")
 
-# Build info library using Bazel's linkstamp feature
-# The linkstamp file is recompiled on every link with fresh build information
+# Generate build info source file from workspace status
+# This is a workaround for MSVC which doesn't receive workspace status macros
+# in linkstamp compilation (unlike GCC/Clang on Linux/macOS)
+generate_build_info(
+    name = "generate_build_info",
+    out = "Build/Info.generated.cc",
+)
+
+# Build info library with generated implementation
 cc_library(
     name = "pkg-build",
+    srcs = ["Build/Info.generated.cc"],
     hdrs = ["Build/Info.h"],
-    linkstamp = "Build/Info.linkstamp.cc",
     strip_include_prefix = ".",
     visibility = ["//visibility:public"],
 )
