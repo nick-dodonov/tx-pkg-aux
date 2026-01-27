@@ -6,7 +6,7 @@ tx_library(
     hdrs = glob(["**/*.h"]),
     strip_include_prefix = ".",
     deps = [
-        "//:pkg-boot",
+        "//src/pkg-boot",
         "@boost.asio//:boost.asio",
     ],
     visibility = ["//visibility:public"],

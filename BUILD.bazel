@@ -1,9 +1,3 @@
 package(
     default_visibility = ["//visibility:public"],
 )
-
-# Public API aliases for external consumption
-alias(name = "pkg-app", actual = "//src/pkg-app")
-alias(name = "pkg-boot", actual = "//src/pkg-boot")
-alias(name = "pkg-http", actual = "//src/pkg-http")
-alias(name = "pkg-log", actual = "//src/pkg-log")

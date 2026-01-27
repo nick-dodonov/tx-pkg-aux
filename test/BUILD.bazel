@@ -4,7 +4,7 @@ tx_test(
     name = "log",
     srcs = ["log_test.cpp"],
     deps = [
-        "//:pkg-log",
+        "//src/pkg-log",
         "@googletest//:gtest_main",
     ],
 )
@@ -13,7 +13,7 @@ tx_test(
     name = "boot",
     srcs = ["boot_test.cpp"],
     deps = [
-        "//:pkg-boot",
+        "//src/pkg-boot",
         "@googletest//:gtest_main",
     ],
 )
@@ -22,7 +22,7 @@ tx_test(
     name = "call",
     srcs = ["call_test.cpp"],
     deps = [
-        "//:pkg-boot",
+        "//src/pkg-boot",
         "@google_benchmark//:benchmark",
     ],
 )

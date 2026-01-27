@@ -3,5 +3,5 @@ load("@tx-kit-ext//rules/build:tx_binary.bzl", "tx_binary")
 tx_binary(
     name = "hello-log",
     srcs = ["main.cpp"],
-    deps = ["//:pkg-log"],
+    deps = ["//src/pkg-log"],
 )
