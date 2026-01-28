@@ -1,4 +1,5 @@
 #include "Fs/NativeDrive.h"
+#include "Fs/OverlayDrive.h"
 #include "Fs/RunfilesDrive.h"
 #include "Fs/System.h"
 #include "Log/Log.h"
@@ -44,5 +45,43 @@ TEST(FsTest, RunfilesDrive)
     }
     ASSERT_TRUE(result.has_value());
     EXPECT_FALSE(result.value().empty());
+#endif
+}
+
+TEST(FsTest, OverlayDrive)
+{
+    Fs::NativeDrive drive1("/first");
+    Fs::NativeDrive drive2("/second");
+    Fs::NativeDrive drive3("/third");
+
+    Fs::OverlayDrive overlay({&drive1, &drive2, &drive3});
+
+    auto result = overlay.GetNativePath("file.txt");
+    ASSERT_TRUE(result.has_value());
+    // Should use first drive
+    EXPECT_EQ(result.value(), "/first/file.txt");
+}
+
+TEST(FsTest, OverlayDriveWithRunfiles)
+{
+    Fs::RunfilesDrive runfiles("tx-pkg-aux");
+    Fs::NativeDrive fallback("/fallback");
+
+    Fs::OverlayDrive overlay({&runfiles, &fallback});
+
+#ifdef __EMSCRIPTEN__
+    // On WASM, runfiles not supported, should fall back to native drive
+    auto result = overlay.GetNativePath("test.txt");
+    ASSERT_TRUE(result.has_value());
+    EXPECT_EQ(result.value(), "/fallback/test.txt");
+#else
+    // On desktop, should use runfiles if available
+    if (runfiles.IsSupported())
+    {
+        auto result = overlay.GetNativePath("data/test.txt");
+        ASSERT_TRUE(result.has_value());
+        EXPECT_FALSE(result.value().empty());
+        EXPECT_NE(result.value(), "/fallback/data/test.txt");
+    }
 #endif
 }
