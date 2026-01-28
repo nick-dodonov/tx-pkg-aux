@@ -26,3 +26,12 @@ tx_test(
         "@google_benchmark//:benchmark",
     ],
 )
+
+tx_test(
+    name = "fs",
+    srcs = ["fs_test.cpp"],
+    deps = [
+        "//src/pkg-fs",
+        "@googletest//:gtest_main",
+    ],
+)
