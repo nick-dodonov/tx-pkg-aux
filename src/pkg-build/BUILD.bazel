@@ -17,3 +17,11 @@ cc_library(
     strip_include_prefix = ".",
     visibility = ["//visibility:public"],
 )
+
+load("@tx-pkg-aux//uni/tools/build_info:generate_build_info.bzl", "var_providing_rule")
+
+var_providing_rule(
+    name = "build_vars",
+    var_value = "HelloFromPkgBuild",
+    visibility = ["//visibility:public"],
+)
