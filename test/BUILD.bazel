@@ -1,5 +1,10 @@
 load("@tx-kit-ext//rules/build:tx_test.bzl", "tx_test")
 
+filegroup(
+    name = "test_data",
+    srcs = ["data/test.txt"],
+)
+
 tx_test(
     name = "log",
     srcs = ["log_test.cpp"],
@@ -30,6 +35,7 @@ tx_test(
 tx_test(
     name = "fs",
     srcs = ["fs_test.cpp"],
+    data = [":test_data"],
     deps = [
         "//src/pkg-fs",
         "@googletest//:gtest_main",
