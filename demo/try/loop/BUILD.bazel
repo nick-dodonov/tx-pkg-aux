@@ -1,7 +1,7 @@
 load("@tx-kit-ext//rules/build:tx_binary.bzl", "tx_binary")
 
 tx_binary(
-    name = "try-loop",
+    name = "loop",
     srcs = ["main.cpp"],
     deps = ["//src/pkg-app"],
 )
