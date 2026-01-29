@@ -15,6 +15,6 @@ namespace Fs
         fs::path relativePath(path);
         fs::path fullPath = prefix / relativePath;
 
-        return fullPath.string();
+        return fullPath.generic_string();
     }
 }

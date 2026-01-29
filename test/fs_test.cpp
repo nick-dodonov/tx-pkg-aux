@@ -23,7 +23,7 @@ TEST(FsTest, SystemDefaultDrive)
     ASSERT_TRUE(result.has_value());
 
     auto expectedPath = std::filesystem::current_path() / "test.txt";
-    EXPECT_EQ(result.value(), expectedPath.string());
+    EXPECT_EQ(result.value(), expectedPath.generic_string());
 }
 
 TEST(FsTest, RunfilesDrive)
