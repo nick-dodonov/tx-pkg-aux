@@ -119,3 +119,11 @@ jobs:
 
       - name: Run all tests
         run: bazel test //... ${{ matrix.config.bazel-config }} --test_output=all --verbose_failures
+
+      - name: Upload test logs
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: test-logs-${{ matrix.config.id }}
+          path: bazel-testlogs/
+          if-no-files-found: ignore
