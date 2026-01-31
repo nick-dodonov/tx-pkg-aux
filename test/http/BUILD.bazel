@@ -3,7 +3,7 @@ load("@tx-kit-ext//rules/build:tx_test.bzl", "tx_test")
 
 # C++ HTTP client test (requires server to be running)
 tx_test(
-    name = "http_client_test_binary",
+    name = "http_client_test",
     srcs = ["http_client_test.cpp"],
     deps = [
         "//src/pkg-app",
@@ -21,15 +21,11 @@ py_test(
     srcs = ["http_test_runner.py"],
     main = "http_test_runner.py",
     data = [
-        ":http_client_test_binary",
+        ":http_client_test",
         "//test/http/stub:stub_server",
     ],
     args = [
-        "$(location :http_client_test_binary)",
+        "$(location :http_client_test)",
         "$(location //test/http/stub:stub_server)",
     ],
-    target_compatible_with = select({
-        "@platforms//cpu:wasm32": ["@platforms//:incompatible"],
-        "//conditions:default": [],
-    }),
 )
