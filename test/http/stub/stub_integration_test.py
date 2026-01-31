@@ -17,16 +17,28 @@ def _log(*args, **kwargs) -> None:
     print("test_runner:", *args, **kwargs, flush=True)
 
 
-def wait_for_server(url: str, timeout: int = 10) -> bool:
-    """Wait for server to be ready."""
+def wait_for_server(url: str, server_process: subprocess.Popen, timeout: int = 10) -> tuple[bool, int | None]:
+    """Wait for server to be ready.
+    
+    Returns:
+        tuple: (success, exit_code) - success is True if server is ready,
+               exit_code is set if server process terminated
+    """
     start_time = time.time()
     while time.time() - start_time < timeout:
+        # Check if server process has crashed
+        exit_code = server_process.poll()
+        if exit_code is not None:
+            return False, exit_code
+        
+        # Try to connect to server
         try:
             with urlopen(url, timeout=1):
-                return True
+                return True, None
         except URLError:
             time.sleep(0.1)
-    return False
+    
+    return False, None
 
 
 def main() -> int:
@@ -65,8 +77,12 @@ def main() -> int:
 
         # Wait for server to be ready
         _log("Waiting for server to be ready...")
-        if not wait_for_server(f"{server_url}/get", timeout=5):
-            _log("Error: Server failed to start within timeout")
+        success, exit_code = wait_for_server(f"{server_url}/get", server_process, timeout=5)
+        if not success:
+            if exit_code is not None:
+                _log(f"Error: Server process terminated with exit code {exit_code}")
+            else:
+                _log("Error: Server failed to start within timeout")
             return 1
 
         _log("Server is ready!")
@@ -93,21 +109,25 @@ def main() -> int:
     finally:
         # Shutdown server
         if server_process:
-            _log("--- Shutting down HTTP Server ---")
-            try:
-                # On Windows, subprocess.send_signal(SIGINT) is not supported
-                # Use terminate() for cross-platform compatibility
-                if sys.platform == "win32":
-                    server_process.terminate()
-                else:
-                    server_process.send_signal(signal.SIGINT)
-                
-                server_process.wait(timeout=3)
-            except subprocess.TimeoutExpired:
-                _log("Server did not shutdown gracefully, terminating...")
-                server_process.kill()
-                server_process.wait()
-            _log("Server stopped.")
+            # Check if server is still running
+            if server_process.poll() is None:
+                _log("--- Shutting down HTTP Server ---")
+                try:
+                    # On Windows, subprocess.send_signal(SIGINT) is not supported
+                    # Use terminate() for cross-platform compatibility
+                    if sys.platform == "win32":
+                        server_process.terminate()
+                    else:
+                        server_process.send_signal(signal.SIGINT)
+                    
+                    server_process.wait(timeout=3)
+                except subprocess.TimeoutExpired:
+                    _log("Server did not shutdown gracefully, terminating...")
+                    server_process.kill()
+                    server_process.wait()
+                _log("Server stopped.")
+            else:
+                _log(f"Server already terminated with exit code {server_process.returncode}")
 
 
 if __name__ == "__main__":
