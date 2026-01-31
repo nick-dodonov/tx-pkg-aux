@@ -7,6 +7,7 @@
 #include <boost/asio.hpp>
 
 namespace asio = boost::asio;
+static constexpr auto Port = 19090;
 
 // Test GET request to local stub server
 TEST(HttpClientTest, GetRequestToLocalhost)
@@ -27,7 +28,7 @@ TEST(HttpClientTest, GetRequestToLocalhost)
         int responseStatus = 0;
         
         // Make GET request to stub server
-        client->Get("http://localhost:9090/get", [&](auto result) {
+        client->Get(std::format("http://localhost:{}/get", Port), [&](auto result) {
             requestCompleted = true;
             if (result) {
                 requestSucceeded = true;
@@ -79,7 +80,7 @@ TEST(HttpClientTest, PostRequestToLocalhost)
         // Note: Current LiteClient only supports GET method
         // Testing against /post endpoint with GET will return 404 from Python server
         // This is expected behavior - real POST support requires HTTP client enhancement
-        client->Get("http://localhost:9090/post", [&](auto result) {
+        client->Get(std::format("http://localhost:{}/post", Port), [&](auto result) {
             requestCompleted = true;
             if (result) {
                 // Server returns 404 for GET on /post endpoint (Python server expects POST)

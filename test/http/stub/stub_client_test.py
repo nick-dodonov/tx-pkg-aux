@@ -11,6 +11,11 @@ from urllib.request import urlopen, Request
 from urllib.error import HTTPError, URLError
 
 
+def _log(*args, **kwargs) -> None:
+    """Print with immediate flush."""
+    print("test_client:", *args, **kwargs, flush=True)
+
+
 class HTTPClientTests(unittest.TestCase):
     """HTTP client test cases."""
 
@@ -25,12 +30,12 @@ class HTTPClientTests(unittest.TestCase):
         )
         args, _ = parser.parse_known_args()
         cls.base_url = args.url
-        print(f"Running tests against: {cls.base_url}")
+        _log(f"Running tests against: {cls.base_url}")
 
     def test_get_request(self) -> None:
         """Test GET request to /get endpoint."""
         url = f"{self.base_url}/get"
-        print(f"Testing GET: {url}")
+        _log(f"Testing GET: {url}")
 
         try:
             with urlopen(url, timeout=5) as response:
@@ -38,14 +43,14 @@ class HTTPClientTests(unittest.TestCase):
                 data = json.loads(response.read().decode())
                 self.assertEqual(data["method"], "GET")
                 self.assertEqual(data["path"], "/get")
-                print(f"GET response: {data}")
+                _log(f"GET response: {data}")
         except (HTTPError, URLError) as e:
             self.fail(f"GET request failed: {e}")
 
     def test_post_request(self) -> None:
         """Test POST request to /post endpoint."""
         url = f"{self.base_url}/post"
-        print(f"Testing POST: {url}")
+        _log(f"Testing POST: {url}")
 
         post_data: dict[str, str | int] = {"test_key": "test_value", "number": 42}
         json_data = json.dumps(post_data).encode()
@@ -60,20 +65,20 @@ class HTTPClientTests(unittest.TestCase):
                 self.assertEqual(data["method"], "POST")
                 self.assertEqual(data["path"], "/post")
                 self.assertEqual(data["received_data"], post_data)
-                print(f"POST response: {data}")
+                _log(f"POST response: {data}")
         except (HTTPError, URLError) as e:
             self.fail(f"POST request failed: {e}")
 
     def test_not_found(self) -> None:
         """Test 404 response for unknown endpoint."""
         url = f"{self.base_url}/unknown"
-        print(f"Testing 404: {url}")
+        _log(f"Testing 404: {url}")
 
         with self.assertRaises(HTTPError) as context:
             urlopen(url, timeout=5)
 
         self.assertEqual(context.exception.code, 404)
-        print(f"404 response received as expected")
+        _log(f"404 response received as expected")
 
 
 def main() -> int:

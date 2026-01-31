@@ -10,15 +10,17 @@ from http.server import HTTPServer, BaseHTTPRequestHandler
 from typing import Any
 
 
+def _log(*args, **kwargs) -> None:
+    """Print with immediate flush."""
+    print("test_server:", *args, **kwargs, flush=True)
+
+
 class HTTPTestHandler(BaseHTTPRequestHandler):
     """HTTP request handler for GET and POST requests."""
 
-    def log_message(self, format: str, *args: Any) -> None:
-        """Override to customize logging."""
-        sys.stderr.write(f"HTTP Server: {format % args}\n")
-
     def do_GET(self) -> None:
         """Handle GET requests."""
+        _log(f"HTTP Server: Handled GET request: {self.path}")
         if self.path == "/get":
             response = {
                 "method": "GET",
@@ -34,6 +36,7 @@ class HTTPTestHandler(BaseHTTPRequestHandler):
 
     def do_POST(self) -> None:
         """Handle POST requests."""
+        _log(f"HTTP Server: Handled POST request: {self.path}")
         if self.path == "/post":
             content_length = int(self.headers.get("Content-Length", 0))
             post_data = self.rfile.read(content_length).decode("utf-8")
@@ -67,20 +70,23 @@ def main() -> int:
 
     args = parser.parse_args()
 
-    server_address = (args.host, args.port)
-    httpd = HTTPServer(server_address, HTTPTestHandler)
-
-    print(f"HTTP Server: Starting on {args.host}:{args.port}", flush=True)
-    print("HTTP Server: Ready to accept connections", flush=True)
-
     try:
-        httpd.serve_forever()
-    except KeyboardInterrupt:
-        print("\nHTTP Server: Shutting down", flush=True)
-    finally:
-        httpd.server_close()
+        _log(f"HTTP Server: Starting on {args.host}:{args.port}")
+        server_address = (args.host, args.port)
+        httpd = HTTPServer(server_address, HTTPTestHandler)
 
-    return 0
+        _log("HTTP Server: Ready to accept connections")
+        try:
+            httpd.serve_forever()
+        except KeyboardInterrupt:
+            _log("HTTP Server: Shutting down")
+        finally:
+            httpd.server_close()
+
+        return 0
+    except Exception as e:
+        _log(f"HTTP Server: Error - {e}")
+        return 1
 
 
 if __name__ == "__main__":
