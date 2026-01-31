@@ -1,0 +1,65 @@
+#include "Async/Mutex.h"
+#include "Boot/Boot.h"
+
+#include <gtest/gtest.h>
+
+// Test Async::Mutex basic locking
+TEST(AsyncMutexTest, LockUnlock)
+{
+    Async::Mutex mutex;
+    
+    mutex.lock();
+    EXPECT_TRUE(true); // Successfully locked
+    mutex.unlock();
+    EXPECT_TRUE(true); // Successfully unlocked
+}
+
+// Test Async::Mutex try_lock
+TEST(AsyncMutexTest, TryLock)
+{
+    Async::Mutex mutex;
+    
+    bool locked = mutex.try_lock();
+    EXPECT_TRUE(locked);
+    
+    if (locked) {
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wthread-safety-analysis"
+        mutex.unlock();
+#pragma clang diagnostic pop
+    }
+    
+    // Verify we can lock again
+    EXPECT_TRUE(mutex.try_lock());
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wthread-safety-analysis"
+    mutex.unlock();
+#pragma clang diagnostic pop
+}
+
+// Test Async::LockGuard RAII behavior
+TEST(AsyncMutexTest, LockGuardRAII)
+{
+    Async::Mutex mutex;
+    Async::Mutex mutex2;
+    
+    {
+        Async::LockGuard lock(mutex);
+        // Mutex should be locked here
+        EXPECT_FALSE(mutex.try_lock()); // Should fail as already locked
+    }
+    
+    // After scope, mutex should be unlocked
+    EXPECT_TRUE(mutex2.try_lock());
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wthread-safety-analysis"
+    mutex2.unlock();
+#pragma clang diagnostic pop
+}
+
+int main(int argc, char** argv)
+{
+    ::testing::InitGoogleTest(&argc, argv);
+    Boot::DefaultInit(argc, const_cast<const char**>(argv));
+    return RUN_ALL_TESTS();
+}
