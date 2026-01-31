@@ -1,10 +1,12 @@
 load("@rules_python//python:defs.bzl", "py_binary", "py_test")
 
-py_binary(
+py_test(
     name = "stub_client",
     srcs = ["stub_client_test.py"],
     main = "stub_client_test.py",
     visibility = ["//visibility:public"],
+    # Don't run this directly - use stub_integration test below
+    tags = ["manual"],
 )
 
 py_binary(

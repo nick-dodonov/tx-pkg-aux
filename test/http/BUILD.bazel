@@ -1,0 +1,35 @@
+load("@rules_python//python:defs.bzl", "py_test")
+load("@tx-kit-ext//rules/build:tx_test.bzl", "tx_test")
+
+# C++ HTTP client test (requires server to be running)
+tx_test(
+    name = "http_client_test_binary",
+    srcs = ["http_client_test.cpp"],
+    deps = [
+        "//src/pkg-app",
+        "//src/pkg-http",
+        "@googletest//:gtest_main",
+    ],
+    # Don't run this directly - use http_client test below
+    tags = ["manual"],
+)
+
+# Wrapper test that starts server and runs C++ test
+# Usage: bazel test //test/http:http_client
+py_test(
+    name = "http_client",
+    srcs = ["http_test_runner.py"],
+    main = "http_test_runner.py",
+    data = [
+        ":http_client_test_binary",
+        "//test/http/stub:stub_server",
+    ],
+    args = [
+        "$(location :http_client_test_binary)",
+        "$(location //test/http/stub:stub_server)",
+    ],
+    target_compatible_with = select({
+        "@platforms//cpu:wasm32": ["@platforms//:incompatible"],
+        "//conditions:default": [],
+    }),
+)
