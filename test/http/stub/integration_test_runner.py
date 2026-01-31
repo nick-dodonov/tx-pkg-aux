@@ -104,7 +104,7 @@ def main() -> int:
 
         # Wait for server to be ready
         _log("Waiting for server to be ready...")
-        success, exit_code = wait_for_server(f"{server_url}/get", server_process, timeout=5)
+        success, exit_code = wait_for_server(f"{server_url}/get", server_process, timeout=30)
         if not success:
             if exit_code is not None:
                 _log(f"Error: Server process terminated with exit code {exit_code}")

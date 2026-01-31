@@ -94,7 +94,8 @@ namespace App
             return;
         }
         if (const auto count = _io_context.poll(); count > 0) {
-            Log::Trace("polled {} tasks on frame={}", count, ctx.frame.index);
+            //TODO: enable verbose logging later and make it configurable (too noisy for now), make summary instead
+            //Log::Trace("polled {} tasks on frame={}", count, ctx.frame.index);
         }
     }
 }
