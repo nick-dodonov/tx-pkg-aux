@@ -28,4 +28,10 @@ py_test(
         "$(location :http_client_test)",
         "$(location //test/http/stub:stub_server)",
     ],
+
+    # TODO: !!!! ALLOW TO RUN WASM INTEGRATION TESTS !!!!
+    target_compatible_with = select({
+        "@platforms//cpu:wasm32": ["@platforms//:incompatible"],
+        "//conditions:default": [],
+    }),
 )
