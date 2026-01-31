@@ -21,11 +21,13 @@ jobs:
             os: windows-latest
             bazel-config: ''
             default-shell: cmd
-          - name: Windows ARM64 MSVC
-            id: win-arm64-msvc
-            os: windows-11-arm
-            bazel-config: ''
-            default-shell: cmd
+          # TODO: make manual testing for Windows ARM64 MSVC
+          # Temporary disabled to reduce CI load (not needed as all compilers are covered)
+          # - name: Windows ARM64 MSVC
+          #   id: win-arm64-msvc
+          #   os: windows-11-arm
+          #   bazel-config: ''
+          #   default-shell: cmd
           - name: Linux x64 GCC
             id: linux-gcc
             os: ubuntu-latest
