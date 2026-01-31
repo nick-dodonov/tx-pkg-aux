@@ -12,7 +12,7 @@ from typing import Any
 
 def _log(*args, **kwargs) -> None:
     """Print with immediate flush."""
-    print("test_server:", *args, **kwargs, flush=True)
+    print(*args, **kwargs, flush=True)
 
 
 class HTTPTestHandler(BaseHTTPRequestHandler):

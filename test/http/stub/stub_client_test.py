@@ -13,7 +13,7 @@ from urllib.error import HTTPError, URLError
 
 def _log(*args, **kwargs) -> None:
     """Print with immediate flush."""
-    print("test_client:", *args, **kwargs, flush=True)
+    print(*args, **kwargs, flush=True)
 
 
 class HTTPClientTests(unittest.TestCase):

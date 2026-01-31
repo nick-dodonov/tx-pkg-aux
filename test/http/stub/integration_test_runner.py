@@ -8,16 +8,30 @@ import subprocess
 import os
 import time
 import signal
+import threading
+from typing import IO, Any
+from datetime import datetime
 from urllib.request import urlopen
 from urllib.error import URLError
 
 
-def _log(*args, **kwargs) -> None:
+def _log(*args: Any, **kwargs: Any) -> None:
     """Print with immediate flush."""
-    print("test_runner:", *args, **kwargs, flush=True)
+    timestamp = datetime.now().strftime("%H:%M:%S.%f")[:-3]
+    print(f"[{timestamp}] runner:", *args, **kwargs, flush=True)
 
 
-def wait_for_server(url: str, server_process: subprocess.Popen, timeout: int = 10) -> tuple[bool, int | None]:
+def _log_server_output(pipe: IO[str], prefix: str) -> None:
+    """Read from pipe and log each line with timestamp and prefix."""
+    for line in iter(pipe.readline, ''):
+        if line:
+            timestamp = datetime.now().strftime("%H:%M:%S.%f")[:-3]
+            decoded_line = line.rstrip()
+            print(f"[{timestamp}] {prefix}: {decoded_line}", flush=True)
+    pipe.close()
+
+
+def wait_for_server(url: str, server_process: subprocess.Popen[str], timeout: int = 10) -> tuple[bool, int | None]:
     """Wait for server to be ready.
     
     Returns:
@@ -64,7 +78,7 @@ def main() -> int:
     _log("HTTP Integration Test")
     _log("=" * 30)
 
-    server_process = None
+    server_process: subprocess.Popen[str] | None = None
     server_port = 19090
     server_url = f"http://localhost:{server_port}"
 
@@ -72,8 +86,20 @@ def main() -> int:
         # Start HTTP server in background
         _log(f"--- Starting HTTP Server on port {server_port} ---")
         server_process = subprocess.Popen(
-            [server_binary, "--port", str(server_port)]
+            [server_binary, "--port", str(server_port)],
+            stdout=subprocess.PIPE,
+            stderr=subprocess.STDOUT,
+            text=True,
+            bufsize=1
         )
+
+        # Start thread to log server output
+        log_thread = threading.Thread(
+            target=_log_server_output,
+            args=(server_process.stdout, "server"),
+            daemon=True
+        )
+        log_thread.start()
 
         # Wait for server to be ready
         _log("Waiting for server to be ready...")
@@ -89,9 +115,25 @@ def main() -> int:
 
         # Run client tests
         _log("--- Running HTTP Client Tests ---")
-        client_result = subprocess.run([client_binary, "--url", server_url])
+        client_process = subprocess.Popen(
+            [client_binary, "--url", server_url],
+            stdout=subprocess.PIPE,
+            stderr=subprocess.STDOUT,
+            text=True,
+            bufsize=1
+        )
 
-        client_exit_code = client_result.returncode
+        # Start thread to log client output
+        client_log_thread = threading.Thread(
+            target=_log_server_output,
+            args=(client_process.stdout, "client"),
+            daemon=True
+        )
+        client_log_thread.start()
+
+        # Wait for client to complete
+        client_process.wait()
+        client_exit_code = client_process.returncode
         if client_exit_code != 0:
             _log(f"Client tests failed with exit code {client_exit_code}")
             return client_exit_code
