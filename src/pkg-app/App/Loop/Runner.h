@@ -5,7 +5,7 @@
 
 namespace App::Loop
 {
-    /// Base runner that runs the update action while the handler returns true
+    /// Base runner that runs the update action
     class IRunner: public std::enable_shared_from_this<IRunner>
     {
     public:

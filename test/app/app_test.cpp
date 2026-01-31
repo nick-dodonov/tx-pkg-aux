@@ -1,5 +1,5 @@
 #include "App/Domain.h"
-#include "App/Loop/Factory.h"
+#include "App/Loop/TightRunner.h"
 #include "Boot/Boot.h"
 
 #include <gtest/gtest.h>
@@ -28,7 +28,7 @@ TEST(DomainTest, GetExecutor)
 TEST(DomainTest, RunSimpleCoroMain)
 {
     auto domain = std::make_shared<App::Domain>();
-    auto runner = App::Loop::CreateDefaultRunner(domain);
+    auto runner = std::make_shared<App::Loop::TightRunner>(domain);
     
     auto coroMain = []() -> asio::awaitable<int> {
         co_return 42;
@@ -42,7 +42,7 @@ TEST(DomainTest, RunSimpleCoroMain)
 TEST(DomainTest, RunCoroWithAsyncTimer)
 {
     auto domain = std::make_shared<App::Domain>();
-    auto runner = App::Loop::CreateDefaultRunner(domain);
+    auto runner = std::make_shared<App::Loop::TightRunner>(domain);
     
     auto coroMain = []() -> asio::awaitable<int> {
         auto timer = asio::steady_timer(co_await asio::this_coro::executor);
@@ -59,7 +59,7 @@ TEST(DomainTest, RunCoroWithAsyncTimer)
 TEST(DomainTest, RunCoroWithMultipleAsyncOps)
 {
     auto domain = std::make_shared<App::Domain>();
-    auto runner = App::Loop::CreateDefaultRunner(domain);
+    auto runner = std::make_shared<App::Loop::TightRunner>(domain);
     
     auto coroMain = []() -> asio::awaitable<int> {
         auto executor = co_await asio::this_coro::executor;
@@ -85,7 +85,7 @@ TEST(DomainTest, RunCoroWithMultipleAsyncOps)
 TEST(DomainTest, RunCoroWithNestedCoro)
 {
     auto domain = std::make_shared<App::Domain>();
-    auto runner = App::Loop::CreateDefaultRunner(domain);
+    auto runner = std::make_shared<App::Loop::TightRunner>(domain);
     
     auto nestedCoro = []() -> asio::awaitable<int> {
         auto timer = asio::steady_timer(co_await asio::this_coro::executor);
@@ -107,7 +107,7 @@ TEST(DomainTest, RunCoroWithNestedCoro)
 TEST(DomainTest, AsyncStoppedSignaling)
 {
     auto domain = std::make_shared<App::Domain>();
-    auto runner = App::Loop::CreateDefaultRunner(domain);
+    auto runner = std::make_shared<App::Loop::TightRunner>(domain);
     
     auto coroMain = [domain]() -> asio::awaitable<int> {
         // Start async wait for stop
