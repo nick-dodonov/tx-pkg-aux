@@ -19,15 +19,18 @@ tx_test(
 py_test(
     name = "http_client",
     srcs = ["//test/http/stub:stub_integration_test.py"],
-    main = "stub_integration_test.py",
     data = [
         ":http_client_test",
         "//test/http/stub:stub_server",
     ],
+    main = "stub_integration_test.py",
     args = [
         "$(location :http_client_test)",
         "$(location //test/http/stub:stub_server)",
     ],
+    # exclusive: prevent parallel execution with other tests (port conflicts)
+    # requires-network: test uses network (local server on specific port)
+    tags = ["exclusive", "requires-network"],
 
     # TODO: !!!! ALLOW TO RUN WASM INTEGRATION TESTS !!!!
     target_compatible_with = select({

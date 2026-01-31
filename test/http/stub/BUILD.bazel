@@ -22,15 +22,19 @@ py_binary(
 py_test(
     name = "stub_integration",
     srcs = ["stub_integration_test.py"],
+    data = [
+        ":stub_client",
+        ":stub_server",
+    ],
     main = "stub_integration_test.py",
     args = [
         "$(location :stub_client)",
         "$(location :stub_server)",
     ],
-    data = [
-        ":stub_client",
-        ":stub_server",
-    ],
+    # exclusive: prevent parallel execution with other tests (port conflicts)
+    # requires-network: test uses network (local server on specific port)
+    tags = ["exclusive", "requires-network"],
+
     target_compatible_with = select({
         "@platforms//cpu:wasm32": ["@platforms//:incompatible"],
         "//conditions:default": [],
