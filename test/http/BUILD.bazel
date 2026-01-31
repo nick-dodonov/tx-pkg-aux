@@ -17,13 +17,13 @@ tx_test(
 # Wrapper test that starts server and runs C++ test
 # Usage: bazel test //test/http:http_client
 py_test(
-    name = "http_client",
-    srcs = ["//test/http/stub:stub_integration_test.py"],
+    name = "http",
+    srcs = ["//test/http/stub:integration_test_runner.py"],
     data = [
         ":http_client_test",
         "//test/http/stub:stub_server",
     ],
-    main = "stub_integration_test.py",
+    main = "integration_test_runner.py",
     args = [
         "$(location :http_client_test)",
         "$(location //test/http/stub:stub_server)",

@@ -1,7 +1,7 @@
 load("@rules_python//python:defs.bzl", "py_binary", "py_test")
 
-# Export stub_integration_test.py so it can be used by other test targets
-exports_files(["stub_integration_test.py"])
+# Export integration_test_runner.py so it can be used by other test targets
+exports_files(["integration_test_runner.py"])
 
 py_test(
     name = "stub_client",
@@ -20,13 +20,13 @@ py_binary(
 )
 
 py_test(
-    name = "stub_integration",
-    srcs = ["stub_integration_test.py"],
+    name = "stub",
+    srcs = ["integration_test_runner.py"],
     data = [
         ":stub_client",
         ":stub_server",
     ],
-    main = "stub_integration_test.py",
+    main = "integration_test_runner.py",
     args = [
         "$(location :stub_client)",
         "$(location :stub_server)",
