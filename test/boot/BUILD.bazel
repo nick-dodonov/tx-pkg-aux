@@ -1,10 +1,10 @@
 load("@tx-kit-ext//rules/build:tx_test.bzl", "tx_test")
 
 tx_test(
-    name = "call",
-    srcs = ["call_test.cpp"],
+    name = "boot",
+    srcs = ["boot_test.cpp"],
     deps = [
         "//src/pkg-boot",
-        "@google_benchmark//:benchmark",
+        "@googletest//:gtest_main",
     ],
 )

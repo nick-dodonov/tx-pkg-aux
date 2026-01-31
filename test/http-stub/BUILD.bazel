@@ -26,4 +26,8 @@ py_test(
         ":http_client",
         ":http_server",
     ],
+    target_compatible_with = select({
+        "@platforms//cpu:wasm32": ["@platforms//:incompatible"],
+        "//conditions:default": [],
+    }),
 )

@@ -1,0 +1,10 @@
+load("@tx-kit-ext//rules/build:tx_test.bzl", "tx_test")
+
+tx_test(
+    name = "log",
+    srcs = ["log_test.cpp"],
+    deps = [
+        "//src/pkg-log",
+        "@googletest//:gtest_main",
+    ],
+)
