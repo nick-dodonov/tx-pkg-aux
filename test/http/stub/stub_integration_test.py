@@ -103,8 +103,14 @@ def main() -> int:
         # Shutdown server
         if server_process:
             print("\n--- Shutting down HTTP Server ---")
-            server_process.send_signal(signal.SIGINT)
             try:
+                # On Windows, subprocess.send_signal(SIGINT) is not supported
+                # Use terminate() for cross-platform compatibility
+                if sys.platform == "win32":
+                    server_process.terminate()
+                else:
+                    server_process.send_signal(signal.SIGINT)
+                
                 server_process.wait(timeout=3)
             except subprocess.TimeoutExpired:
                 print("Server did not shutdown gracefully, terminating...")
