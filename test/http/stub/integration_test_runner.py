@@ -49,7 +49,8 @@ def wait_for_server(url: str, server_process: subprocess.Popen[str], timeout: in
         try:
             with urlopen(url, timeout=1):
                 return True, None
-        except URLError:
+        except URLError as e:
+            _log(f"Server not ready yet: {e}")
             time.sleep(0.1)
     
     return False, None

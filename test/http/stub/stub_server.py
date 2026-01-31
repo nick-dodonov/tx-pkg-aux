@@ -10,7 +10,7 @@ from http.server import HTTPServer, BaseHTTPRequestHandler
 from typing import Any
 
 
-def _log(*args, **kwargs) -> None:
+def _log(*args: Any, **kwargs: Any) -> None:
     """Print with immediate flush."""
     print(*args, **kwargs, flush=True)
 
@@ -21,7 +21,16 @@ class HTTPTestHandler(BaseHTTPRequestHandler):
     def do_GET(self) -> None:
         """Handle GET requests."""
         _log(f"HTTP Server: Handled GET request: {self.path}")
-        if self.path == "/get":
+        if self.path == "/health":
+            response = {
+                "status": "healthy",
+                "message": "Server is running",
+            }
+            self.send_response(200)
+            self.send_header("Content-Type", "application/json")
+            self.end_headers()
+            self.wfile.write(json.dumps(response).encode())
+        elif self.path == "/get":
             response = {
                 "method": "GET",
                 "path": self.path,
@@ -76,6 +85,7 @@ def main() -> int:
         httpd = HTTPServer(server_address, HTTPTestHandler)
 
         _log("HTTP Server: Ready to accept connections")
+        
         try:
             httpd.serve_forever()
         except KeyboardInterrupt:
