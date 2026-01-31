@@ -18,7 +18,7 @@ from urllib.error import URLError
 def _log(*args: Any, **kwargs: Any) -> None:
     """Print with immediate flush."""
     timestamp = datetime.now().strftime("%H:%M:%S.%f")[:-3]
-    print(f"[{timestamp}] runner:", *args, **kwargs, flush=True)
+    print(f"[{timestamp}] [RUNNER] ", *args, **kwargs, flush=True)
 
 
 def _log_server_output(pipe: IO[str], prefix: str) -> None:
@@ -27,7 +27,7 @@ def _log_server_output(pipe: IO[str], prefix: str) -> None:
         if line:
             timestamp = datetime.now().strftime("%H:%M:%S.%f")[:-3]
             decoded_line = line.rstrip()
-            print(f"[{timestamp}] {prefix}: {decoded_line}", flush=True)
+            print(f"[{timestamp}] {prefix}{decoded_line}", flush=True)
     pipe.close()
 
 
@@ -97,7 +97,7 @@ def main() -> int:
         # Start thread to log server output
         log_thread = threading.Thread(
             target=_log_server_output,
-            args=(server_process.stdout, "server"),
+            args=(server_process.stdout, "[server] "),
             daemon=True
         )
         log_thread.start()
@@ -127,7 +127,7 @@ def main() -> int:
         # Start thread to log client output
         client_log_thread = threading.Thread(
             target=_log_server_output,
-            args=(client_process.stdout, "client"),
+            args=(client_process.stdout, "[client] "),
             daemon=True
         )
         client_log_thread.start()

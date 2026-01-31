@@ -6,8 +6,12 @@ HTTP server for testing HTTP package functionality.
 import sys
 import argparse
 import json
+import socket
+import threading
 from http.server import HTTPServer, BaseHTTPRequestHandler
 from typing import Any
+from urllib.request import urlopen
+from urllib.error import URLError
 
 
 def _log(*args: Any, **kwargs: Any) -> None:
@@ -15,12 +19,44 @@ def _log(*args: Any, **kwargs: Any) -> None:
     print(*args, **kwargs, flush=True)
 
 
+def _self_diagnostic(host: str, port: int) -> None:
+    """Run self-diagnostic in a separate thread after server starts."""
+    import time
+    time.sleep(0.2)  # Give server time to start listening
+    
+    health_url = f"http://{host}:{port}/health"
+    _log(f"[DIAG] Running self-diagnostic at {health_url}")
+    
+    try:
+        # Check if port is listening using socket
+        sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        sock.settimeout(1)
+        result = sock.connect_ex((host, port))
+        sock.close()
+        
+        if result == 0:
+            _log(f"[DIAG] Port {port} is listening")
+        else:
+            _log(f"[DIAG] Port {port} is NOT listening (error code: {result})")
+            return
+        
+        # Try HTTP request
+        with urlopen(health_url, timeout=2) as response:
+            health_data = json.loads(response.read().decode('utf-8'))
+            _log(f"[DIAG] Self-diagnostic PASSED - {health_data}")
+    except URLError as e:
+        _log(f"[DIAG] Self-diagnostic FAILED (URLError) - {e}")
+    except Exception as e:
+        _log(f"[DIAG] Self-diagnostic FAILED (Exception) - {e}")
+
+
+
 class HTTPTestHandler(BaseHTTPRequestHandler):
     """HTTP request handler for GET and POST requests."""
 
     def do_GET(self) -> None:
         """Handle GET requests."""
-        _log(f"HTTP Server: Handled GET request: {self.path}")
+        _log(f"Handled GET request: {self.path}")
         if self.path == "/health":
             response = {
                 "status": "healthy",
@@ -45,7 +81,7 @@ class HTTPTestHandler(BaseHTTPRequestHandler):
 
     def do_POST(self) -> None:
         """Handle POST requests."""
-        _log(f"HTTP Server: Handled POST request: {self.path}")
+        _log(f"Handled POST request: {self.path}")
         if self.path == "/post":
             content_length = int(self.headers.get("Content-Length", 0))
             post_data = self.rfile.read(content_length).decode("utf-8")
@@ -80,22 +116,52 @@ def main() -> int:
     args = parser.parse_args()
 
     try:
-        _log(f"HTTP Server: Starting on {args.host}:{args.port}")
+        _log(f"Starting on {args.host}:{args.port}")
+        
+        # Display network diagnostic info
+        _log(f"[DIAG] Platform: {sys.platform}")
+        _log(f"[DIAG] Hostname: {socket.gethostname()}")
+        try:
+            local_ip = socket.gethostbyname(socket.gethostname())
+            _log(f"[DIAG] Host IP: {local_ip}")
+        except Exception as e:
+            _log(f"[DIAG] Could not resolve host IP: {e}")
+        
+        # Check if port is already in use
+        test_sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        test_sock.settimeout(1)
+        try:
+            test_sock.bind((args.host, args.port))
+            test_sock.close()
+            _log(f"[DIAG] Port {args.port} is available")
+        except OSError as e:
+            _log(f"[DIAG] Port {args.port} bind check failed: {e}")
+            test_sock.close()
+        
         server_address = (args.host, args.port)
         httpd = HTTPServer(server_address, HTTPTestHandler)
 
-        _log("HTTP Server: Ready to accept connections")
+        _log("Ready to accept connections")
+        _log(f"[DIAG] Server socket: {httpd.socket.getsockname()}")
+        
+        # Start self-diagnostic in background thread
+        diag_thread = threading.Thread(
+            target=_self_diagnostic,
+            args=(args.host, args.port),
+            daemon=True
+        )
+        diag_thread.start()
         
         try:
             httpd.serve_forever()
         except KeyboardInterrupt:
-            _log("HTTP Server: Shutting down")
+            _log("Shutting down")
         finally:
             httpd.server_close()
 
         return 0
     except Exception as e:
-        _log(f"HTTP Server: Error - {e}")
+        _log(f"Error - {e}")
         return 1
 
 
