@@ -18,8 +18,8 @@ tx_test(
 # Usage: bazel test //test/http:http_client
 py_test(
     name = "http_client",
-    srcs = ["http_test_runner.py"],
-    main = "http_test_runner.py",
+    srcs = ["//test/http/stub:stub_integration_test.py"],
+    main = "stub_integration_test.py",
     data = [
         ":http_client_test",
         "//test/http/stub:stub_server",
