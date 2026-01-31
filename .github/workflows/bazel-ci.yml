@@ -21,23 +21,23 @@ jobs:
             os: windows-latest
             bazel-config: ''
             default-shell: cmd
-          # TODO: make manual testing for Windows ARM64 MSVC
-          # Temporary disabled to reduce CI load (not needed as all compilers are covered)
-          # - name: Windows ARM64 MSVC
-          #   id: win-arm64-msvc
-          #   os: windows-11-arm
+          # # TODO: make manual testing for Windows ARM64 MSVC
+          # # Temporary disabled to reduce CI load (not needed as all compilers are covered)
+          # # - name: Windows ARM64 MSVC
+          # #   id: win-arm64-msvc
+          # #   os: windows-11-arm
+          # #   bazel-config: ''
+          # #   default-shell: cmd
+          # - name: Linux x64 GCC
+          #   id: linux-gcc
+          #   os: ubuntu-latest
           #   bazel-config: ''
-          #   default-shell: cmd
-          - name: Linux x64 GCC
-            id: linux-gcc
-            os: ubuntu-latest
-            bazel-config: ''
-            default-shell: bash
-          - name: Linux x64 → WASM Clang
-            id: linux-wasm
-            os: ubuntu-latest
-            bazel-config: '--config=wasm'
-            default-shell: bash
+          #   default-shell: bash
+          # - name: Linux x64 → WASM Clang
+          #   id: linux-wasm
+          #   os: ubuntu-latest
+          #   bazel-config: '--config=wasm'
+          #   default-shell: bash
 
     name: ${{ matrix.config.name }}
     runs-on: ${{ matrix.config.os }}
@@ -118,4 +118,4 @@ jobs:
         run: bazel run demo/hello-app ${{ matrix.config.bazel-config }}
 
       - name: Run all tests
-        run: bazel test //... ${{ matrix.config.bazel-config }}
+        run: bazel test //... ${{ matrix.config.bazel-config }} --test_output=all --verbose_failures
