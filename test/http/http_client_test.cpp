@@ -22,6 +22,9 @@ TEST(HttpClientTest, GetRequestToLocalhost)
 
         auto client = Http::LiteClient::MakeDefault({
             .executor = executor,
+            .wasm = {
+                .useJsFetchClient = true, //TODO: make it default
+            },
         });
 
         bool requestCompleted = false;

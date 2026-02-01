@@ -18,7 +18,7 @@ from urllib.error import URLError
 def _log(*args: Any, **kwargs: Any) -> None:
     """Print with immediate flush."""
     timestamp = datetime.now().strftime("%H:%M:%S.%f")[:-3]
-    print(f"[{timestamp}] [RUNNER] ", *args, **kwargs, flush=True)
+    print(f"[{timestamp}] [RUNNER]", *args, **kwargs, flush=True)
 
 
 def _log_header(message: str) -> None:

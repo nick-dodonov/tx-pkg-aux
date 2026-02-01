@@ -6,6 +6,7 @@ HTTP server for testing HTTP package functionality.
 import sys
 import argparse
 import json
+import time
 import socket
 import threading
 from http.server import HTTPServer, BaseHTTPRequestHandler
@@ -19,9 +20,32 @@ def _log(*args: Any, **kwargs: Any) -> None:
     print(*args, **kwargs, flush=True)
 
 
+def _host_diagnostic(host: str) -> None:
+    """Log host-related diagnostics."""
+    _log(f"[DIAG] Platform: {sys.platform}")
+    _log(f"[DIAG] Hostname: {socket.gethostname()}")
+    try:
+        local_ip = socket.gethostbyname(host)
+        _log(f"[DIAG] Target host: {local_ip}")
+    except Exception as e:
+        _log(f"[DIAG] Target host resolve failed: {e}")
+
+
+def _bind_diagnostic(host: str, port: int) -> None:
+    """Check if the specified port can be bound."""
+    test_sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    test_sock.settimeout(1)
+    try:
+        test_sock.bind((host, port))
+        _log(f"[DIAG] Port {port} bind check PASSED")
+    except OSError as e:
+        _log(f"[DIAG] Port {port} bind check FAILED: {e}")
+    finally:
+        test_sock.close()
+
+
 def _self_diagnostic(host: str, port: int) -> None:
     """Run self-diagnostic in a separate thread after server starts."""
-    import time
     time.sleep(0.2)  # Give server time to start listening
     
     health_url = f"http://{host}:{port}/health"
@@ -48,7 +72,6 @@ def _self_diagnostic(host: str, port: int) -> None:
         _log(f"[DIAG] Self-diagnostic FAILED (URLError) - {e}")
     except Exception as e:
         _log(f"[DIAG] Self-diagnostic FAILED (Exception) - {e}")
-
 
 
 class HTTPTestHandler(BaseHTTPRequestHandler):
@@ -116,34 +139,17 @@ def main() -> int:
     args = parser.parse_args()
 
     try:
-        _log(f"Starting on {args.host}:{args.port}")
+        _log(f"Server starting on {args.host}:{args.port}")
         
-        # Display network diagnostic info
-        _log(f"[DIAG] Platform: {sys.platform}")
-        _log(f"[DIAG] Hostname: {socket.gethostname()}")
-        try:
-            local_ip = socket.gethostbyname(socket.gethostname())
-            _log(f"[DIAG] Host IP: {local_ip}")
-        except Exception as e:
-            _log(f"[DIAG] Could not resolve host IP: {e}")
-        
-        # Check if port is already in use
-        test_sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        test_sock.settimeout(1)
-        try:
-            test_sock.bind((args.host, args.port))
-            test_sock.close()
-            _log(f"[DIAG] Port {args.port} is available")
-        except OSError as e:
-            _log(f"[DIAG] Port {args.port} bind check failed: {e}")
-            test_sock.close()
-        
+        _host_diagnostic(args.host)
+        _bind_diagnostic(args.host, args.port)
+
         server_address = (args.host, args.port)
         httpd = HTTPServer(server_address, HTTPTestHandler)
 
         _log("Ready to accept connections")
         _log(f"[DIAG] Server socket: {httpd.socket.getsockname()}")
-        
+
         # Start self-diagnostic in background thread
         diag_thread = threading.Thread(
             target=_self_diagnostic,
@@ -151,7 +157,7 @@ def main() -> int:
             daemon=True
         )
         diag_thread.start()
-        
+
         try:
             httpd.serve_forever()
         except KeyboardInterrupt:
