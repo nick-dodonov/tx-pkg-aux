@@ -9,5 +9,11 @@ tx_library(
         "//src/pkg-boot",
         "@boost.asio//:boost.asio",
     ],
+    linkopts = select({
+        "@platforms//cpu:wasm32": [
+            "-sASYNCIFY", # required for emscripten_sleep (also allows EM_ASYNC_JS https://emscripten.org/docs/porting/asyncify.html)
+        ],
+        "//conditions:default": [],
+    }),    
     visibility = ["//visibility:public"],
 )

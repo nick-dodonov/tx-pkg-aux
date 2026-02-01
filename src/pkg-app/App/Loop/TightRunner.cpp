@@ -1,6 +1,10 @@
 #include "TightRunner.h"
 #include "Log/Log.h"
 
+#ifdef __EMSCRIPTEN__
+#include <emscripten.h>
+#endif
+
 namespace App::Loop
 {
     int TightRunner::Run()
@@ -17,6 +21,11 @@ namespace App::Loop
         while (_running) {
             updateCtx.Tick();
             InvokeUpdate(updateCtx);
+            
+#ifdef __EMSCRIPTEN__
+            // Yield control to browser to process events
+            emscripten_sleep(0);
+#endif
         }
 
         InvokeStop();

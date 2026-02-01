@@ -1,8 +1,7 @@
 #include "Factory.h"
+#include "TightRunner.h"
 #if __EMSCRIPTEN__
 #include "WasmRunner.h"
-#else
-#include "TightRunner.h"
 #endif
 
 namespace App::Loop
@@ -14,5 +13,10 @@ namespace App::Loop
 #else
         return std::make_shared<TightRunner>(std::move(handler));
 #endif
+    }
+
+    std::shared_ptr<IRunner> CreateTestRunner(std::shared_ptr<Handler> handler)
+    {
+        return std::make_shared<TightRunner>(std::move(handler));
     }
 }
