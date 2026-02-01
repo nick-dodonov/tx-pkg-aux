@@ -21,9 +21,16 @@ def _log(*args: Any, **kwargs: Any) -> None:
     print(f"[{timestamp}] [RUNNER] ", *args, **kwargs, flush=True)
 
 
-def _log_server_output(pipe: IO[str], prefix: str) -> None:
+def _log_header(message: str) -> None:
+    """Log a message as a header with separator lines."""
+    _log("=" * 30)
+    _log(message)
+    _log("=" * 30)
+
+
+def _log_process_output(pipe: IO[str], prefix: str) -> None:
     """Read from pipe and log each line with timestamp and prefix."""
-    for line in iter(pipe.readline, ''):
+    for line in iter(pipe.readline, ""):
         if line:
             timestamp = datetime.now().strftime("%H:%M:%S.%f")[:-3]
             decoded_line = line.rstrip()
@@ -31,29 +38,96 @@ def _log_server_output(pipe: IO[str], prefix: str) -> None:
     pipe.close()
 
 
-def wait_for_server(url: str, server_process: subprocess.Popen[str], timeout: int = 10) -> tuple[bool, int | None]:
-    """Wait for server to be ready.
-    
+def _start_logged_process(command: list[str], log_prefix: str) -> subprocess.Popen[str]:
+    """Start a subprocess with automatic output logging.
+
+    Args:
+        command: Command and arguments to execute
+        log_prefix: Prefix for log messages from this process
+
     Returns:
-        tuple: (success, exit_code) - success is True if server is ready,
-               exit_code is set if server process terminated
+        The started subprocess
+    """
+    process = subprocess.Popen(
+        command, 
+        stdout=subprocess.PIPE, 
+        stderr=subprocess.STDOUT, 
+        text=True, 
+        bufsize=1
+    )
+
+    # Start thread to log process output
+    log_thread = threading.Thread(
+        target=_log_process_output, 
+        args=(process.stdout, log_prefix), 
+        daemon=True
+    )
+    log_thread.start()
+
+    return process
+
+
+def _shutdown_process(process: subprocess.Popen[str] | None, name: str) -> None:
+    """Gracefully shutdown a process.
+
+    Args:
+        process: Process to shutdown (can be None)
+        name: Name for logging purposes
+    """
+    if not process:
+        return
+
+    # Check if process already terminated
+    exit_code = process.poll()
+    if exit_code is not None:
+        _log(f"{name} already terminated with exit code {exit_code}")
+        return
+
+    # Attempt graceful shutdown
+    _log(f"--- Shutting down {name} ---")
+    try:
+        # On Windows, subprocess.send_signal(SIGINT) is not supported
+        # Use terminate() for cross-platform compatibility
+        if sys.platform == "win32":
+            process.terminate()
+        else:
+            process.send_signal(signal.SIGINT)
+
+        process.wait(timeout=3)
+    except subprocess.TimeoutExpired:
+        _log(f"{name} did not shutdown gracefully, terminating...")
+        process.kill()
+        process.wait()
+
+    _log(f"{name} stopped.")
+
+
+def _wait_for_server(
+    url: str, server_process: subprocess.Popen[str], timeout: int = 10
+) -> bool:
+    """Wait for server to be ready.
+
+    Returns:
+        True if server is ready, False otherwise
     """
     start_time = time.time()
     while time.time() - start_time < timeout:
         # Check if server process has crashed
         exit_code = server_process.poll()
         if exit_code is not None:
-            return False, exit_code
-        
+            _log(f"Error: Server process terminated with exit code {exit_code}")
+            return False
+
         # Try to connect to server
         try:
             with urlopen(url, timeout=1):
-                return True, None
+                return True
         except URLError as e:
             _log(f"Server not ready yet: {e}")
-            time.sleep(0.1)
-    
-    return False, None
+            time.sleep(0.5)
+
+    _log("Error: Server failed to start within timeout")
+    return False
 
 
 def main() -> int:
@@ -75,9 +149,7 @@ def main() -> int:
         _log(f"Error: Server binary not found: {server_binary}")
         return 1
 
-    _log("=" * 30)
-    _log("HTTP Integration Test")
-    _log("=" * 30)
+    _log_header("HTTP Integration Test")
 
     server_process: subprocess.Popen[str] | None = None
     server_port = 19090
@@ -86,51 +158,21 @@ def main() -> int:
     try:
         # Start HTTP server in background
         _log(f"--- Starting HTTP Server on port {server_port} ---")
-        server_process = subprocess.Popen(
-            [server_binary, "--port", str(server_port)],
-            stdout=subprocess.PIPE,
-            stderr=subprocess.STDOUT,
-            text=True,
-            bufsize=1
+        server_process = _start_logged_process(
+            [server_binary, "--port", str(server_port)], "[server] "
         )
-
-        # Start thread to log server output
-        log_thread = threading.Thread(
-            target=_log_server_output,
-            args=(server_process.stdout, "[server] "),
-            daemon=True
-        )
-        log_thread.start()
 
         # Wait for server to be ready
         _log("Waiting for server to be ready...")
-        success, exit_code = wait_for_server(f"{server_url}/get", server_process, timeout=30)
-        if not success:
-            if exit_code is not None:
-                _log(f"Error: Server process terminated with exit code {exit_code}")
-            else:
-                _log("Error: Server failed to start within timeout")
+        if not _wait_for_server(f"{server_url}/get", server_process, timeout=30):
             return 1
-
         _log("Server is ready!")
 
         # Run client tests
         _log("--- Running HTTP Client Tests ---")
-        client_process = subprocess.Popen(
-            [client_binary, "--url", server_url],
-            stdout=subprocess.PIPE,
-            stderr=subprocess.STDOUT,
-            text=True,
-            bufsize=1
+        client_process = _start_logged_process(
+            [client_binary, "--url", server_url], "[client] "
         )
-
-        # Start thread to log client output
-        client_log_thread = threading.Thread(
-            target=_log_server_output,
-            args=(client_process.stdout, "[client] "),
-            daemon=True
-        )
-        client_log_thread.start()
 
         # Wait for client to complete
         client_process.wait()
@@ -139,10 +181,7 @@ def main() -> int:
             _log(f"Client tests failed with exit code {client_exit_code}")
             return client_exit_code
 
-        _log("=" * 30)
-        _log("All tests passed!")
-        _log("=" * 30)
-
+        _log_header("All tests passed!")
         return 0
 
     except Exception as e:
@@ -150,27 +189,7 @@ def main() -> int:
         return 1
 
     finally:
-        # Shutdown server
-        if server_process:
-            # Check if server is still running
-            if server_process.poll() is None:
-                _log("--- Shutting down HTTP Server ---")
-                try:
-                    # On Windows, subprocess.send_signal(SIGINT) is not supported
-                    # Use terminate() for cross-platform compatibility
-                    if sys.platform == "win32":
-                        server_process.terminate()
-                    else:
-                        server_process.send_signal(signal.SIGINT)
-                    
-                    server_process.wait(timeout=3)
-                except subprocess.TimeoutExpired:
-                    _log("Server did not shutdown gracefully, terminating...")
-                    server_process.kill()
-                    server_process.wait()
-                _log("Server stopped.")
-            else:
-                _log(f"Server already terminated with exit code {server_process.returncode}")
+        _shutdown_process(server_process, "HTTP Server")
 
 
 if __name__ == "__main__":
