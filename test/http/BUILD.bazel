@@ -1,40 +1,45 @@
 load("@rules_python//python:defs.bzl", "py_test")
-load("@tx-kit-ext//rules/build:tx_test.bzl", "tx_test")
+# load("@tx-kit-ext//rules/build:tx_test.bzl", "tx_test")
+load("@tx-kit-ext//rules/build:tx_binary.bzl", "tx_binary")
 
 # C++ HTTP client test (requires server to be running)
-tx_test(
-    name = "http_client_test",
-    srcs = ["http_client_test.cpp"],
+tx_binary(
+    name = "client",
+    srcs = ["client_test.cpp"],
     deps = [
         "//src/pkg-app",
         "//src/pkg-http",
         "@googletest//:gtest_main",
     ],
-    # Don't run this directly - use http_client test below
-    tags = ["manual"],
+    # Don't run this directly - use integration test below
+    # tags = ["manual"],
+)
+
+alias(
+    name = "server",
+    actual = "//test/http/stub:stub_server",
 )
 
 # Wrapper test that starts server and runs C++ test
-# Usage: bazel test //test/http:http_client
 py_test(
     name = "http",
     srcs = ["//test/http/stub:integration_test_runner.py"],
     data = [
-        ":http_client_test",
-        "//test/http/stub:stub_server",
+        ":client.run",
+        ":server",
     ],
     main = "integration_test_runner.py",
     args = [
-        "$(location :http_client_test)",
-        "$(location //test/http/stub:stub_server)",
+        "$(location :client.run)",
+        "$(location :server)",
     ],
     # exclusive: prevent parallel execution with other tests (port conflicts)
     # requires-network: test uses network (local server on specific port)
     tags = ["exclusive", "requires-network"],
 
-    # TODO: !!!! ALLOW TO RUN WASM INTEGRATION TESTS !!!!
-    target_compatible_with = select({
-        "@platforms//cpu:wasm32": ["@platforms//:incompatible"],
-        "//conditions:default": [],
-    }),
+    # # TODO: !!!! ALLOW TO RUN WASM INTEGRATION TESTS !!!!
+    # target_compatible_with = select({
+    #     "@platforms//cpu:wasm32": ["@platforms//:incompatible"],
+    #     "//conditions:default": [],
+    # }),
 )

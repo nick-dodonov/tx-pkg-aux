@@ -152,7 +152,7 @@ def main() -> int:
     _log_header("HTTP Integration Test")
 
     server_process: subprocess.Popen[str] | None = None
-    server_port = 19090
+    server_port = 8080
     server_url = f"http://localhost:{server_port}"
 
     try:

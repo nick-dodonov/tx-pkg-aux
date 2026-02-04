@@ -47,10 +47,10 @@ def _bind_diagnostic(host: str, port: int) -> None:
 def _self_diagnostic(host: str, port: int) -> None:
     """Run self-diagnostic in a separate thread after server starts."""
     time.sleep(0.2)  # Give server time to start listening
-    
+
     health_url = f"http://{host}:{port}/health"
     _log(f"[DIAG] Running self-diagnostic at {health_url}")
-    
+
     try:
         # Check if port is listening using socket
         sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
@@ -63,7 +63,7 @@ def _self_diagnostic(host: str, port: int) -> None:
         else:
             _log(f"[DIAG] Port {port} is NOT listening (error code: {result})")
             return
-        
+
         # Try HTTP request
         with urlopen(health_url, timeout=2) as response:
             health_data = json.loads(response.read().decode('utf-8'))
@@ -77,6 +77,32 @@ def _self_diagnostic(host: str, port: int) -> None:
 class HTTPTestHandler(BaseHTTPRequestHandler):
     """HTTP request handler for GET and POST requests."""
 
+    def _send_cors_headers(self) -> None:
+        """Send CORS headers to allow cross-origin requests."""
+        self.send_header("Access-Control-Allow-Origin", "*")
+        self.send_header("Access-Control-Allow-Methods", "GET, POST, OPTIONS")
+        self.send_header("Access-Control-Allow-Headers", "Content-Type, Authorization")
+        self.send_header("Access-Control-Max-Age", "86400")
+
+    def _send_error_with_cors(self, code: int, message: str) -> None:
+        """Send error response with CORS headers."""
+        error_response = {
+            "error": message,
+            "code": code,
+        }
+        self.send_response(code)
+        self._send_cors_headers()
+        self.send_header("Content-Type", "application/json")
+        self.end_headers()
+        self.wfile.write(json.dumps(error_response).encode())
+
+    def do_OPTIONS(self) -> None:
+        """Handle OPTIONS preflight requests for CORS."""
+        _log(f"Handled OPTIONS request: {self.path}")
+        self.send_response(200)
+        self._send_cors_headers()
+        self.end_headers()
+
     def do_GET(self) -> None:
         """Handle GET requests."""
         _log(f"Handled GET request: {self.path}")
@@ -86,6 +112,7 @@ class HTTPTestHandler(BaseHTTPRequestHandler):
                 "message": "Server is running",
             }
             self.send_response(200)
+            self._send_cors_headers()
             self.send_header("Content-Type", "application/json")
             self.end_headers()
             self.wfile.write(json.dumps(response).encode())
@@ -96,11 +123,12 @@ class HTTPTestHandler(BaseHTTPRequestHandler):
                 "message": "GET request successful",
             }
             self.send_response(200)
+            self._send_cors_headers()
             self.send_header("Content-Type", "application/json")
             self.end_headers()
             self.wfile.write(json.dumps(response).encode())
         else:
-            self.send_error(404, "Not Found")
+            self._send_error_with_cors(404, "Not Found")
 
     def do_POST(self) -> None:
         """Handle POST requests."""
@@ -123,11 +151,12 @@ class HTTPTestHandler(BaseHTTPRequestHandler):
                 "received_data": request_body,
             }
             self.send_response(200)
+            self._send_cors_headers()
             self.send_header("Content-Type", "application/json")
             self.end_headers()
             self.wfile.write(json.dumps(response).encode())
         else:
-            self.send_error(404, "Not Found")
+            self._send_error_with_cors(404, "Not Found")
 
 
 def main() -> int:
@@ -140,7 +169,7 @@ def main() -> int:
 
     try:
         _log(f"Server starting on {args.host}:{args.port}")
-        
+
         _host_diagnostic(args.host)
         _bind_diagnostic(args.host, args.port)
 

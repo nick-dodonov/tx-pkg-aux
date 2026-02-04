@@ -9,7 +9,7 @@
 namespace asio = boost::asio;
 
 // TODO: handle --url argument passed from stub_integration_test.py
-static constexpr auto Port = 19090;
+static constexpr auto Port = 8080;
 
 // Test GET request to local stub server
 TEST(HttpClientTest, GetRequestToLocalhost)
