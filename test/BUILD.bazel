@@ -8,3 +8,13 @@ tx_test(
         "@google_benchmark//:benchmark",
     ],
 )
+
+tx_test(
+    name = "fail",
+    srcs = ["fail_test.cpp"],
+    deps = [
+        "//src/pkg-app",
+        "@googletest//:gtest_main",
+    ],
+    tags = ["manual"],  # Don't run this test automatically, only for manual checks
+)
