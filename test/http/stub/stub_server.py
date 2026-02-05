@@ -15,45 +15,71 @@ from urllib.request import urlopen
 from urllib.error import URLError
 
 
+class IPv6HTTPServer(HTTPServer):
+    """HTTPServer that supports IPv6."""
+    address_family = socket.AF_INET6
+    allow_reuse_address = True  # Allow socket reuse
+
+    def server_bind(self) -> None:
+        """Bind server with dual-stack support if requested."""
+        # Allow dual-stack (IPv4 and IPv6) by default on IPv6 sockets
+        if hasattr(socket, 'IPV6_V6ONLY'):
+            self.socket.setsockopt(socket.IPPROTO_IPV6, socket.IPV6_V6ONLY, 0)
+        super().server_bind()
+
+
 def _log(*args: Any, **kwargs: Any) -> None:
     """Print with immediate flush."""
     print(*args, **kwargs, flush=True)
 
 
-def _host_diagnostic(host: str) -> None:
+def _host_diagnostic(host: str, ipv6: bool = False) -> None:
     """Log host-related diagnostics."""
     _log(f"[DIAG] Platform: {sys.platform}")
     _log(f"[DIAG] Hostname: {socket.gethostname()}")
     try:
-        local_ip = socket.gethostbyname(host)
-        _log(f"[DIAG] Target host: {local_ip}")
+        # Use getaddrinfo for IPv6 compatibility
+        family = socket.AF_INET6 if ipv6 else socket.AF_INET
+        ai_result = socket.getaddrinfo(host, None, family, socket.SOCK_STREAM)
+        if ai_result:
+            resolved_ips = [str(ai[4][0]) for ai in ai_result]
+            _log(f"[DIAG] Target host resolves to: {', '.join(resolved_ips)}")
     except Exception as e:
         _log(f"[DIAG] Target host resolve failed: {e}")
 
 
-def _bind_diagnostic(host: str, port: int) -> None:
+def _bind_diagnostic(host: str, port: int, ipv6: bool = False) -> None:
     """Check if the specified port can be bound."""
-    test_sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    addr_family = socket.AF_INET6 if ipv6 else socket.AF_INET
+    test_sock = socket.socket(addr_family, socket.SOCK_STREAM)
     test_sock.settimeout(1)
     try:
+        # Allow reuse of address to avoid TIME_WAIT issues
+        test_sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+        # Enable dual-stack for IPv6 if supported
+        if ipv6 and hasattr(socket, 'IPV6_V6ONLY'):
+            test_sock.setsockopt(socket.IPPROTO_IPV6, socket.IPV6_V6ONLY, 0)
         test_sock.bind((host, port))
         _log(f"[DIAG] Port {port} bind check PASSED")
     except OSError as e:
-        _log(f"[DIAG] Port {port} bind check FAILED: {e}")
+        _log(f"[DIAG] Port {port} bind check: {e} (may be normal if port is intended for server)")
     finally:
         test_sock.close()
 
 
-def _self_diagnostic(host: str, port: int) -> None:
+def _self_diagnostic(host: str, port: int, ipv6: bool = False) -> None:
     """Run self-diagnostic in a separate thread after server starts."""
     time.sleep(0.2)  # Give server time to start listening
 
-    health_url = f"http://{host}:{port}/health"
+    # Wrap IPv6 addresses in brackets for URLs
+    url_host = f"[{host}]" if ":" in host else host
+    health_url = f"http://{url_host}:{port}/health"
     _log(f"[DIAG] Running self-diagnostic at {health_url}")
 
     try:
-        # Check if port is listening using socket
-        sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        # Check if port is listening using socket with appropriate address family
+        addr_family = socket.AF_INET6 if ipv6 else socket.AF_INET
+        sock = socket.socket(addr_family, socket.SOCK_STREAM)
         sock.settimeout(1)
         result = sock.connect_ex((host, port))
         sock.close()
@@ -163,26 +189,42 @@ def main() -> int:
     """Start HTTP server."""
     parser = argparse.ArgumentParser(description="HTTP server for testing")
     parser.add_argument("--port", type=int, default=8080, help="Port to listen on")
-    parser.add_argument("--host", default="localhost", help="Host to bind to")
+    parser.add_argument("--host", default=None, help="Host to bind to (default: localhost for IPv4, :: for IPv6 dual-stack)")
+    parser.add_argument("--ipv6", action="store_true", help="Enable IPv6 support with dual-stack (accepts both IPv4 and IPv6)")
 
     args = parser.parse_args()
 
-    try:
-        _log(f"Server starting on {args.host}:{args.port}")
+    # Set default host based on IPv6 mode
+    if args.host is None:
+        args.host = "::" if args.ipv6 else "localhost"
 
-        _host_diagnostic(args.host)
-        _bind_diagnostic(args.host, args.port)
+    try:
+        if args.ipv6:
+            _log(f"Server starting on {args.host}:{args.port} (IPv6 dual-stack - accepts IPv4 and IPv6)")
+        else:
+            _log(f"Server starting on {args.host}:{args.port} (IPv4)")
+
+        _host_diagnostic(args.host, args.ipv6)
+        _bind_diagnostic(args.host, args.port, args.ipv6)
 
         server_address = (args.host, args.port)
-        httpd = HTTPServer(server_address, HTTPTestHandler)
+        server_class = IPv6HTTPServer if args.ipv6 else HTTPServer
+        httpd = server_class(server_address, HTTPTestHandler)
 
         _log("Ready to accept connections")
         _log(f"[DIAG] Server socket: {httpd.socket.getsockname()}")
+        family_str = "AF_INET6 (dual-stack)" if args.ipv6 else "AF_INET"
+        _log(f"[DIAG] Address family: {family_str}")
+        
+        # Check dual-stack status for IPv6
+        if args.ipv6 and hasattr(socket, 'IPV6_V6ONLY'):
+            v6only = httpd.socket.getsockopt(socket.IPPROTO_IPV6, socket.IPV6_V6ONLY)
+            _log(f"[DIAG] IPV6_V6ONLY: {v6only} (0=dual-stack enabled, 1=IPv6 only)")
 
         # Start self-diagnostic in background thread
         diag_thread = threading.Thread(
             target=_self_diagnostic,
-            args=(args.host, args.port),
+            args=(args.host, args.port, args.ipv6),
             daemon=True
         )
         diag_thread.start()

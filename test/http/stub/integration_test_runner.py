@@ -18,7 +18,7 @@ from urllib.error import URLError
 def _log(*args: Any, **kwargs: Any) -> None:
     """Print with immediate flush."""
     timestamp = datetime.now().strftime("%H:%M:%S.%f")[:-3]
-    print(f"[{timestamp}] [RUNNER]", *args, **kwargs, flush=True)
+    print(f"[{timestamp}] [INT]", *args, **kwargs, flush=True)
 
 
 def _log_header(message: str) -> None:
@@ -152,14 +152,15 @@ def main() -> int:
     _log_header("HTTP Integration Test")
 
     server_process: subprocess.Popen[str] | None = None
+    server_host = "localhost"
     server_port = 8080
-    server_url = f"http://localhost:{server_port}"
+    server_url = f"http://{server_host}:{server_port}"
 
     try:
         # Start HTTP server in background
-        _log(f"--- Starting HTTP Server on port {server_port} ---")
+        _log(f"--- Starting HTTP Server ---")
         server_process = _start_logged_process(
-            [server_binary, "--port", str(server_port)], "[server] "
+            [server_binary, "--host", server_host, "--port", str(server_port), "--ipv6"], "[srv] "
         )
 
         # Wait for server to be ready
@@ -171,7 +172,7 @@ def main() -> int:
         # Run client tests
         _log("--- Running HTTP Client Tests ---")
         client_process = _start_logged_process(
-            [client_binary, "--url", server_url], "[client] "
+            [client_binary, "--url", server_url], "[cli] "
         )
 
         # Wait for client to complete
