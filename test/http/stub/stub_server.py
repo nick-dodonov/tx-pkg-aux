@@ -73,17 +73,19 @@ def _self_diagnostic(host: str, port: int, ipv6: bool = False) -> None:
 
     # Wrap IPv6 addresses in brackets for URLs
     url_host = f"[{host}]" if ":" in host else host
+    # noinspection HttpUrlsUsage
     health_url = f"http://{url_host}:{port}/health"
     _log(f"[DIAG] Running self-diagnostic at {health_url}")
 
     try:
-        # Check if port is listening using socket with appropriate address family
+        # Check if the port is listening using a socket with the appropriate address family
         addr_family = socket.AF_INET6 if ipv6 else socket.AF_INET
         sock = socket.socket(addr_family, socket.SOCK_STREAM)
         sock.settimeout(1)
         result = sock.connect_ex((host, port))
         sock.close()
-        
+
+        # noinspection PyTypeChecker
         if result == 0:
             _log(f"[DIAG] Port {port} is listening")
         else:
@@ -100,6 +102,7 @@ def _self_diagnostic(host: str, port: int, ipv6: bool = False) -> None:
         _log(f"[DIAG] Self-diagnostic FAILED (Exception) - {e}")
 
 
+# noinspection PyPep8Naming
 class HTTPTestHandler(BaseHTTPRequestHandler):
     """HTTP request handler for GET and POST requests."""
 
@@ -189,8 +192,10 @@ def main() -> int:
     """Start HTTP server."""
     parser = argparse.ArgumentParser(description="HTTP server for testing")
     parser.add_argument("--port", type=int, default=8080, help="Port to listen on")
-    parser.add_argument("--host", default=None, help="Host to bind to (default: localhost for IPv4, :: for IPv6 dual-stack)")
-    parser.add_argument("--ipv6", action="store_true", help="Enable IPv6 support with dual-stack (accepts both IPv4 and IPv6)")
+    parser.add_argument("--host", default=None,
+                        help="Host to bind to (default: localhost for IPv4, :: for IPv6 dual-stack)")
+    parser.add_argument("--ipv6", action="store_true",
+                        help="Enable IPv6 support with dual-stack (accepts both IPv4 and IPv6)")
 
     args = parser.parse_args()
 
@@ -209,19 +214,20 @@ def main() -> int:
 
         server_address = (args.host, args.port)
         server_class = IPv6HTTPServer if args.ipv6 else HTTPServer
+        # noinspection PyTypeChecker
         httpd = server_class(server_address, HTTPTestHandler)
 
         _log("Ready to accept connections")
         _log(f"[DIAG] Server socket: {httpd.socket.getsockname()}")
         family_str = "AF_INET6 (dual-stack)" if args.ipv6 else "AF_INET"
         _log(f"[DIAG] Address family: {family_str}")
-        
+
         # Check dual-stack status for IPv6
         if args.ipv6 and hasattr(socket, 'IPV6_V6ONLY'):
             v6only = httpd.socket.getsockopt(socket.IPPROTO_IPV6, socket.IPV6_V6ONLY)
             _log(f"[DIAG] IPV6_V6ONLY: {v6only} (0=dual-stack enabled, 1=IPv6 only)")
 
-        # Start self-diagnostic in background thread
+        # Start self-diagnostic in the background thread
         diag_thread = threading.Thread(
             target=_self_diagnostic,
             args=(args.host, args.port, args.ipv6),

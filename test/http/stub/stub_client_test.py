@@ -77,7 +77,8 @@ class HTTPClientTests(unittest.TestCase):
         with self.assertRaises(HTTPError) as context:
             urlopen(url, timeout=5)
 
-        self.assertEqual(context.exception.code, 404)
+        exception: HTTPError = context.exception
+        self.assertEqual(exception.code, 404)
         _log(f"404 response received as expected")
 
 

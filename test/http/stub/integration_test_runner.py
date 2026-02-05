@@ -14,6 +14,11 @@ from datetime import datetime
 from urllib.request import urlopen
 from urllib.error import URLError
 
+server_host = "localhost"
+server_port = 8080
+# noinspection HttpUrlsUsage
+server_url = f"http://{server_host}:{server_port}"
+
 
 def _log(*args: Any, **kwargs: Any) -> None:
     """Print with immediate flush."""
@@ -49,17 +54,17 @@ def _start_logged_process(command: list[str], log_prefix: str) -> subprocess.Pop
         The started subprocess
     """
     process = subprocess.Popen(
-        command, 
-        stdout=subprocess.PIPE, 
-        stderr=subprocess.STDOUT, 
-        text=True, 
+        command,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.STDOUT,
+        text=True,
         bufsize=1
     )
 
-    # Start thread to log process output
+    # Start a thread to log process output
     log_thread = threading.Thread(
-        target=_log_process_output, 
-        args=(process.stdout, log_prefix), 
+        target=_log_process_output,
+        args=(process.stdout, log_prefix),
         daemon=True
     )
     log_thread.start()
@@ -77,13 +82,13 @@ def _shutdown_process(process: subprocess.Popen[str] | None, name: str) -> None:
     if not process:
         return
 
-    # Check if process already terminated
+    # Check if the process already terminated
     exit_code = process.poll()
     if exit_code is not None:
         _log(f"{name} already terminated with exit code {exit_code}")
         return
 
-    # Attempt graceful shutdown
+    # Attempt a graceful shutdown
     _log(f"--- Shutting down {name} ---")
     try:
         # On Windows, subprocess.send_signal(SIGINT) is not supported
@@ -103,7 +108,7 @@ def _shutdown_process(process: subprocess.Popen[str] | None, name: str) -> None:
 
 
 def _wait_for_server(
-    url: str, server_process: subprocess.Popen[str], timeout: int = 10
+        url: str, server_process: subprocess.Popen[str], timeout: int = 10
 ) -> bool:
     """Wait for server to be ready.
 
@@ -112,13 +117,13 @@ def _wait_for_server(
     """
     start_time = time.time()
     while time.time() - start_time < timeout:
-        # Check if server process has crashed
+        # Check if the server process has crashed
         exit_code = server_process.poll()
         if exit_code is not None:
             _log(f"Error: Server process terminated with exit code {exit_code}")
             return False
 
-        # Try to connect to server
+        # Try to connect to the server
         try:
             with urlopen(url, timeout=1):
                 return True
@@ -152,10 +157,6 @@ def main() -> int:
     _log_header("HTTP Integration Test")
 
     server_process: subprocess.Popen[str] | None = None
-    server_host = "localhost"
-    server_port = 8080
-    server_url = f"http://{server_host}:{server_port}"
-
     try:
         # Start HTTP server in background
         _log(f"--- Starting HTTP Server ---")
@@ -163,7 +164,7 @@ def main() -> int:
             [server_binary, "--host", server_host, "--port", str(server_port), "--ipv6"], "[srv] "
         )
 
-        # Wait for server to be ready
+        # Wait for the server to be ready
         _log("Waiting for server to be ready...")
         if not _wait_for_server(f"{server_url}/get", server_process, timeout=30):
             return 1
@@ -175,7 +176,7 @@ def main() -> int:
             [client_binary, "--url", server_url], "[cli] "
         )
 
-        # Wait for client to complete
+        # Wait for the client to complete
         client_process.wait()
         client_exit_code = client_process.returncode
         if client_exit_code != 0:

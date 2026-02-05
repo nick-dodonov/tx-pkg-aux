@@ -6,36 +6,36 @@
 
 TEST(BuildTest, BuildDescriptionNotEmpty)
 {
-    std::string desc = Build::BuildDescription();
+    const auto desc = Build::BuildDescription();
     EXPECT_FALSE(desc.empty());
 }
 
 TEST(BuildTest, BuildDescriptionContainsRequiredInfo)
 {
-    std::string desc = Build::BuildDescription();
+    const auto desc = Build::BuildDescription();
     
     // Should contain build configuration
-    EXPECT_TRUE(desc.find("Debug") != std::string::npos || 
-                desc.find("Release") != std::string::npos);
+    EXPECT_TRUE(desc.contains("Debug") ||
+                desc.contains("Release"));
     
     // Should contain platform info
-    EXPECT_TRUE(desc.find("macOS") != std::string::npos || 
-                desc.find("Linux") != std::string::npos || 
-                desc.find("Windows") != std::string::npos ||
-                desc.find("WebAssembly") != std::string::npos);
+    EXPECT_TRUE(desc.contains("macOS") ||
+                desc.contains("Linux") ||
+                desc.contains("Windows") ||
+                desc.contains("WebAssembly"));
     
     // Should contain compiler info
-    EXPECT_TRUE(desc.find("Clang") != std::string::npos || 
-                desc.find("GCC") != std::string::npos || 
-                desc.find("MSVC") != std::string::npos);
+    EXPECT_TRUE(desc.contains("Clang") ||
+                desc.contains("GCC") ||
+                desc.contains("MSVC"));
     
     // Should contain C++ standard
-    EXPECT_TRUE(desc.find("C++") != std::string::npos);
+    EXPECT_TRUE(desc.contains("C++"));
 }
 
 int main(int argc, char** argv)
 {
-    ::testing::InitGoogleTest(&argc, argv);
     Boot::DefaultInit(argc, const_cast<const char**>(argv));
+    testing::InitGoogleTest(&argc, argv);
     return RUN_ALL_TESTS();
 }

@@ -10,7 +10,7 @@ TEST(FsTest, DriveOverlay)
 {
     Fs::NativeDrive drive("/prefix");
 
-    auto result = drive.GetNativePath("subdir/file.txt");
+    const auto result = drive.GetNativePath("subdir/file.txt");
     ASSERT_TRUE(result.has_value());
     EXPECT_EQ(result.value(), "/prefix/subdir/file.txt");
 }
@@ -19,10 +19,10 @@ TEST(FsTest, SystemDefaultDrive)
 {
     auto& drive = Fs::System::GetDefaultDrive();
 
-    auto result = drive.GetNativePath("test.txt");
+    const auto result = drive.GetNativePath("test.txt");
     ASSERT_TRUE(result.has_value());
 
-    auto expectedPath = std::filesystem::current_path() / "test.txt";
+    const auto expectedPath = std::filesystem::current_path() / "test.txt";
     EXPECT_EQ(result.value(), expectedPath.generic_string());
 }
 
@@ -56,7 +56,7 @@ TEST(FsTest, OverlayDrive)
 
     Fs::OverlayDrive overlay({&drive1, &drive2, &drive3});
 
-    auto result = overlay.GetNativePath("file.txt");
+    const auto result = overlay.GetNativePath("file.txt");
     ASSERT_TRUE(result.has_value());
     // Should use first drive
     EXPECT_EQ(result.value(), "/first/file.txt");

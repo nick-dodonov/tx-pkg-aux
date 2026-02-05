@@ -18,8 +18,8 @@ TEST(AsyncMutexTest, LockUnlock)
 TEST(AsyncMutexTest, TryLock)
 {
     Async::Mutex mutex;
-    
-    bool locked = mutex.try_lock();
+
+    const auto locked = mutex.try_lock();
     EXPECT_TRUE(locked);
     
     if (locked) {
@@ -41,8 +41,7 @@ TEST(AsyncMutexTest, TryLock)
 TEST(AsyncMutexTest, LockGuardRAII)
 {
     Async::Mutex mutex;
-    Async::Mutex mutex2;
-    
+
     {
         Async::LockGuard lock(mutex);
         // Mutex should be locked here
@@ -50,10 +49,10 @@ TEST(AsyncMutexTest, LockGuardRAII)
     }
     
     // After scope, mutex should be unlocked
-    EXPECT_TRUE(mutex2.try_lock());
+    EXPECT_TRUE(mutex.try_lock());
 #pragma clang diagnostic push
 #pragma clang diagnostic ignored "-Wthread-safety-analysis"
-    mutex2.unlock();
+    mutex.unlock();
 #pragma clang diagnostic pop
 }
 

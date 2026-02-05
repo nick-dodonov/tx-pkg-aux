@@ -12,22 +12,22 @@ namespace asio = boost::asio;
 // TODO: handle --url argument passed from stub_integration_test.py
 static constexpr auto Port = 8080;
 
-// Test GET request to local stub server
+// Test GET request to a local stub server
 TEST(HttpClientTest, GetRequestToLocalhost)
 {
-    auto domain = std::make_shared<App::Domain>();
-    auto runner = App::Loop::CreateTestRunner(domain);
+    const auto domain = std::make_shared<App::Domain>();
+    const auto runner = App::Loop::CreateTestRunner(domain);
 
     auto coroMain = []() -> asio::awaitable<int> {
-        auto executor = co_await asio::this_coro::executor;
-        auto client = Http::LiteClient::MakeDefault({
+        const auto executor = co_await asio::this_coro::executor;
+        const auto client = Http::LiteClient::MakeDefault({
             .executor = executor,
         });
 
-        bool requestCompleted = false;
-        bool requestSucceeded = false;
+        auto requestCompleted = false;
+        auto requestSucceeded = false;
         std::string responseBody;
-        int responseStatus = 0;
+        auto responseStatus = 0;
 
         // Make GET request to stub server
         client->Get(std::format("http://localhost:{}/get", Port), [&](auto result) {
@@ -59,25 +59,25 @@ TEST(HttpClientTest, GetRequestToLocalhost)
         co_return requestSucceeded ? 0 : 1;
     };
 
-    int exitCode = domain->RunCoroMain(runner, coroMain());
+    auto exitCode = domain->RunCoroMain(runner, coroMain());
     EXPECT_EQ(exitCode, 0);
 }
 
-// Test POST request to local stub server
+// Test POST request to a local stub server
 TEST(HttpClientTest, PostRequestToLocalhost)
 {
-    auto domain = std::make_shared<App::Domain>();
-    auto runner = App::Loop::CreateTestRunner(domain);
+    const auto domain = std::make_shared<App::Domain>();
+    const auto runner = App::Loop::CreateTestRunner(domain);
 
     auto coroMain = []() -> asio::awaitable<int> {
-        auto executor = co_await asio::this_coro::executor;
+        const auto executor = co_await asio::this_coro::executor;
 
-        auto client = Http::LiteClient::MakeDefault({
+        const auto client = Http::LiteClient::MakeDefault({
             .executor = executor,
         });
 
-        bool requestCompleted = false;
-        bool requestSucceeded = false;
+        auto requestCompleted = false;
+        auto requestSucceeded = false;
 
         // Note: Current LiteClient only supports GET method
         // Testing against /post endpoint with GET will return 404 from Python server
@@ -107,7 +107,7 @@ TEST(HttpClientTest, PostRequestToLocalhost)
         co_return requestSucceeded ? 0 : 1;
     };
 
-    int exitCode = domain->RunCoroMain(runner, coroMain());
+    auto exitCode = domain->RunCoroMain(runner, coroMain());
     EXPECT_EQ(exitCode, 0);
 }
 

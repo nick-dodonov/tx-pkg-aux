@@ -3,13 +3,13 @@ load("@rules_python//python:defs.bzl", "py_binary", "py_test")
 # Export integration_test_runner.py so it can be used by other test targets
 exports_files(["integration_test_runner.py"])
 
-py_test(
+py_binary(
     name = "stub_client",
     srcs = ["stub_client_test.py"],
     main = "stub_client_test.py",
     visibility = ["//visibility:public"],
-    # Don't run this directly - use stub_integration test below
-    tags = ["manual"],
+    # # Don't run this directly - use stub_integration test below
+    # tags = ["manual"],
 )
 
 py_binary(
@@ -22,19 +22,21 @@ py_binary(
 py_test(
     name = "stub",
     srcs = ["integration_test_runner.py"],
+    args = [
+        "$(location :stub_client)",
+        "$(location :stub_server)",
+    ],
     data = [
         ":stub_client",
         ":stub_server",
     ],
     main = "integration_test_runner.py",
-    args = [
-        "$(location :stub_client)",
-        "$(location :stub_server)",
-    ],
     # exclusive: prevent parallel execution with other tests (port conflicts)
     # requires-network: test uses network (local server on specific port)
-    tags = ["exclusive", "requires-network"],
-
+    tags = [
+        "exclusive",
+        "requires-network",
+    ],
     target_compatible_with = select({
         "@platforms//cpu:wasm32": ["@platforms//:incompatible"],
         "//conditions:default": [],
