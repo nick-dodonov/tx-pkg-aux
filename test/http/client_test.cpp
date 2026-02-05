@@ -1,5 +1,6 @@
 #include "App/Domain.h"
 #include "App/Loop/Factory.h"
+#include "Boot/Boot.h"
 #include "Http/LiteClient.h"
 #include "Log/Log.h"
 
@@ -19,12 +20,8 @@ TEST(HttpClientTest, GetRequestToLocalhost)
 
     auto coroMain = []() -> asio::awaitable<int> {
         auto executor = co_await asio::this_coro::executor;
-
         auto client = Http::LiteClient::MakeDefault({
             .executor = executor,
-            .wasm = {
-                .useJsFetchClient = true, //TODO: make it default
-            },
         });
 
         bool requestCompleted = false;
@@ -112,4 +109,11 @@ TEST(HttpClientTest, PostRequestToLocalhost)
 
     int exitCode = domain->RunCoroMain(runner, coroMain());
     EXPECT_EQ(exitCode, 0);
+}
+
+int main(int argc, char** argv)
+{
+    Boot::DefaultInit(argc, const_cast<const char**>(argv));
+    ::testing::InitGoogleTest(&argc, argv);
+    return RUN_ALL_TESTS();
 }

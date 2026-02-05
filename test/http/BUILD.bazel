@@ -11,6 +11,7 @@ tx_binary(
         "//src/pkg-http",
         "@googletest//:gtest_main",
     ],
+    args = ["--gtest_output=xml:client_test_results.xml"],
     # Don't run this directly - use integration test below
     # tags = ["manual"],
 )
