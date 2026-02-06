@@ -38,9 +38,9 @@ py_test(
         "requires-network",
     ],
 
-    # TODO: !!!! ALLOW TO RUN WASM INTEGRATION TESTS !!!!
-    target_compatible_with = select({
-        "@platforms//cpu:wasm32": ["@platforms//:incompatible"],
-        "//conditions:default": [],
-    }),
+    # # TODO: !!!! ALLOW TO RUN WASM INTEGRATION TESTS !!!!
+    # target_compatible_with = select({
+    #     "@platforms//cpu:wasm32": ["@platforms//:incompatible"],
+    #     "//conditions:default": [],
+    # }),
 )
