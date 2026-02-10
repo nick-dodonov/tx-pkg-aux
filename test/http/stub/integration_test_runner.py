@@ -7,12 +7,21 @@ import sys
 import subprocess
 import os
 import time
-import signal
 import threading
 from typing import IO, Any
 from datetime import datetime
 from urllib.request import urlopen
 from urllib.error import URLError
+
+
+# Fix encoding for stdout/stderr on Windows
+if sys.platform == "win32":
+    try:
+        sys.stdout.reconfigure(encoding='utf-8', errors='replace')
+        sys.stderr.reconfigure(encoding='utf-8', errors='replace')
+    except (AttributeError, OSError):
+        pass
+
 
 server_host = "localhost"
 server_port = 8080
@@ -58,6 +67,8 @@ def _start_logged_process(command: list[str], log_prefix: str) -> subprocess.Pop
         stdout=subprocess.PIPE,
         stderr=subprocess.STDOUT,
         text=True,
+        encoding='utf-8',
+        errors='replace',
         bufsize=1
     )
 
@@ -96,6 +107,7 @@ def _shutdown_process(process: subprocess.Popen[str] | None, name: str) -> None:
         if sys.platform == "win32":
             process.terminate()
         else:
+            import signal
             process.send_signal(signal.SIGINT)
 
         process.wait(timeout=3)
