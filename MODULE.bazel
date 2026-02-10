@@ -14,6 +14,7 @@ bazel_dep(name = "bazel_skylib", version = "1.9.0")
 bazel_dep(name = "emsdk", version = "4.0.17")
 bazel_dep(name = "rules_shell", version = "0.6.1")
 bazel_dep(name = "rules_python", version = "1.8.3")
+bazel_dep(name = "rules_nodejs", version = "6.7.3", dev_dependency = True)
 
 # Hedron's Compile Commands Extractor for Bazel
 # - https://github.com/hedronvision/bazel-compile-commands-extractor
@@ -48,3 +49,31 @@ bazel_dep(name = "gsl", version = "4.2.1")
 # test dependencies
 bazel_dep(name = "googletest", version = "1.17.0.bcr.2", dev_dependency = True)
 bazel_dep(name = "google_benchmark", version = "1.9.5", dev_dependency = True)
+
+# Configure emscripten deps extension to download and register toolchains
+emscripten_deps = use_extension("@emsdk//:emscripten_deps.bzl", "emscripten_deps")
+use_repo(emscripten_deps, "emscripten_bin_linux")
+use_repo(emscripten_deps, "emscripten_bin_linux_arm64")
+use_repo(emscripten_deps, "emscripten_bin_mac")
+use_repo(emscripten_deps, "emscripten_bin_mac_arm64")
+use_repo(emscripten_deps, "emscripten_bin_win")
+
+# Configure emscripten cache
+emscripten_cache = use_extension("@emsdk//:emscripten_cache.bzl", "emscripten_cache")
+use_repo(emscripten_cache, "emscripten_cache")
+
+# Get nodejs from rules_nodejs
+node = use_extension("@rules_nodejs//nodejs:extensions.bzl", "node", dev_dependency = True)
+node.toolchain(node_version = "20.18.0")
+use_repo(node, "nodejs")
+
+# Register emscripten toolchains
+register_toolchains(
+    "@emsdk//emscripten_toolchain:cc-toolchain-wasm-emscripten_linux",
+    "@emsdk//emscripten_toolchain:cc-toolchain-wasm-emscripten_linux_arm64",
+    "@emsdk//emscripten_toolchain:cc-toolchain-wasm-emscripten_mac",
+    "@emsdk//emscripten_toolchain:cc-toolchain-wasm-emscripten_mac_arm64",
+    "@emsdk//emscripten_toolchain:cc-toolchain-wasm-emscripten_win",
+    # Custom toolchain for Windows ARM64 (uses x86_64 binaries via emulation)
+    "//toolchains/emscripten:cc-toolchain-wasm-win_arm64",
+)
