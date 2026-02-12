@@ -1,6 +1,6 @@
 load("@rules_shell//shell:sh_test.bzl", "sh_test")
 load("@rules_python//python:defs.bzl", "py_binary")
-load("@tx-kit-ext//runner:exec_tool.bzl", "exec_tool")
+load("@tx-kit-ext//runner:exec_binary.bzl", "exec_binary")
 
 ### sh_test w/ sh_gen.sh tools
 genrule(
@@ -24,7 +24,7 @@ sh_test(
     }),
 )
 
-### py_binary w/ exec_tool wrapper
+### py_binary w/ exec_binary wrapper
 py_binary(
     name = "py_bin",
     srcs = ["py_test.py"],
@@ -32,8 +32,8 @@ py_binary(
     tags = ["manual"],
 )
 
-exec_tool(
+exec_binary(
     name = "py",
-    tool = ":py_bin",
+    binary = ":py_bin",
     tags = ["manual"],
 )
