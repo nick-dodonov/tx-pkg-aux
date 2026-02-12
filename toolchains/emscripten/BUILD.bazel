@@ -1,0 +1,22 @@
+# Workaround toolchain for Windows ARM64  
+# Windows ARM64 can run x86_64 binaries through emulation
+# This simply re-registers the Windows x86_64 toolchain for ARM64
+
+package(default_visibility = ["//visibility:public"])
+
+# Just point to the existing Windows x86_64 toolchain
+toolchain(
+    name = "cc-toolchain-wasm-win_arm64",
+    exec_compatible_with = [
+        "@platforms//os:windows",
+        "@platforms//cpu:arm64",
+    ],
+    target_compatible_with = [
+        "@platforms//cpu:wasm32",
+    ],
+    # Use the exact same toolchain as Windows x86_64
+    toolchain = "@emsdk//emscripten_toolchain:cc-compiler-wasm-emscripten_win",
+    toolchain_type = "@bazel_tools//tools/cpp:toolchain_type",
+)
+
+
