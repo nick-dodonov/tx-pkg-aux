@@ -9,14 +9,6 @@
 #     #exec_compatible_with = ["@platforms//:incompatible"],
 # )
 
-# load("@rules_shell//shell:sh_test.bzl", "sh_test")
-# sh_test(
-#     name = "cc_bin_sh_test",
-#     srcs = ["sh_wrapper.sh"],
-#     data = [":cc_bin"],
-#     exec_compatible_with = ["@platforms//os:windows"],
-# )
-
 load("@rules_cc//cc:cc_binary.bzl", "cc_binary")
 cc_binary(
     name = "cc_bin",
@@ -64,4 +56,18 @@ sh_binary(
     #     "@platforms//os:macos",
     #     "@platforms//os:linux",
     # ],
+)
+
+load("@rules_shell//shell:sh_test.bzl", "sh_test")
+sh_test(
+    name = "sh_tst.cmd",
+    srcs = ["sh_wrapper.cmd"],
+    data = [
+        "//:runner",
+        ":cc_bin",
+    ],
+    args = [
+        "$(location //:runner)",
+        "$(location :cc_bin)",
+    ],
 )
