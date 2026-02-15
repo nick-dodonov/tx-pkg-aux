@@ -45,6 +45,9 @@ sh_binary(
     data = [
         ":cc_bin",
     ],
+    args = [
+        "$(location :cc_bin)",
+    ],
     # exec_compatible_with = [
     #     "@platforms//os:windows",
     #     "@platforms//os:macos",
