@@ -22,7 +22,7 @@ cc_binary(
     name = "cc_bin",
     srcs = ["cc_src.cpp"],
     deps = [
-        "//src/pkg-log",
+        "//src/pkg-boot",
         "@googletest//:gtest_main",
     ],
     #exec_compatible_with = ["@platforms//:incompatible"],

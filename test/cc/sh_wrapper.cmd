@@ -46,4 +46,7 @@ echo   RUNFILES_DIR=%RUNFILES_DIR%
 endlocal
 
 echo #### Execute: %*
-%*
+call "%1" %2 %3 %4 %5 %6 %7 %8 %9
+set _ERR=%ERRORLEVEL%
+echo #### Error: %_ERR%
+exit /b %_ERR%

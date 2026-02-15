@@ -1,17 +1,22 @@
 #include "Log/Log.h"
+#include "Boot/Boot.h"
 #include <gtest/gtest.h>
 
-TEST(LogTest, InfoWorks) {
+static bool _fail = false;
+
+TEST(LogTest, Works) {
     Log::Info("Test info message");
-    EXPECT_TRUE(true);
-}
-
-TEST(LogTest, WarnWorks) {
     Log::Warn("Test warning message");
-    EXPECT_TRUE(true);
+    Log::Error("Test error message");
+    EXPECT_TRUE(!_fail);
 }
 
-TEST(LogTest, ErrorWorks) {
-    Log::Error("Test error message");
-    EXPECT_TRUE(true);
+int main(int argc, char** argv)
+{
+    if (argc > 1) {
+        _fail = true;
+    }
+    Boot::DefaultInit(argc, const_cast<const char**>(argv));
+    ::testing::InitGoogleTest(&argc, argv);
+    return RUN_ALL_TESTS();
 }
