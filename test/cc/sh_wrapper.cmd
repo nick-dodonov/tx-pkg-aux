@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # 2>nul 1>&2 & goto :batch
-echo "Running shell ($(uname))"
+echo "Running shell script ($(uname -sm))"
 # commands
 read -esp "Press Enter to continue..."
 exit
