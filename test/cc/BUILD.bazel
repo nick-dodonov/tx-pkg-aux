@@ -25,6 +25,15 @@ cc_binary(
         "//src/pkg-boot",
         "@googletest//:gtest_main",
     ],
+    linkopts = select({
+        "@platforms//cpu:wasm32": [
+            "--oformat=html",
+            #"--emrun",
+            #"-sEXIT_RUNTIME=1",
+        ],
+        "//conditions:default": [],
+    }),
+    #features = ["exit_runtime"],
     #exec_compatible_with = ["@platforms//:incompatible"],
 )
 
@@ -40,12 +49,14 @@ cc_binary(
 
 load("@rules_shell//shell:sh_binary.bzl", "sh_binary")
 sh_binary(
-    name = "cc_bin_sh_bin.cmd",
+    name = "sh_bin.cmd",
     srcs = ["sh_wrapper.cmd"],
     data = [
+        "//:runner",
         ":cc_bin",
     ],
     args = [
+        "$(location //:runner)",
         "$(location :cc_bin)",
     ],
     # exec_compatible_with = [
