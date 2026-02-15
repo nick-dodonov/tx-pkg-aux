@@ -1,0 +1,10 @@
+@echo off
+cd /d C:/users/rix/_bazel_rix/7bkdv2tg/execroot/_main/bazel-out/arm64_windows-dbg-wasm/bin/test/cc/cc_bin_sh_bin.runfiles/_main
+  SET JAVA_RUNFILES=
+  SET RUNFILES_DIR=
+  SET RUNFILES_MANIFEST_FILE=
+  SET RUNFILES_MANIFEST_ONLY=
+  SET TEST_SRCDIR=
+  SET BUILD_WORKING_DIRECTORY=D:/p/t/tx/tx-pkg-aux
+  SET BUILD_WORKSPACE_DIRECTORY=D:/p/t/tx/tx-pkg-aux
+  C:\users\rix\_bazel_rix\7bkdv2tg\execroot\_main\bazel-out\arm64_windows-dbg-wasm\bin\test\cc\cc_bin_sh_bin %*
