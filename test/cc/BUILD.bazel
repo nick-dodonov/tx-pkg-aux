@@ -71,3 +71,5 @@ sh_test(
         "$(location :cc_bin)",
     ],
 )
+
+exports_files(["sh_wrapper.cmd"])

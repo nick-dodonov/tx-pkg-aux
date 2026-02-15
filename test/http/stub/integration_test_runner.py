@@ -8,6 +8,7 @@ import subprocess
 import os
 import time
 import threading
+from pathlib import Path
 from typing import IO, Any
 from datetime import datetime
 from urllib.request import urlopen
@@ -62,14 +63,20 @@ def _start_logged_process(command: list[str], log_prefix: str) -> subprocess.Pop
     Returns:
         The started subprocess
     """
+
+    # Convert list to string for shell=True to properly pass arguments
+    command_str = subprocess.list2cmdline(command)
+    _log(f"--- STARTING {log_prefix}{command_str}")
+
     process = subprocess.Popen(
-        command,
+        command_str,
+        shell=True,
         stdout=subprocess.PIPE,
         stderr=subprocess.STDOUT,
         text=True,
         encoding='utf-8',
         errors='replace',
-        bufsize=1
+        bufsize=1,
     )
 
     # Start a thread to log process output
@@ -157,6 +164,10 @@ def main() -> int:
     client_binary = sys.argv[1]
     server_binary = sys.argv[2]
 
+    # Normalize paths to platform-specific format (convert / to \\ on Windows)
+    client_binary = str(Path(client_binary))
+    server_binary = str(Path(server_binary))
+
     # Verify binaries exist
     if not os.path.exists(client_binary):
         _log(f"Error: Client binary not found: {client_binary}")
@@ -171,9 +182,10 @@ def main() -> int:
     server_process: subprocess.Popen[str] | None = None
     try:
         # Start HTTP server in background
-        _log(f"--- Starting HTTP Server ---")
         server_process = _start_logged_process(
-            [server_binary, "--host", server_host, "--port", str(server_port), "--ipv6"], "[srv] "
+            #[server_binary, "--host", server_host, "--port", str(server_port), "--ipv6"],
+            [server_binary],
+            "[srv] "
         )
 
         # Wait for the server to be ready
@@ -183,9 +195,10 @@ def main() -> int:
         _log("Server is ready!")
 
         # Run client tests
-        _log("--- Running HTTP Client Tests ---")
         client_process = _start_logged_process(
-            [client_binary, "--url", server_url], "[cli] "
+            #[client_binary, "--url", server_url], 
+            [client_binary], 
+            "[cli] "
         )
 
         # Wait for the client to complete

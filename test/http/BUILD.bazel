@@ -1,5 +1,7 @@
-load("@rules_python//python:defs.bzl", "py_test")
+load("@rules_shell//shell:sh_binary.bzl", "sh_binary")
+load("@rules_python//python:defs.bzl", "py_test", "py_binary")
 load("@tx-kit-ext//rules/build:defs.bzl", "tx_binary")
+load("@tx-kit-ext//rules/build:exec_binary.bzl", "exec_binary")
 
 # C++ HTTP client test (requires server to be running)
 tx_binary(
@@ -12,35 +14,88 @@ tx_binary(
         "@googletest//:gtest_main",
     ],
 )
+genrule(
+    name = "client.args",
+    srcs = [
+        "//:runner",
+        ":client"
+    ],
+    outs = ["client.args"],
+    cmd = "paths='$(rootpaths //:runner)'; echo $${paths##* } $(rootpath :client) > $@",
+)
+sh_binary(
+    name = "client.cmd",
+    srcs = ["//test/cc:sh_wrapper.cmd"],
+    data = [
+        ":client.args",
+        "//:runner",
+        ":client",
+    ],
+)
 
 alias(
     name = "server",
     actual = "//test/http/stub:stub_server",
 )
+exec_binary(
+    name = "server.cmd",
+    binary = ":server",
+)
 
 # Wrapper test that starts server and runs C++ test
-py_test(
-    name = "http",
+py_binary(
+    name = "integration_test_runner",
     srcs = ["//test/http/stub:integration_test_runner.py"],
-    args = [
-        "$(location :client.run)",
-        "$(location :server)",
-    ],
-    data = [
-        ":client.run",
-        ":server",
-    ],
-    main = "integration_test_runner.py",
-    # exclusive: prevent parallel execution with other tests (port conflicts)
-    # requires-network: test uses network (local server on specific port)
-    tags = [
-        "exclusive",
-        "requires-network",
-    ],
-
-    # # TODO: !!!! ALLOW TO RUN WASM INTEGRATION TESTS !!!!
-    # target_compatible_with = select({
-    #     "@platforms//cpu:wasm32": ["@platforms//:incompatible"],
-    #     "//conditions:default": [],
-    # }),
 )
+exec_binary(
+    name = "integration_test_runner.cmd",
+    binary = ":integration_test_runner",
+)
+
+# sh_binary(
+#     name = "integration_test_runner.cmd",
+#     srcs = ["//test/cc:sh_wrapper.cmd"],
+#     data = [
+#         "//:runner",
+#         ":integration_test_runner",
+#     ],
+#     args = [
+#         "$(location //:runner)",
+#         "$(location :integration_test_runner)",
+#     ],
+# )
+
+sh_binary(
+    name = "bridge.cmd",
+    srcs = ["//test/cc:sh_wrapper.cmd"],
+    data = [
+        "//:runner",
+        ":integration_test_runner.cmd",
+        ":client.cmd",
+        ":server.cmd",
+    ],
+    args = [
+        "$(location //:runner)",
+        "$(location :integration_test_runner.cmd)",
+        "$(location :client.cmd)",
+        "$(location :server.cmd)",
+    ],
+)
+
+# py_test(
+#     name = "http",
+#     srcs = ["//test/http/stub:integration_test_runner.py"],
+#     args = [
+#         "$(location :client.cmd)",
+#         "$(location :server)",
+#     ],
+#     data = [
+#         ":client.cmd",
+#         ":server",
+#     ],
+#     main = "integration_test_runner.py",
+#     tags = [
+#         "exclusive",  # exclusive: prevent parallel execution with other tests (port conflicts)
+#         "requires-network",  # requires-network: test uses network (local server on specific port)
+#     ],
+# )
