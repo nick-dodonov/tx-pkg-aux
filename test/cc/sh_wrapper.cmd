@@ -24,9 +24,9 @@ if [ $# -eq 0 ]; then
     ARGS_FILE="${0%.cmd}.args"
     if [ -f "$ARGS_FILE" ]; then
         echo "#### Loading arguments from: $ARGS_FILE"
-        # Read arguments from file into array
-        mapfile -t ARGS < "$ARGS_FILE"
-        set -- "${ARGS[@]}"
+        # Read arguments from file (portable, works on macOS)
+        read -r ARGS_LINE < "$ARGS_FILE"
+        set -- $ARGS_LINE
         echo "#### Loaded arguments: $@"
     else
         echo "#### ERROR: No arguments provided and args file not found: $ARGS_FILE" >&2
@@ -41,12 +41,13 @@ _ERR=$?
 echo "#### Errorcode: $_ERR"
 exit $_ERR
 }
+
 @goto $@
 exit
 
 :(){
-@echo off
 :: Batch script here
+@echo off
 :: TODO: via runfiles and fallback: call "%~dp0sh_wrapper.bat"
 echo #### Batch (%OS% %PROCESSOR_ARCHITECTURE% %ComSpec%)
 :: pause # "Press any key to continue..."

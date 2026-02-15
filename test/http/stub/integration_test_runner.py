@@ -68,8 +68,14 @@ def _start_logged_process(command: list[str], log_prefix: str) -> subprocess.Pop
     command_str = subprocess.list2cmdline(command)
     _log(f"--- STARTING {log_prefix}{command_str}")
 
+    if sys.platform != "win32":
+        executable = 'bash' # TODO: make sh_wrapper.cmd working w/ `sh`
+    else:
+        executable = None # Use default shell (%ComSpec% cmd.exe) on Windows
+
     process = subprocess.Popen(
         command_str,
+        executable=executable,
         shell=True,
         stdout=subprocess.PIPE,
         stderr=subprocess.STDOUT,
