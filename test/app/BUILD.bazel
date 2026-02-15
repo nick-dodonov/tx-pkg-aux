@@ -5,7 +5,6 @@ tx_test(
     srcs = ["app_test.cpp"],
     deps = [
         "//src/pkg-app",
-        "//src/pkg-boot",
         "@googletest//:gtest_main",
     ],
 )
@@ -15,7 +14,16 @@ tx_test(
     srcs = ["async_mutex_test.cpp"],
     deps = [
         "//src/pkg-app",
-        "//src/pkg-boot",
         "@googletest//:gtest_main",
     ],
+)
+
+tx_test(
+    name = "fail",
+    srcs = ["fail_app.cpp"],
+    deps = [
+        "//src/pkg-app",
+        "@googletest//:gtest_main",
+    ],
+    tags = ["manual"],  # Don't run this test automatically, only for manual checks
 )
