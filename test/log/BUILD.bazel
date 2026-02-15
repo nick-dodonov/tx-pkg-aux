@@ -1,7 +1,17 @@
 load("@tx-kit-ext//rules/build:tx_test.bzl", "tx_test")
+load("@tx-kit-ext//rules/build:tx_binary.bzl", "tx_binary")
 
 tx_test(
     name = "log",
+    srcs = ["log_test.cpp"],
+    deps = [
+        "//src/pkg-log",
+        "@googletest//:gtest_main",
+    ],
+)
+
+tx_binary(
+    name = "log2",
     srcs = ["log_test.cpp"],
     deps = [
         "//src/pkg-log",

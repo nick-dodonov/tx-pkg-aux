@@ -77,3 +77,11 @@ register_toolchains(
     # Custom toolchain for Windows ARM64 (uses x86_64 binaries via emulation)
     "//toolchains/emscripten:cc-toolchain-wasm-win_arm64",
 )
+
+# Register Python runtime environment toolchain for dev-only use
+# This toolchain has no platform constraints and works with any target platform (including WASM)
+# It's sufficient for running Python build tools but cannot build C extensions
+register_toolchains(
+    # https://rules-python.readthedocs.io/en/latest/toolchains.html#runtime-environment-toolchain
+    "@rules_python//python/runtime_env_toolchains:all",
+)
