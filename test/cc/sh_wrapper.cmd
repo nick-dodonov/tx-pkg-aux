@@ -1,13 +1,13 @@
-#!/usr/bin/env bash
-# 2>nul 1>&2 & goto :batch
-echo "Running shell script ($(uname -sm))"
-# commands
-read -esp "Press Enter to continue..."
+@goto(){
+# Shell script here
+$(dirname "$0")/sh_wrapper.sh
+exec "$@"
+}
+@goto $@
 exit
 
-:batch
+:(){
 @echo off
-echo Running batch (%OS% %PROCESSOR_ARCHITECTURE%).
-:: commands
-@rem pause
-exit /b
+:: Batch script here
+call "%~dp0sh_wrapper.bat"
+%*
