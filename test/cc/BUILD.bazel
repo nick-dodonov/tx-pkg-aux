@@ -42,7 +42,9 @@ load("@rules_shell//shell:sh_binary.bzl", "sh_binary")
 sh_binary(
     name = "cc_bin_sh_bin.cmd",
     srcs = ["sh_wrapper.cmd"],
-    data = [":cc_bin"],
+    data = [
+        ":cc_bin",
+    ],
     # exec_compatible_with = [
     #     "@platforms//os:windows",
     #     "@platforms//os:macos",
