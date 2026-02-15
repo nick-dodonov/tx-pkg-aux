@@ -19,7 +19,11 @@ echo "  RUNFILES_DIR=$RUNFILES_DIR"
 }
 
 echo "#### Execute: $@"
-exec "$@"
+# exec "$@"
+"$@"
+_ERR=$?
+echo "#### Errorcode: $_ERR"
+exit $_ERR
 }
 @goto $@
 exit
