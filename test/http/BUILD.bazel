@@ -15,24 +15,24 @@ tx_binary(
         "@googletest//:gtest_main",
     ],
 )
-genrule(
-    name = "client_args",
-    srcs = [
-        "//:runner",
-        ":client"
-    ],
-    outs = ["client.args"],
-    cmd = "paths='$(rootpaths //:runner)'; echo $${paths##* } $(rootpath :client) > $@",
-)
-sh_binary(
-    name = "client.cmd",
-    srcs = ["@tx-kit-ext//runner:sh_wrapper.cmd"],
-    data = [
-        ":client.args",
-        "//:runner",
-        ":client",
-    ],
-)
+# genrule(
+#     name = "client_args",
+#     srcs = [
+#         "//:runner",
+#         ":client"
+#     ],
+#     outs = ["client.args"],
+#     cmd = "paths='$(rootpaths //:runner)'; echo $${paths##* } $(rootpath :client) > $@",
+# )
+# sh_binary(
+#     name = "client.cmd",
+#     srcs = ["@tx-kit-ext//runner:sh_wrapper.cmd"],
+#     data = [
+#         ":client.args",
+#         "//:runner",
+#         ":client",
+#     ],
+# )
 
 # Server is on execution platform
 alias(
