@@ -29,8 +29,8 @@ exec_binary(
 # Bridge to control server lifecycle and run client test
 py_binary(
     name = "bridge",
-    srcs = ["//test/http/stub:integration_test_runner.py"],
-    main = "integration_test_runner.py",
+    srcs = ["//test/http/integration_bridge:integration_bridge.py"],
+    main = "integration_bridge.py",
 )
 exec_binary(
     name = "bridge.cmd",
