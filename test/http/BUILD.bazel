@@ -26,7 +26,7 @@ genrule(
 )
 sh_binary(
     name = "client.cmd",
-    srcs = ["//test/cc:sh_wrapper.cmd"],
+    srcs = ["@tx-kit-ext//runner:sh_wrapper.cmd"],
     data = [
         ":client.args",
         "//:runner",
@@ -58,7 +58,7 @@ exec_binary(
 # Glue all together
 sh_test(
     name = "http.cmd",
-    srcs = ["//test/cc:sh_wrapper.cmd"],
+    srcs = ["@tx-kit-ext//runner:sh_wrapper.cmd"],
     data = [
         "//:runner",
         ":bridge.cmd",

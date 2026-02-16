@@ -42,7 +42,7 @@ cc_binary(
 load("@rules_shell//shell:sh_binary.bzl", "sh_binary")
 sh_binary(
     name = "sh_bin.cmd",
-    srcs = ["sh_wrapper.cmd"],
+    srcs = ["@tx-kit-ext//runner:sh_wrapper.cmd"],
     data = [
         "//:runner",
         ":cc_bin",
@@ -61,7 +61,7 @@ sh_binary(
 load("@rules_shell//shell:sh_test.bzl", "sh_test")
 sh_test(
     name = "sh_tst.cmd",
-    srcs = ["sh_wrapper.cmd"],
+    srcs = ["@tx-kit-ext//runner:sh_wrapper.cmd"],
     data = [
         "//:runner",
         ":cc_bin",
@@ -71,5 +71,3 @@ sh_test(
         "$(location :cc_bin)",
     ],
 )
-
-exports_files(["sh_wrapper.cmd"])
