@@ -35,6 +35,7 @@ class Options:
     host: str = "localhost"
     port: int = 8080
     timeout: int = 30
+    client_args: list[str] | None = None
 
     @property
     def server_url(self) -> str:
@@ -61,10 +62,9 @@ def _start_logged_process(command: list[str], log_prefix: str) -> subprocess.Pop
     command_str = subprocess.list2cmdline(command)
     _log(f"--- STARTING {log_prefix}{command_str}")
 
+    executable = None # Use default shell (%ComSpec%/cmd on Windows)
     if sys.platform != "win32":
         executable = 'bash' # TODO: make sh_wrapper.cmd working w/ `sh`
-    else:
-        executable = None # Use default shell (%ComSpec% cmd.exe) on Windows
 
     process = subprocess.Popen(
         command_str,
@@ -162,7 +162,7 @@ def parse_args() -> Options:
         help="Server startup timeout in seconds",
     )
 
-    args = parser.parse_args()
+    args, unknown = parser.parse_known_args()
 
     return Options(
         server_binary=Path(args.server_binary),
@@ -170,6 +170,7 @@ def parse_args() -> Options:
         host=args.host,
         port=args.port,
         timeout=args.timeout,
+        client_args=unknown if unknown else None,
     )
 
 
@@ -204,9 +205,10 @@ def main() -> int:
             return 1
         _log("Server is ready!")
 
-        client_process = _start_logged_process(
-            [str(options.client_binary)], "[cli] "
-        )
+        client_cmd = [str(options.client_binary)]
+        if options.client_args:
+            client_cmd.extend(options.client_args)
+        client_process = _start_logged_process(client_cmd, "[cli] ")
 
         client_process.wait()
         if client_process.returncode != 0:
