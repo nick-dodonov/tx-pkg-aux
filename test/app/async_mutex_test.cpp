@@ -14,6 +14,11 @@ TEST(AsyncMutexTest, LockUnlock)
     EXPECT_TRUE(true); // Successfully unlocked
 }
 
+#if defined(__clang__)
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wthread-safety-analysis"
+#endif
+
 // Test Async::Mutex try_lock
 TEST(AsyncMutexTest, TryLock)
 {
@@ -23,18 +28,12 @@ TEST(AsyncMutexTest, TryLock)
     EXPECT_TRUE(locked);
     
     if (locked) {
-#pragma clang diagnostic push
-#pragma clang diagnostic ignored "-Wthread-safety-analysis"
         mutex.unlock();
-#pragma clang diagnostic pop
     }
     
     // Verify we can lock again
     EXPECT_TRUE(mutex.try_lock());
-#pragma clang diagnostic push
-#pragma clang diagnostic ignored "-Wthread-safety-analysis"
     mutex.unlock();
-#pragma clang diagnostic pop
 }
 
 // Test Async::LockGuard RAII behavior
@@ -50,11 +49,13 @@ TEST(AsyncMutexTest, LockGuardRAII)
     
     // After scope, mutex should be unlocked
     EXPECT_TRUE(mutex.try_lock());
-#pragma clang diagnostic push
-#pragma clang diagnostic ignored "-Wthread-safety-analysis"
     mutex.unlock();
-#pragma clang diagnostic pop
 }
+
+#if defined(__clang__)
+#pragma clang diagnostic pop
+#endif
+
 
 int main(int argc, char** argv)
 {
