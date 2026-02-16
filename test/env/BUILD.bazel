@@ -1,0 +1,30 @@
+### sh_test
+load("@rules_shell//shell:sh_test.bzl", "sh_test")
+sh_test(
+    name = "sh",
+    srcs = ["sh_test.sh"],
+    size = "small",
+    #TODO: add support for shell scripts in runner
+    target_compatible_with = select({
+        "@platforms//cpu:wasm32": ["@platforms//:incompatible"],
+        "//conditions:default": [],
+    }),
+    tags = ["manual"],  # Run manually to inspect test environment
+)
+
+### py_binary w/ exec_binary wrapper
+load("@rules_python//python:defs.bzl", "py_binary")
+py_binary(
+    name = "py_bin",
+    srcs = ["py_test.py"],
+    main = "py_test.py",
+    tags = ["manual"],
+    visibility = ["//visibility:private"],
+)
+
+load("@tx-kit-ext//rules/build:exec_binary.bzl", "exec_binary")
+exec_binary(
+    name = "py",
+    binary = ":py_bin",
+    tags = ["manual"],
+)

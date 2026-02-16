@@ -1,3 +1,8 @@
 package(
     default_visibility = ["//visibility:public"],
 )
+
+alias(
+    name = "runner",
+    actual = "@tx-kit-ext//runner",
+)

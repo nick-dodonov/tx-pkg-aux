@@ -1,0 +1,29 @@
+load("@tx-kit-ext//rules/build:tx_test.bzl", "tx_test")
+
+tx_test(
+    name = "app",
+    srcs = ["app_test.cpp"],
+    deps = [
+        "//src/pkg-app",
+        "@googletest//:gtest_main",
+    ],
+)
+
+tx_test(
+    name = "async_mutex",
+    srcs = ["async_mutex_test.cpp"],
+    deps = [
+        "//src/pkg-app",
+        "@googletest//:gtest_main",
+    ],
+)
+
+tx_test(
+    name = "fail",
+    srcs = ["fail_app.cpp"],
+    deps = [
+        "//src/pkg-app",
+        "@googletest//:gtest_main",
+    ],
+    tags = ["manual"],  # Don't run this test automatically, only for manual checks
+)

@@ -1,0 +1,64 @@
+load("@rules_shell//shell:sh_binary.bzl", "sh_binary")
+load("@rules_shell//shell:sh_test.bzl", "sh_test")
+load("@rules_python//python:defs.bzl", "py_binary")
+load("@tx-kit-ext//rules/build:defs.bzl", "tx_binary")
+load("@tx-kit-ext//rules/build:exec_binary.bzl", "exec_binary")
+
+# Client on target platform with execution platform wrapper
+tx_binary(
+    name = "client",
+    srcs = ["client_test.cpp"],
+    args = ["--gtest_output=xml:client_test_results.xml"],
+    deps = [
+        "//src/pkg-app",
+        "//src/pkg-http",
+        "@googletest//:gtest_main",
+    ],
+)
+
+# Server on execution platform
+alias(
+    name = "server",
+    actual = "//test/http/stub:stub_server",
+)
+exec_binary(
+    name = "server.cmd",
+    binary = ":server",
+)
+
+# Bridge to control server lifecycle and run client test
+py_binary(
+    name = "bridge",
+    srcs = ["//test/http/stub:integration_test_runner.py"],
+    main = "integration_test_runner.py",
+)
+exec_binary(
+    name = "bridge.cmd",
+    binary = ":bridge",
+)
+
+# Glue all together
+sh_test(
+    name = "http.cmd",
+    srcs = ["@tx-kit-ext//runner:sh_wrapper.cmd"],
+    data = [
+        "//:runner",
+        ":bridge.cmd",
+        ":client.cmd",
+        ":server.cmd",
+    ],
+    args = [
+        "$(location //:runner)",
+        "$(location :bridge.cmd)",
+        "$(location :client.cmd)",
+        "$(location :server.cmd)",
+    ],
+    tags = [
+        "exclusive",  # exclusive: prevent parallel execution with other tests (port conflicts)
+        "requires-network",  # requires-network: test uses network (local server on specific port)
+    ],
+)
+test_suite(
+    name = "http",
+    tests = [":http.cmd"],
+)

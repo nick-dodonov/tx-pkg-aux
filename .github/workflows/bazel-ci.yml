@@ -11,21 +11,23 @@ jobs:
     strategy:
       matrix:
         config:
-          - name: macOS ARM64 Clang
-            id: mac-arm64
-            os: macos-latest
-            bazel-config: ''
-            default-shell: bash
           - name: Windows x64 MSVC 
             id: win-x64-msvc
             os: windows-latest
             bazel-config: ''
             default-shell: cmd
-          - name: Windows ARM64 MSVC
-            id: win-arm64-msvc
-            os: windows-11-arm
+          # TODO: make manual testing for Windows ARM64 MSVC
+          # Temporary disabled to reduce CI load (not needed as all compilers are covered)
+          # - name: Windows ARM64 MSVC
+          #   id: win-arm64-msvc
+          #   os: windows-11-arm
+          #   bazel-config: ''
+          #   default-shell: cmd
+          - name: macOS ARM64 Clang
+            id: mac-arm64
+            os: macos-latest
             bazel-config: ''
-            default-shell: cmd
+            default-shell: bash
           - name: Linux x64 GCC
             id: linux-gcc
             os: ubuntu-latest
@@ -116,4 +118,12 @@ jobs:
         run: bazel run demo/hello-app ${{ matrix.config.bazel-config }}
 
       - name: Run all tests
-        run: bazel test //... ${{ matrix.config.bazel-config }}
+        run: bazel test //... ${{ matrix.config.bazel-config }} --test_output=all --verbose_failures
+
+      - name: Upload test logs
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: test-logs-${{ matrix.config.id }}
+          path: bazel-testlogs/
+          if-no-files-found: ignore

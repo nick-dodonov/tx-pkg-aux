@@ -1,12 +1,6 @@
 load("@tx-kit-ext//rules/build:tx_binary.bzl", "tx_binary")
 load("@tx-kit-ext//rules/build:tx_library.bzl", "tx_library")
 
-package(
-    features = [
-        # "thin_lto",  # Enable Thin LTO
-    ],
-)
-
 # sub library with exception handling enabled to demonstrate unhandled exceptions catching
 tx_library(
     name = "hello-sublib",

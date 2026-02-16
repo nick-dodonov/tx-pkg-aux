@@ -11,7 +11,9 @@ namespace Http
         struct Options {
             boost::asio::any_io_executor executor;
             struct {
-                bool useJsFetchClient = false; // use JsFetchLiteClient instead of EmFetchLiteClient
+                // use JsFetchLiteClient instead of EmFetchLiteClient implementation
+                //  EmFetchLiteClient impl requires XMLHttpRequest to be available (not in Node.js)
+                bool useJsFetchClient = true;
             } wasm;
         };
         static std::shared_ptr<ILiteClient> MakeDefault(Options options);
