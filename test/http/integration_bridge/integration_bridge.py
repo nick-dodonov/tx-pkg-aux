@@ -3,69 +3,61 @@
 Integration test that runs HTTP client and server binaries.
 """
 
-import sys
-import subprocess
+import argparse
 import os
-import time
+import signal
+import subprocess
+import sys
 import threading
-from pathlib import Path
-from typing import IO, Any
+import time
+from dataclasses import dataclass
 from datetime import datetime
-from urllib.request import urlopen
+from pathlib import Path
+from typing import Any, IO
 from urllib.error import URLError
+from urllib.request import urlopen
 
 
-# Fix encoding for stdout/stderr on Windows
 if sys.platform == "win32":
     try:
-        sys.stdout.reconfigure(encoding='utf-8', errors='replace')
-        sys.stderr.reconfigure(encoding='utf-8', errors='replace')
+        sys.stdout.reconfigure(encoding="utf-8", errors="replace")
+        sys.stderr.reconfigure(encoding="utf-8", errors="replace")
     except (AttributeError, OSError):
         pass
 
 
-server_host = "localhost"
-server_port = 8080
-# noinspection HttpUrlsUsage
-server_url = f"http://{server_host}:{server_port}"
-_DEFAULT_SERVER_STARTUP_TIMEOUT = 30
+@dataclass
+class Options:
+    """Configuration for integration test execution."""
+
+    server_binary: Path
+    client_binary: Path
+    host: str = "localhost"
+    port: int = 8080
+    timeout: int = 30
+
+    @property
+    def server_url(self) -> str:
+        return f"http://{self.host}:{self.port}"
 
 
 def _log(*args: Any, **kwargs: Any) -> None:
-    """Print with immediate flush."""
+    """Print with timestamp and immediate flush."""
     timestamp = datetime.now().strftime("%H:%M:%S.%f")[:-3]
     print(f"[{timestamp}] [INT]", *args, **kwargs, flush=True)
 
 
-def _log_header(message: str) -> None:
-    """Log a message as a header with separator lines."""
-    _log("=" * 30)
-    _log(message)
-    _log("=" * 30)
-
-
 def _log_process_output(pipe: IO[str], prefix: str) -> None:
-    """Read from pipe and log each line with timestamp and prefix."""
+    """Read from pipe and log each line with timestamp."""
     for line in iter(pipe.readline, ""):
         if line:
             timestamp = datetime.now().strftime("%H:%M:%S.%f")[:-3]
-            decoded_line = line.rstrip()
-            print(f"[{timestamp}] {prefix}{decoded_line}", flush=True)
+            print(f"[{timestamp}] {prefix}{line.rstrip()}", flush=True)
     pipe.close()
 
 
 def _start_logged_process(command: list[str], log_prefix: str) -> subprocess.Popen[str]:
-    """Start a subprocess with automatic output logging.
-
-    Args:
-        command: Command and arguments to execute
-        log_prefix: Prefix for log messages from this process
-
-    Returns:
-        The started subprocess
-    """
-
-    # Convert list to string for shell=True to properly pass arguments
+    """Start a subprocess with automatic output logging."""
     command_str = subprocess.list2cmdline(command)
     _log(f"--- STARTING {log_prefix}{command_str}")
 
@@ -78,19 +70,19 @@ def _start_logged_process(command: list[str], log_prefix: str) -> subprocess.Pop
         command_str,
         executable=executable,
         shell=True,
+
         stdout=subprocess.PIPE,
         stderr=subprocess.STDOUT,
         text=True,
-        encoding='utf-8',
-        errors='replace',
+        encoding="utf-8",
+        errors="replace",
         bufsize=1,
     )
 
-    # Start a thread to log process output
     log_thread = threading.Thread(
         target=_log_process_output,
         args=(process.stdout, log_prefix),
-        daemon=True
+        daemon=True,
     )
     log_thread.start()
 
@@ -98,32 +90,20 @@ def _start_logged_process(command: list[str], log_prefix: str) -> subprocess.Pop
 
 
 def _shutdown_process(process: subprocess.Popen[str] | None, name: str) -> None:
-    """Gracefully shutdown a process.
-
-    Args:
-        process: Process to shutdown (can be None)
-        name: Name for logging purposes
-    """
+    """Gracefully shutdown a process."""
     if not process:
         return
 
-    # Check if the process already terminated
-    exit_code = process.poll()
-    if exit_code is not None:
-        _log(f"{name} already terminated with exit code {exit_code}")
+    if process.poll() is not None:
+        _log(f"{name} already terminated with exit code {process.returncode}")
         return
 
-    # Attempt a graceful shutdown
     _log(f"--- Shutting down {name} ---")
     try:
-        # On Windows, subprocess.send_signal(SIGINT) is not supported
-        # Use terminate() for cross-platform compatibility
         if sys.platform == "win32":
             process.terminate()
         else:
-            import signal
             process.send_signal(signal.SIGINT)
-
         process.wait(timeout=3)
     except subprocess.TimeoutExpired:
         _log(f"{name} did not shutdown gracefully, terminating...")
@@ -134,24 +114,17 @@ def _shutdown_process(process: subprocess.Popen[str] | None, name: str) -> None:
 
 
 def _wait_for_server(
-        url: str, 
-        server_process: subprocess.Popen[str], 
-        startup_timeout: int = _DEFAULT_SERVER_STARTUP_TIMEOUT
+    url: str,
+    server_process: subprocess.Popen[str],
+    timeout: int,
 ) -> bool:
-    """Wait for server to be ready.
-
-    Returns:
-        True if server is ready, False otherwise
-    """
+    """Wait for server to become ready."""
     start_time = time.time()
-    while time.time() - start_time < startup_timeout:
-        # Check if the server process has crashed
-        exit_code = server_process.poll()
-        if exit_code is not None:
-            _log(f"Error: Server process terminated with exit code {exit_code}")
+    while time.time() - start_time < timeout:
+        if server_process.poll() is not None:
+            _log(f"Error: Server process terminated with exit code {server_process.returncode}")
             return False
 
-        # Try to connect to the server
         try:
             with urlopen(url, timeout=1):
                 return True
@@ -163,61 +136,86 @@ def _wait_for_server(
     return False
 
 
+def parse_args() -> Options:
+    """Parse command line arguments."""
+    parser = argparse.ArgumentParser(
+        description="HTTP integration test bridge",
+        formatter_class=argparse.ArgumentDefaultsHelpFormatter,
+    )
+    parser.add_argument("server_binary", help="Server binary path")
+    parser.add_argument("client_binary", help="Client test binary path")
+    parser.add_argument(
+        "--host",
+        default="localhost",
+        help="Server host",
+    )
+    parser.add_argument(
+        "--port",
+        type=int,
+        default=8080,
+        help="Server port",
+    )
+    parser.add_argument(
+        "--timeout",
+        type=int,
+        default=30,
+        help="Server startup timeout in seconds",
+    )
+
+    args = parser.parse_args()
+
+    return Options(
+        server_binary=Path(args.server_binary),
+        client_binary=Path(args.client_binary),
+        host=args.host,
+        port=args.port,
+        timeout=args.timeout,
+    )
+
+
 def main() -> int:
     """Run integration tests for HTTP client and server."""
-    # Get binary paths from command line arguments
-    if len(sys.argv) < 3:
-        _log("Usage: http_integration_test.py <client_binary> <server_binary>")
+    options = parse_args()
+
+    if not options.server_binary.exists():
+        _log(f"Error: Server binary not found: {options.server_binary}")
         return 1
 
-    client_binary = sys.argv[1]
-    server_binary = sys.argv[2]
-
-    # Normalize paths to platform-specific format (convert / to \\ on Windows)
-    client_binary = str(Path(client_binary))
-    server_binary = str(Path(server_binary))
-
-    # Verify binaries exist
-    if not os.path.exists(client_binary):
-        _log(f"Error: Client binary not found: {client_binary}")
+    if not options.client_binary.exists():
+        _log(f"Error: Client binary not found: {options.client_binary}")
         return 1
 
-    if not os.path.exists(server_binary):
-        _log(f"Error: Server binary not found: {server_binary}")
-        return 1
-
-    _log_header("HTTP Integration Test")
+    _log("=" * 30)
+    _log("HTTP Integration Test")
+    _log("=" * 30)
 
     server_process: subprocess.Popen[str] | None = None
     try:
-        # Start HTTP server in background
         server_process = _start_logged_process(
-            #[server_binary, "--host", server_host, "--port", str(server_port), "--ipv6"],
-            [server_binary],
-            "[srv] "
+            [str(options.server_binary)], "[srv] "
         )
 
-        # Wait for the server to be ready
         _log("Waiting for server to be ready...")
-        if not _wait_for_server(f"{server_url}/health", server_process):
+        if not _wait_for_server(
+            f"{options.server_url}/health",
+            server_process,
+            options.timeout,
+        ):
             return 1
         _log("Server is ready!")
 
-        # Run client tests
         client_process = _start_logged_process(
-            #[client_binary, "--url", server_url], 
-            [client_binary], 
-            "[cli] "
+            [str(options.client_binary)], "[cli] "
         )
 
-        # Wait for the client to complete
         client_process.wait()
-        client_exit_code = client_process.returncode
-        if client_exit_code != 0:
-            _log(f"Client tests failed with exit code {client_exit_code}")
-            return client_exit_code
+        if client_process.returncode != 0:
+            _log(f"Client tests failed with exit code {client_process.returncode}")
+            return client_process.returncode
 
-        _log_header("All tests passed!")
+        _log("=" * 30)
+        _log("All tests passed!")
+        _log("=" * 30)
         return 0
 
     except Exception as e:

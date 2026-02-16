@@ -50,8 +50,8 @@ sh_test(
     args = [
         "$(location //:runner)",
         "$(location :bridge.cmd)",
-        "$(location :client.cmd)",
         "$(location :server.cmd)",
+        "$(location :client.cmd)",
     ],
     tags = [
         "exclusive",  # exclusive: prevent parallel execution with other tests (port conflicts)

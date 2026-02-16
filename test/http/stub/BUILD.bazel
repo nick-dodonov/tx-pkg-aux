@@ -19,8 +19,8 @@ py_test(
     srcs = ["//test/http/integration_bridge:integration_bridge.py"],
     main = "integration_bridge.py",
     args = [
-        "$(location :stub_client)",
         "$(location :stub_server)",
+        "$(location :stub_client)",
     ],
     data = [
         ":stub_client",
