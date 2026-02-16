@@ -28,6 +28,7 @@ server_host = "localhost"
 server_port = 8080
 # noinspection HttpUrlsUsage
 server_url = f"http://{server_host}:{server_port}"
+_DEFAULT_SERVER_STARTUP_TIMEOUT = 30
 
 
 def _log(*args: Any, **kwargs: Any) -> None:
@@ -133,7 +134,9 @@ def _shutdown_process(process: subprocess.Popen[str] | None, name: str) -> None:
 
 
 def _wait_for_server(
-        url: str, server_process: subprocess.Popen[str], timeout: int = 10
+        url: str, 
+        server_process: subprocess.Popen[str], 
+        startup_timeout: int = _DEFAULT_SERVER_STARTUP_TIMEOUT
 ) -> bool:
     """Wait for server to be ready.
 
@@ -141,7 +144,7 @@ def _wait_for_server(
         True if server is ready, False otherwise
     """
     start_time = time.time()
-    while time.time() - start_time < timeout:
+    while time.time() - start_time < startup_timeout:
         # Check if the server process has crashed
         exit_code = server_process.poll()
         if exit_code is not None:
@@ -196,7 +199,7 @@ def main() -> int:
 
         # Wait for the server to be ready
         _log("Waiting for server to be ready...")
-        if not _wait_for_server(f"{server_url}/get", server_process, timeout=30):
+        if not _wait_for_server(f"{server_url}/health", server_process):
             return 1
         _log("Server is ready!")
 

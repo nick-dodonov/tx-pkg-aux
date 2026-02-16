@@ -4,7 +4,7 @@ load("@rules_python//python:defs.bzl", "py_binary")
 load("@tx-kit-ext//rules/build:defs.bzl", "tx_binary")
 load("@tx-kit-ext//rules/build:exec_binary.bzl", "exec_binary")
 
-# Client is on target platform with execution platform wrapper (requires server to be running)
+# Client on target platform with execution platform wrapper
 tx_binary(
     name = "client",
     srcs = ["client_test.cpp"],
@@ -15,26 +15,8 @@ tx_binary(
         "@googletest//:gtest_main",
     ],
 )
-# genrule(
-#     name = "client_args",
-#     srcs = [
-#         "//:runner",
-#         ":client"
-#     ],
-#     outs = ["client.args"],
-#     cmd = "paths='$(rootpaths //:runner)'; echo $${paths##* } $(rootpath :client) > $@",
-# )
-# sh_binary(
-#     name = "client.cmd",
-#     srcs = ["@tx-kit-ext//runner:sh_wrapper.cmd"],
-#     data = [
-#         ":client.args",
-#         "//:runner",
-#         ":client",
-#     ],
-# )
 
-# Server is on execution platform
+# Server on execution platform
 alias(
     name = "server",
     actual = "//test/http/stub:stub_server",

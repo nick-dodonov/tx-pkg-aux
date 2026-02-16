@@ -71,12 +71,6 @@ def _self_diagnostic(host: str, port: int, ipv6: bool = False) -> None:
     """Run self-diagnostic in a separate thread after server starts."""
     time.sleep(0.2)  # Give server time to start listening
 
-    # Wrap IPv6 addresses in brackets for URLs
-    url_host = f"[{host}]" if ":" in host else host
-    # noinspection HttpUrlsUsage
-    health_url = f"http://{url_host}:{port}/health"
-    _log(f"[DIAG] Running self-diagnostic at {health_url}")
-
     try:
         # Check if the port is listening using a socket with the appropriate address family
         addr_family = socket.AF_INET6 if ipv6 else socket.AF_INET
@@ -93,9 +87,16 @@ def _self_diagnostic(host: str, port: int, ipv6: bool = False) -> None:
             return
 
         # Try HTTP request
+        # Wrap IPv6 addresses in brackets for URLs
+        url_host = f"[{host}]" if ":" in host else host
+        # noinspection HttpUrlsUsage
+        health_url = f"http://{url_host}:{port}/health"
+        _log(f"[DIAG] Running self-diagnostic at {health_url}")
+        
         with urlopen(health_url, timeout=2) as response:
             health_data = json.loads(response.read().decode('utf-8'))
             _log(f"[DIAG] Self-diagnostic PASSED - {health_data}")
+
     except URLError as e:
         _log(f"[DIAG] Self-diagnostic FAILED (URLError) - {e}")
     except Exception as e:
@@ -196,6 +197,7 @@ def main() -> int:
                         help="Host to bind to (default: localhost for IPv4, :: for IPv6 dual-stack)")
     parser.add_argument("--ipv6", action="store_true",
                         help="Enable IPv6 support with dual-stack (accepts both IPv4 and IPv6)")
+    parser.add_argument("--self-diagnostic", action="store_true", help="Enable self-diagnostic mode")
 
     args = parser.parse_args()
 
@@ -228,23 +230,25 @@ def main() -> int:
             _log(f"[DIAG] IPV6_V6ONLY: {v6only} (0=dual-stack enabled, 1=IPv6 only)")
 
         # Start self-diagnostic in the background thread
-        diag_thread = threading.Thread(
-            target=_self_diagnostic,
-            args=(args.host, args.port, args.ipv6),
-            daemon=True
-        )
-        diag_thread.start()
+        if args.self_diagnostic:
+            # TODO: start only after server is confirmed to be listening to avoid false negatives in diagnostics
+            diag_thread = threading.Thread(
+                target=_self_diagnostic,
+                args=(args.host, args.port, args.ipv6),
+                daemon=True
+            )
+            diag_thread.start()
 
+        # Start listening
         try:
             httpd.serve_forever()
         except KeyboardInterrupt:
-            _log("Shutting down")
+            _log("Interrupt received, shutting down")
         finally:
             httpd.server_close()
-
         return 0
     except Exception as e:
-        _log(f"Error - {e}")
+        _log(f"Server exception: {e}")
         return 1
 
 
