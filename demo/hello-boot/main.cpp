@@ -4,6 +4,8 @@
 
 #include "sublib.h"
 
+#include "spdlog/details/os.h"
+
 #include "rules_cc/cc/runfiles/runfiles.h"
 using ::rules_cc::cc::runfiles::Runfiles;
 
@@ -30,16 +32,36 @@ int main(const int argc, const char* argv[])
         return 0;
     }
 
+    // Log environment vars
+    {
+        Log::Info("Process environment variables:");
+        const char* vars[] = {
+            "BUILD_WORKING_DIRECTORY",
+            "BUILD_WORKSPACE_DIRECTORY",
+            "RUNFILES_DIR",
+            "RUNFILES_MANIFEST_FILE",
+        };
+        for (const char* var : vars) {
+            auto value = spdlog::details::os::getenv(var);
+            if (!value.empty()) {
+                Log::Info("  {}={}", var, value);
+            } else {
+                Log::Info("  {} is not set", var);
+            }
+        }
+    }
+
     // Runfiles example
     {
         std::string error;
         std::unique_ptr<Runfiles> runfiles(Runfiles::Create(argv[0], &error));
-        if (runfiles == nullptr) {
-            Log::Error("Runfiles::Create failed: {}", error);
-            return 1;
+        if (runfiles) {
+            std::string path = runfiles->Rlocation("demo/hello-boot/sample-data.txt");
+            Log::Info("Runfiles path for sample: {}", path);
+        } else {
+            // it's OK in WASM build
+            Log::Warn("Runfiles::Create failed: {}", error);
         }
-        std::string path = runfiles->Rlocation("demo/hello-boot/sample-data.txt");
-        Log::Info("Runfiles path for sample: {}", path);
     }
 
     const auto ec = argc - 1;
