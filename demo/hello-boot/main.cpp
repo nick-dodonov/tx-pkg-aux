@@ -15,7 +15,11 @@ int main(const int argc, const char* argv[])
     Log::Info("Hello Boot!");
     
     if (args.Contains("--break")) {
+#if defined(_MSC_VER)
+        __debugbreak();
+#else
         __builtin_debugtrap();
+#endif
     }
 
     if (args.Contains("--abort")) {
