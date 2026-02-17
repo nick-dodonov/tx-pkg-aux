@@ -11,6 +11,10 @@ int main(const int argc, const char* argv[])
 {
     auto args = Boot::DefaultInit(argc, argv);
     Log::Info("Hello Boot!");
+    
+    if (args.Contains("--break")) {
+        __builtin_debugtrap();
+    }
 
     if (args.Contains("--abort")) {
         std::abort();

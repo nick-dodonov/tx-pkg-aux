@@ -3,37 +3,52 @@
     // for the documentation about the tasks.json format
     "version": "2.0.0",
     "tasks": [
-        // ================ build compile_commands tasks
         {
             "type": "shell",
             "label": "compile_commands :refresh_all (OS)",
             "command": "bazel run @hedron_compile_commands//:refresh_all",
             "group": {
-                "kind": "build",
-            },
+                "kind": "build"
+            }
         },
         {
             "type": "shell",
             "label": "compile_commands :refresh_all (WASM)",
             "command": "bazel run @hedron_compile_commands//:refresh_all -- --config=wasm",
             "group": {
-                "kind": "build",
-            },
+                "kind": "build"
+            }
         },
-        // ================ build configurations of tx.debugTaskName (settings.json)
         {
             "type": "shell",
             "label": "build <user>",
-            // --platform_suffix to differ CLI and VSCode debug builds (minimize incremental build issue)
             "command": "bazel build ${config:tx.debugTaskName} --platform_suffix=vs",
             "group": {
                 "kind": "build",
                 "isDefault": true
             },
             "presentation": {
-                "focus": true,
-            },
-            "problemMatcher": "$gcc",
+                "focus": true
+            }
+        },
+        {
+            "type": "shell",
+            "label": "sandbox-task",
+            "command": "ls -l ${input:sandbox-input}.runfiles",
+            "problemMatcher": []
+        }
+    ],
+    "inputs": [
+        {
+            "id": "sandbox-input",
+            "type": "command",
+            "command": "shellCommand.execute",
+            "args": {
+                //"command": "echo \"$WORKSPACE\nsecond\"",
+                "command": "bazel cquery --output=files ${config:tx.debugTaskName} --platform_suffix=vs",
+                "cwd": "${workspaceFolder}",
+                "useSingleResult": true
+            }
         }
     ]
 }

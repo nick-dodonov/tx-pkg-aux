@@ -22,8 +22,8 @@
             "name": "<user> (LLDB) (Runfiles)",
             "type": "lldb",
             "request": "launch",
-            "program": "${workspaceFolder}/bazel-bin/${config:tx.debugTaskName}",
-            "cwd": "${input:debugTask_RunfilesDir}",
+            "program": "${input:debugTask-output-file}",
+            "cwd": "${input:debugTask-output-file}.runfiles/_main",
             "initCommands": [
                 "platform setting -w ${workspaceFolder}",
                 "command source ${env:HOME}/.lldbinit",
@@ -34,9 +34,20 @@
     ],
     "inputs": [
         {
+            "id": "debugTask-output-file",
+            "type": "command",
+            "command": "shellCommand.execute",  // augustocdias.tasks-shell-input extension
+            "args": {
+                "command": "bazel cquery --output=files ${config:tx.debugTaskName} --platform_suffix=vs",
+                "cwd": "${workspaceFolder}",
+                "useSingleResult": true
+            }
+        },
+        //TODO: remove as unused after testing (including recommendations)
+        {
             "id": "debugTask_RunfilesDir",
             "type": "command",
-            "command": "extension.commandvariable.transform",
+            "command": "extension.commandvariable.transform", // rioj7.command-variable extension
             "args": {
                 "text": "${configExpression:debugTaskName}",
                 "find": "^(.*/)(.*)$",
