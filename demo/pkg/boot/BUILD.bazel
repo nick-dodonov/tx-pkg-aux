@@ -3,7 +3,7 @@ load("@tx-kit-ext//rules/build:tx_library.bzl", "tx_library")
 
 # sub library with exception handling enabled to demonstrate unhandled exceptions catching
 tx_library(
-    name = "hello-sublib",
+    name = "sublib",
     srcs = ["sublib.cpp"],
     hdrs = ["sublib.h"],
     cxxopts = select({
@@ -16,10 +16,10 @@ tx_library(
 )
 
 tx_binary(
-    name = "hello-boot",
+    name = "boot",
     srcs = ["main.cpp"],
     deps = [
-        ":hello-sublib",
+        ":sublib",
         "//src/pkg-boot",
     ],
     stamp = 1,
