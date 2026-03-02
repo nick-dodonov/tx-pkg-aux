@@ -1,43 +1,13 @@
-# load("@rules_cc//cc:cc_test.bzl", "cc_test")
-# cc_test(
-#     name = "cc_test",
-#     srcs = ["cc_src.cpp"],
-#     deps = [
-#         "//src/pkg-log",
-#         "@googletest//:gtest_main",
-#     ],
-#     #exec_compatible_with = ["@platforms//:incompatible"],
-# )
-
-load("@rules_cc//cc:cc_binary.bzl", "cc_binary")
-cc_binary(
-    name = "cc_bin",
+load("@tx-kit-ext//rules/build:multi_app.bzl", "multi_binary")
+multi_binary(
+    name = "bin",
     srcs = ["cc_src.cpp"],
     deps = [
-        "//src/pkg-boot",
+        "//src/pkg-log",
+        # "//src/pkg-boot",
         "@googletest//:gtest_main",
     ],
-    linkopts = select({
-        "@platforms//cpu:wasm32": [
-            "--oformat=html",
-            #"--emrun",
-            #"-sEXIT_RUNTIME=1",
-        ],
-        "//conditions:default": [],
-    }),
-    #features = ["exit_runtime"],
-    #exec_compatible_with = ["@platforms//:incompatible"],
 )
-
-# load("@emsdk//emscripten_toolchain:wasm_rules.bzl", "wasm_cc_binary")
-# wasm_cc_binary(
-#     name = "cc_bin_wasm",
-#     cc_target = ":cc_bin",
-#     outputs = [
-#         "hello-world.js",
-#         "hello-world.wasm",
-#     ],
-# )
 
 load("@rules_shell//shell:sh_binary.bzl", "sh_binary")
 sh_binary(
@@ -51,11 +21,6 @@ sh_binary(
         "$(location //:runner)",
         "$(location :cc_bin)",
     ],
-    # exec_compatible_with = [
-    #     "@platforms//os:windows",
-    #     "@platforms//os:macos",
-    #     "@platforms//os:linux",
-    # ],
 )
 
 load("@rules_shell//shell:sh_test.bzl", "sh_test")

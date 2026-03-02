@@ -56,3 +56,6 @@ register_toolchains(
     # https://rules-python.readthedocs.io/en/latest/toolchains.html#runtime-environment-toolchain
     "@rules_python//python/runtime_env_toolchains:all",
 )
+
+# required for @rules_android//:arm64-v8a in uni.bazelrc #TODO: try declare platforms in kit and check only its deps are enough
+bazel_dep(name = "rules_android", version = "0.7.1")
