@@ -9,12 +9,3 @@ tx_test(
         "@googletest//:gtest_main",
     ],
 )
-
-tx_binary(
-    name = "log2",
-    srcs = ["log_test.cpp"],
-    deps = [
-        "//src/pkg-log",
-        "@googletest//:gtest_main",
-    ],
-)

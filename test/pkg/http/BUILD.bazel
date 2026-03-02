@@ -19,7 +19,7 @@ tx_binary(
 # Server on execution platform
 alias(
     name = "server",
-    actual = "//test/http/stub:stub_server",
+    actual = "//test/pkg/http/stub:stub_server",
 )
 exec_binary(
     name = "server.cmd",
@@ -29,7 +29,7 @@ exec_binary(
 # Bridge to control server lifecycle and run client test
 py_binary(
     name = "bridge",
-    srcs = ["//test/http/integration_bridge:integration_bridge.py"],
+    srcs = ["//test/pkg/http/integration_bridge:integration_bridge.py"],
     main = "integration_bridge.py",
 )
 exec_binary(
