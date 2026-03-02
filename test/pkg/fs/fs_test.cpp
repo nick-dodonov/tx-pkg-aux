@@ -30,8 +30,8 @@ TEST(FsTest, RunfilesDrive)
 {
     Fs::RunfilesDrive drive("tx-pkg-aux");
 
-#ifdef __EMSCRIPTEN__
-    // Runfiles are not supported on WASM platform
+#if defined(__EMSCRIPTEN__) || defined(__ANDROID__)
+    // Runfiles are not supported on WASM and Android platforms
     EXPECT_FALSE(drive.IsSupported());
 #else
     // Desktop platforms should support runfiles
@@ -69,8 +69,8 @@ TEST(FsTest, OverlayDriveWithRunfiles)
 
     Fs::OverlayDrive overlay({&runfiles, &fallback});
 
-#ifdef __EMSCRIPTEN__
-    // On WASM, runfiles not supported, should fall back to native drive
+#if defined(__EMSCRIPTEN__) || defined(__ANDROID__)
+    // On WASM and Android, runfiles not supported, should fall back to native drive
     auto result = overlay.GetNativePath("test.txt");
     ASSERT_TRUE(result.has_value());
     EXPECT_EQ(result.value(), "/fallback/test.txt");

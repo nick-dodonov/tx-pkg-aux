@@ -1,8 +1,8 @@
-load("@tx-kit-ext//rules/build:tx_binary.bzl", "tx_binary")
-load("@tx-kit-ext//rules/build:tx_library.bzl", "tx_library")
+load("@tx-kit-ext//rules/build:multi_lib.bzl", "multi_lib")
+load("@tx-kit-ext//rules/build:multi_app.bzl", "multi_app")
 
 # sub library with exception handling enabled to demonstrate unhandled exceptions catching
-tx_library(
+multi_lib(
     name = "sublib",
     srcs = ["sublib.cpp"],
     hdrs = ["sublib.h"],
@@ -15,7 +15,7 @@ tx_library(
     ],
 )
 
-tx_binary(
+multi_app(
     name = "boot",
     srcs = ["main.cpp"],
     deps = [
