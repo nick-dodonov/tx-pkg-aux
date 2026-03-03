@@ -41,6 +41,15 @@ bazel_dep(name = "ada-url", version = "3.4.2")
 bazel_dep(name = "boost.throw_exception", version = "1.89.0.bcr.1")
 bazel_dep(name = "boost.asio", version = "1.89.0.bcr.1.1-tx.1")  # private registry
 bazel_dep(name = "boost.beast", version = "1.89.0.bcr.1")
+
+# Local override for development build modifications # TODO: move to private registry when ready
+single_version_override(
+    module_name = "boost.asio",
+    patches = ["//patches:boost.asio.patch"],
+    patch_strip = 0,
+)
+bazel_dep(name = "boost.container", version = "1.89.0.bcr.1")
+
 bazel_dep(name = "boringssl", version = "0.20251124.0")
 bazel_dep(name = "nghttp2", version = "1.65.0")
 bazel_dep(name = "gsl", version = "4.2.1")

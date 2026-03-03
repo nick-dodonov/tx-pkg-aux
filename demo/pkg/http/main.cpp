@@ -56,16 +56,18 @@ static boost::asio::awaitable<int> CoroMain(Boot::CliArgs args)
     using done_channel = boost::asio::experimental::channel<void(boost::system::error_code)>;
     auto completions = std::make_shared<done_channel>(executor, selectedSize);
 
+    auto errorCount = 0;
     for (size_t i = 0; i < selectedSize; ++i) {
         const auto& url = selectedUrls.at(i);
         Log::Info("TryHttp: >>> [{}] request: {}", i, url);
-        client->Get(url, [i, completions, url = std::string{url}](auto result) {
+        client->Get(url, [i, completions, url = std::string{url}, &errorCount](auto result) {
             if (result) {
                 const auto& response = *result;
                 Log::Info("TryHttp: <<< [{}] success: {}: {} \n{}", i, url, response.statusCode, response.body);
             } else {
                 const auto& error = result.error();
                 Log::Error("TryHttp: <<< [{}] failed: {}: {}", i, url, error.what());
+                ++errorCount;
             }
             completions->try_send(boost::system::error_code{});
         });
@@ -76,9 +78,14 @@ static boost::asio::awaitable<int> CoroMain(Boot::CliArgs args)
     for (size_t i = 0; i < selectedSize; ++i) {
         co_await completions->async_receive(boost::asio::use_awaitable);
     }
-
     Log::Info("Await finished");
-    co_return 0;
+
+    if (errorCount > 0) {
+        Log::Error("Some requests failed: {} errors", errorCount);
+    } else {
+        Log::Info("All requests succeeded");
+    }
+    co_return errorCount;
 }
 
 int main(const int argc, const char* argv[])

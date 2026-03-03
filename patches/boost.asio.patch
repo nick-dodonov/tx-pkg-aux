@@ -1,0 +1,52 @@
+--- BUILD.bazel	2026-03-02 22:39:41.243816283 +0100
++++ BUILD.bazel	2026-03-03 10:07:48.281487945 +0100
+@@ -35,6 +35,11 @@
+     constraint_values = ["@platforms//cpu:aarch64", "@platforms//os:windows"],
+ )
+ 
++config_setting(
++    name = "android_platform",
++    constraint_values = ["@platforms//os:android"],
++)
++
+ write_file(
+     name = "src_win",
+     out = "boost.asio.src.win.cpp",
+@@ -91,6 +96,10 @@
+             "include/boost/asio/ssl/impl/src.hpp",
+         ],
+     ),
++    copts = ["-std=c++23"] + select({
++        "@platforms//cpu:wasm32": ["-pthread"],
++        "//conditions:default": [],
++    }),
+     defines = ["BOOST_ASIO_SEPARATE_COMPILATION"] + select({
+         "@platforms//os:windows": [
+             "WIN32_LEAN_AND_MEAN",  # Prevent windows.h from auto-including winsock.h - must propagate
+@@ -102,6 +111,7 @@
+         "//conditions:default": [],
+         "@platforms//cpu:wasm32": ["BOOST_ASIO_DISABLE_BOOST_CONTEXT_FIBER"],
+         ":disable_boost_context": ["BOOST_ASIO_DISABLE_BOOST_CONTEXT_FIBER"],
++        ":android_platform": ["BOOST_ASIO_DISABLE_BOOST_CONTEXT_FIBER"],
+     }),
+     ####
+     includes = ["include"],
+@@ -110,6 +120,10 @@
+             "-DEFAULTLIB:ws2_32",
+             "-DEFAULTLIB:mswsock",
+         ],
++        #### https://developer.android.com/ndk/guides/stable_apis#c_library
++        # Note that on Android, unlike Linux, there are no separate libpthread or librt libraries. That functionality is included directly in libc, which does not need to be explicitly linked against.
++        "@platforms//os:android": [],
++        ####
+         "//conditions:default": [
+             "-lpthread",
+         ],
+@@ -137,6 +151,7 @@
+         ],
+         "@platforms//cpu:wasm32": [],
+         ":disable_boost_context": [],
++        ":android_platform": [],
+     }),
+     ####
+ )
