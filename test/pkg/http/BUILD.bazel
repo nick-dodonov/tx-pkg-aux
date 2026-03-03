@@ -1,11 +1,10 @@
-load("@rules_shell//shell:sh_binary.bzl", "sh_binary")
 load("@rules_shell//shell:sh_test.bzl", "sh_test")
 load("@rules_python//python:defs.bzl", "py_binary")
-load("@tx-kit-ext//rules/build:defs.bzl", "tx_binary")
+load("@tx-kit-ext//rules/build:multi_app.bzl", "multi_app")
 load("@tx-kit-ext//rules/build:exec_binary.bzl", "exec_binary")
 
 # Client on target platform with execution platform wrapper
-tx_binary(
+multi_app(
     name = "client",
     srcs = ["client_test.cpp"],
     args = ["--gtest_output=xml:client_test_results.xml"],
@@ -44,14 +43,14 @@ sh_test(
     data = [
         "//:runner",
         ":bridge.cmd",
-        ":client.cmd",
         ":server.cmd",
+        ":client",
     ],
     args = [
         "$(location //:runner)",
         "$(location :bridge.cmd)",
         "$(location :server.cmd)",
-        "$(location :client.cmd)",
+        "$(location :client)",
     ],
     tags = [
         "exclusive",  # exclusive: prevent parallel execution with other tests (port conflicts)
