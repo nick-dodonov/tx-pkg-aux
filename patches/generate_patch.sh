@@ -28,22 +28,22 @@ echo "Generating patch for $MODULE_NAME from source/ to target/..."
 # Clear existing patch file
 > "$MODULE_NAME.patch"
 
-# Generate diffs for all files that exist in both source and target
+# Generate diffs for all files that exist in both source and target (recursively)
+# Sort files to ensure consistent patch ordering (lexicographically)
 found_files=0
-for source_file in "$MODULE_NAME/source"/*; do
-    if [ -f "$source_file" ]; then
-        filename=$(basename "$source_file")
-        target_file="$MODULE_NAME/target/$filename"
-        
-        if [ -f "$target_file" ]; then
-            found_files=$((found_files + 1))
-            # Generate diff for this file
-            diff -u "$source_file" "$target_file" | \
-                sed "s|$MODULE_NAME/source/||g" | \
-                sed "s|$MODULE_NAME/target/||g" >> "$MODULE_NAME.patch" || true
-        fi
+while IFS= read -r -d '' source_file; do
+    # Get relative path from source directory
+    rel_path="${source_file#$MODULE_NAME/source/}"
+    target_file="$MODULE_NAME/target/$rel_path"
+    
+    if [ -f "$target_file" ]; then
+        found_files=$((found_files + 1))
+        # Generate diff for this file with relative paths
+        diff -u "$source_file" "$target_file" | \
+            sed "s|$MODULE_NAME/source/||g" | \
+            sed "s|$MODULE_NAME/target/||g" >> "$MODULE_NAME.patch" || true
     fi
-done
+done < <(find "$MODULE_NAME/source" -type f -print0 | sort -z)
 
 if [ $found_files -eq 0 ]; then
     echo "Error: No matching files found in source/ and target/"
