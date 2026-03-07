@@ -20,6 +20,8 @@ namespace Build
     #else
         desc << " (32)";
     #endif
+#elif defined(__ANDROID__)
+        desc << "Android";
 #elif defined(__APPLE__)
         desc << "macOS";
 #elif defined(__linux__)
