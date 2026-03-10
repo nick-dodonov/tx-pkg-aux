@@ -12,6 +12,14 @@ namespace asio = boost::asio;
 // TODO: handle --url argument passed from stub_integration_test.py
 static constexpr auto Port = 8080;
 
+#ifdef __ANDROID__
+// Special alias to your host loopback interface (127.0.0.1 on your development machine) for Android Emulator
+//  https://developer.android.com/studio/run/emulator-networking
+static constexpr auto Host = "10.0.2.2";
+#else
+static constexpr auto Host = "localhost";
+#endif
+
 // Test GET request to a local stub server
 TEST(HttpClientTest, GetRequestToLocalhost)
 {
@@ -30,7 +38,7 @@ TEST(HttpClientTest, GetRequestToLocalhost)
         auto responseStatus = 0;
 
         // Make GET request to stub server
-        client->Get(std::format("http://localhost:{}/get", Port), [&](auto result) {
+        client->Get(std::format("http://{}:{}/get", Host, Port), [&](auto result) {
             requestCompleted = true;
             if (result) {
                 requestSucceeded = true;
@@ -82,7 +90,7 @@ TEST(HttpClientTest, PostRequestToLocalhost)
         // Note: Current LiteClient only supports GET method
         // Testing against /post endpoint with GET will return 404 from Python server
         // This is expected behavior - real POST support requires HTTP client enhancement
-        client->Get(std::format("http://localhost:{}/post", Port), [&](auto result) {
+        client->Get(std::format("http://{}:{}/post", Host, Port), [&](auto result) {
             requestCompleted = true;
             if (result) {
                 // Server returns 404 for GET on /post endpoint (Python server expects POST)

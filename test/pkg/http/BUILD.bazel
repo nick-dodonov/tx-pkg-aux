@@ -53,6 +53,7 @@ sh_test(
         "$(location :client)",
     ],
     tags = [
+        "int",  # int: integration test (longer running, external dependencies, etc.)
         "exclusive",  # exclusive: prevent parallel execution with other tests (port conflicts)
         "requires-network",  # requires-network: test uses network (local server on specific port)
     ],
