@@ -22,7 +22,8 @@ TEST(BuildTest, BuildDescriptionContainsRequiredInfo)
     EXPECT_TRUE(desc.contains("macOS") ||
                 desc.contains("Linux") ||
                 desc.contains("Windows") ||
-                desc.contains("WebAssembly"));
+                desc.contains("WebAssembly") ||
+                desc.contains("Android"));
     
     // Should contain compiler info
     EXPECT_TRUE(desc.contains("Clang") ||
