@@ -1,5 +1,6 @@
 load("@tx-kit-ext//rules/build:multi_lib.bzl", "multi_lib")
 
+
 multi_lib(
     name = "pkg-app",
     srcs = glob(["**/*.cpp"]),
@@ -7,7 +8,8 @@ multi_lib(
     strip_include_prefix = ".",
     deps = [
         "//src/pkg-boot",
-        "@boost.asio//:boost.asio",
+        #"@boost.asio",
+        "//src/boost_asio_wrapped",
     ],
     linkopts = select({
         "@platforms//cpu:wasm32": [
