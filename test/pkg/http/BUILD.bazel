@@ -1,7 +1,7 @@
 load("@rules_shell//shell:sh_test.bzl", "sh_test")
 load("@rules_python//python:defs.bzl", "py_binary")
-load("@tx-kit-ext//rules/build:multi_app.bzl", "multi_app")
-load("@tx-kit-ext//rules/build:exec_binary.bzl", "exec_binary")
+load("@tx-kit-ext//rules:multi_app.bzl", "multi_app")
+load("@tx-kit-ext//rules:exec_binary.bzl", "exec_binary")
 
 # Client on target platform with execution platform wrapper
 multi_app(

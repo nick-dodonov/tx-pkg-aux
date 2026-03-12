@@ -22,7 +22,7 @@ py_binary(
     visibility = ["//visibility:private"],
 )
 
-load("@tx-kit-ext//rules/build:exec_binary.bzl", "exec_binary")
+load("@tx-kit-ext//rules:exec_binary.bzl", "exec_binary")
 exec_binary(
     name = "py",
     binary = ":py_bin",
