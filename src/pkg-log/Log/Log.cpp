@@ -20,6 +20,8 @@ namespace Log::Detail
 
         auto* logger = spdlog::default_logger_raw();
 
+        // TODO: make default sinks myself
+#ifdef __cpp_rtti
         // Fix ansicolor_sink trace level color (default is too light, make it gray)
         for (auto& sink : logger->sinks()) {
             if (auto* ansicolor = dynamic_cast<spdlog::sinks::ansicolor_stdout_sink_mt*>(sink.get())) {
@@ -28,6 +30,7 @@ namespace Log::Detail
                 ansicolor->set_color(spdlog::level::trace, ansicolor->dark);
             }
         }
+#endif
 
         // Add StartupSink to buffer early logs before main sinks are ready
         if (auto startupSink = GetStartupSink()) {

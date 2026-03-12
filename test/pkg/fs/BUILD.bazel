@@ -1,0 +1,16 @@
+load("@tx-kit-ext//rules/build:multi_app.bzl", "multi_test")
+
+filegroup(
+    name = "test_data",
+    srcs = ["data/test.txt"],
+)
+
+multi_test(
+    name = "fs",
+    srcs = ["fs_test.cpp"],
+    data = [":test_data"],
+    deps = [
+        "//src/pkg-fs",
+        "@googletest//:gtest_main",
+    ],
+)

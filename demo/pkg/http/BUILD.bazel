@@ -1,0 +1,10 @@
+load("@tx-kit-ext//rules/build:multi_app.bzl", "multi_app")
+
+multi_app(
+    name = "http",
+    srcs = glob(["**/*.cpp"]),
+    deps = [
+        "//src/pkg-app",
+        "//src/pkg-http",
+    ]
+)

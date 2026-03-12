@@ -1,0 +1,36 @@
+load("@rules_python//python:defs.bzl", "py_binary", "py_test")
+load("@platforms//host:constraints.bzl", "HOST_CONSTRAINTS")
+
+py_binary(
+    name = "stub_client",
+    srcs = ["stub_client_test.py"],
+    main = "stub_client_test.py",
+    visibility = ["//visibility:public"],
+)
+
+py_binary(
+    name = "stub_server",
+    srcs = ["stub_server.py"],
+    main = "stub_server.py",
+    visibility = ["//visibility:public"],
+)
+
+py_test(
+    name = "stub",
+    srcs = ["//test/pkg/http/integration_bridge:integration_bridge.py"],
+    main = "integration_bridge.py",
+    args = [
+        "$(location :stub_server)",
+        "$(location :stub_client)",
+    ],
+    data = [
+        ":stub_client",
+        ":stub_server",
+    ],
+    tags = [
+        "int",  # int: integration test (longer running, external dependencies, etc.)
+        "exclusive",  # exclusive: prevent parallel execution with other tests (port conflicts)
+        "requires-network",  # requires-network: test uses network (local server on specific port)
+    ],
+    target_compatible_with = HOST_CONSTRAINTS,
+)

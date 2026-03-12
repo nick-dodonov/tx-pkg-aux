@@ -1,3 +1,4 @@
+// NOLINTBEGIN(modernize-use-std-print) - fprintf is signal-safe, required for signal handlers
 #include "Boot.h"
 
 #include <exception>
@@ -10,7 +11,7 @@
         #include <windows.h>
         #include <dbghelp.h>
         #include <io.h>
-    #else
+    #elif !__ANDROID__
         #include <execinfo.h>
         #include <unistd.h>
     #endif
@@ -94,10 +95,13 @@ namespace Boot
         }
         
         SymCleanup(process);
-    #else
+    #elif !__ANDROID__
         std::array<void*, 128> callstack{};
         const auto frames = backtrace(callstack.data(), callstack.size());
         backtrace_symbols_fd(callstack.data(), frames, STDERR_FILENO);
+    #else
+        //TODO: optional crashpad feature integration
+        fprintf(stderr, "  Stack trace not available on Android\n");
     #endif
 #endif
     }
@@ -143,3 +147,4 @@ namespace Boot
         _prev_terminate_handler = nullptr;
     }
 };
+// NOLINTEND(modernize-use-std-print)

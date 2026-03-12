@@ -1,7 +1,8 @@
 load("@tx-kit-ext//rules/build:multi_app.bzl", "multi_app")
 
 multi_app(
-    name = "loop",
+    name = "log",
     srcs = ["main.cpp"],
-    deps = ["//src/pkg-app"],
+    data = [".env"],
+    deps = ["//src/pkg-log"],
 )

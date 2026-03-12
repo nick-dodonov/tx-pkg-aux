@@ -5,6 +5,26 @@
 
 namespace Log::Detail
 {
+    static std::string_view GetAreaName(const spdlog::details::log_msg& msg)
+    {
+        const auto& source = msg.source;
+        const char* filename = source.filename;
+
+        if (source.line == AreaLoggerLine) {
+            // filename contains area name
+            return filename;
+        }
+
+        if (filename != nullptr) {
+            // extract area name as basename without extension
+            auto area = Path::GetBasename(filename);
+            area = Path::GetWithoutExtension(area);
+            return area;
+        }
+
+        return "<unknown>";
+    }
+
     /// Introduce %N custom logger area name formatter or short filename w/ line number.
     /// Based on spdlog::details::short_filename_formatter
     class LoggerFlagFormatter final: public spdlog::custom_flag_formatter
@@ -14,33 +34,18 @@ namespace Log::Detail
 
         void format(const spdlog::details::log_msg& msg, const std::tm& time, spdlog::memory_buf_t& dest) override
         {
-            const auto& source = msg.source;
-            if (source.line == AreaLoggerLine) {
-                spdlog::details::scoped_padder p{padinfo_.enabled() ? std::strlen(source.filename) : 0, padinfo_, dest};
-                dest.append(source.filename); // filename contains area name
-            } else {
-                // Skip append basename
-                // shortFilenameFormatter.format(msg, time, dest);
+            // Skip append basename
+            // shortFilenameFormatter.format(msg, time, dest);
 
-                std::string_view area;
-                const char* filename = source.filename;
-                if (filename != nullptr) {
-                    area = Path::GetBasename(filename);
-                    area = Path::GetWithoutExtension(area);
-                } else {
-                    filename = "<unknown>";
-                    area = filename;
-                }
+            auto area = GetAreaName(msg);
+            spdlog::details::scoped_padder p{padinfo_.enabled() ? area.size() : 0, padinfo_, dest};
+            spdlog::details::fmt_helper::append_string_view(area, dest);
 
-                spdlog::details::scoped_padder p{padinfo_.enabled() ? area.size() : 0, padinfo_, dest};
-                spdlog::details::fmt_helper::append_string_view(area, dest);
-
-                // Skip line number output
-                // if (!source.empty()) {
-                //     dest.append(":");
-                //     spdlog::details::fmt_helper::append_int(msg.source.line, dest);
-                // }
-            }
+            // Skip line number output
+            // if (!source.empty()) {
+            //     dest.append(":");
+            //     spdlog::details::fmt_helper::append_int(msg.source.line, dest);
+            // }
         }
 
         [[nodiscard]] std::unique_ptr<custom_flag_formatter> clone() const override { return spdlog::details::make_unique<LoggerFlagFormatter>(); }
@@ -63,8 +68,13 @@ namespace Log::Detail
             const auto* funcname = msg.source.funcname;
             if (funcname) {
                 const auto shortName = ExtractShortNameWithNamespace(funcname);
-                spdlog::details::fmt_helper::append_string_view(shortName, dest);
-                dest.append(": ");
+
+                // Only append function name if it's different from area name to avoid redundancy (e.g. "main: main: ...")
+                auto area = GetAreaName(msg);
+                if (area != shortName) {
+                    spdlog::details::fmt_helper::append_string_view(shortName, dest);
+                    dest.append(": ");
+                }
             }
         }
 

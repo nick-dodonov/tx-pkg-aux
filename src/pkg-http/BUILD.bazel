@@ -1,14 +1,25 @@
-load("@tx-kit-ext//rules/build:tx_library.bzl", "tx_library")
+load("@tx-kit-ext//rules/build:multi_lib.bzl", "multi_lib")
+load("@bazel_skylib//rules:common_settings.bzl", "bool_flag")
 
-tx_library(
+bool_flag(
+    name = "disable_ssl",
+    build_setting_default = False,
+    visibility = ["//visibility:public"],
+)
+config_setting(
+    name = "disable_ssl_setting",
+    flag_values = {":disable_ssl": "true"},
+    visibility = ["//visibility:public"],
+)
+
+multi_lib(
     name = "pkg-http",
     srcs = glob(["**/*.cpp"]),
     hdrs = glob(["**/*.h"]),
     strip_include_prefix = ".",
     defines = select({
-        "@boost.asio//:openssl": ["HTTP_CLIENT_WITH_SSL"],
-        "@boost.asio//:boringssl": ["HTTP_CLIENT_WITH_SSL"],
-        "//conditions:default": [],
+        ":disable_ssl_setting": [],
+        "//conditions:default": ["HTTP_CLIENT_WITH_SSL"],
     }),
     deps = [
         "//src/pkg-log",
@@ -19,6 +30,11 @@ tx_library(
         "@platforms//cpu:wasm32": [],
         "//conditions:default": [
             "@boost.beast//:boost.beast",
+        ],
+    }) + select({
+        "@platforms//cpu:wasm32": [],
+        ":disable_ssl_setting": [],
+        "//conditions:default": [
             "@boringssl//:ssl",
         ],
     }),
