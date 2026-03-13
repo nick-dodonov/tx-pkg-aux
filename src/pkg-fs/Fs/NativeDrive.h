@@ -1,16 +1,17 @@
 #pragma once
 #include "Drive.h"
+#include <vector>
 
 namespace Fs
 {
     class NativeDrive: public Drive
     {
     public:
-        NativeDrive(std::string_view prefixPath);
+        NativeDrive(std::vector<std::string> prefixPaths);
 
         [[nodiscard]] PathResult GetNativePath(std::string_view path) override;
 
     private:
-        std::string _prefixPath;
+        std::vector<std::string> _prefixPaths;
     };
 }

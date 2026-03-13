@@ -1,5 +1,7 @@
 #include "RunfilesDrive.h"
+#include "System.h"
 #include "Boot/Boot.h"
+#include "Log/Log.h"
 #include "rules_cc/cc/runfiles/runfiles.h"
 
 using ::rules_cc::cc::runfiles::Runfiles;
@@ -27,9 +29,15 @@ namespace Fs
         }
     };
 
-    RunfilesDrive::RunfilesDrive(std::string_view workspaceName)
+    RunfilesDrive::RunfilesDrive(std::string_view workspaceName, Drive* nativeDrive)
         : _impl(std::make_unique<Impl>(workspaceName))
-    {}
+        , _nativeDrive(nativeDrive)
+    {
+        Log::Trace("{}", workspaceName);
+        if (_nativeDrive == nullptr) {
+            _nativeDrive = &Fs::System::GetDefaultDrive();
+        }
+    }
 
     RunfilesDrive::~RunfilesDrive() = default;
 
@@ -49,6 +57,11 @@ namespace Fs
 
         if (nativePath.empty()) {
             return std::unexpected(std::make_error_code(std::errc::no_such_file_or_directory));
+        }
+
+        if (_nativeDrive) {
+            // check if file exists in native drive to provide better error handling (e.g., distinguish between "not supported" and "file not found")
+            return _nativeDrive->GetNativePath(nativePath);
         }
 
         return nativePath;

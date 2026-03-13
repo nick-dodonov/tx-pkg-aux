@@ -7,7 +7,7 @@ namespace Fs
     class RunfilesDrive: public Drive
     {
     public:
-        RunfilesDrive(std::string_view workspaceName);
+        RunfilesDrive(std::string_view workspaceName, Drive* nativeDrive = nullptr);
         ~RunfilesDrive() override;
 
         [[nodiscard]] bool IsSupported() const;
@@ -16,5 +16,6 @@ namespace Fs
     private:
         class Impl;
         std::unique_ptr<Impl> _impl;
+        Drive* _nativeDrive = nullptr;
     };
 }

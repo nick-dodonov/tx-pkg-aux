@@ -4,26 +4,67 @@
 #include "Fs/System.h"
 #include "Log/Log.h"
 #include <filesystem>
+#include <fstream>
 #include <gtest/gtest.h>
 
-TEST(FsTest, DriveOverlay)
+class FsTestFixture : public ::testing::Test
 {
-    Fs::NativeDrive drive("/prefix");
+protected:
+    void SetUp() override
+    {
+        // Create temporary test directories
+        testDir1 = std::filesystem::temp_directory_path() / "fs_test_1";
+        testDir2 = std::filesystem::temp_directory_path() / "fs_test_2";
+        testDir3 = std::filesystem::temp_directory_path() / "fs_test_3";
 
-    const auto result = drive.GetNativePath("subdir/file.txt");
+        std::filesystem::create_directories(testDir1);
+        std::filesystem::create_directories(testDir2);
+        std::filesystem::create_directories(testDir3);
+
+        // Create test files
+        testFile1 = testDir1 / "file.txt";
+        testFile2 = testDir2 / "file.txt";
+        
+        std::ofstream(testFile1) << "test1";
+        std::ofstream(testFile2) << "test2";
+        
+        // Create a file only in first directory for priority testing
+        testFile1Only = testDir1 / "only_in_first.txt";
+        std::ofstream(testFile1Only) << "only_first";
+    }
+
+    void TearDown() override
+    {
+        std::filesystem::remove_all(testDir1);
+        std::filesystem::remove_all(testDir2);
+        std::filesystem::remove_all(testDir3);
+    }
+
+    std::filesystem::path testDir1;
+    std::filesystem::path testDir2;
+    std::filesystem::path testDir3;
+    std::filesystem::path testFile1;
+    std::filesystem::path testFile2;
+    std::filesystem::path testFile1Only;
+};
+
+TEST_F(FsTestFixture, DriveOverlay)
+{
+    Fs::NativeDrive drive({testDir1.string()});
+
+    const auto result = drive.GetNativePath("file.txt");
     ASSERT_TRUE(result.has_value());
-    EXPECT_EQ(result.value(), "/prefix/subdir/file.txt");
+    EXPECT_EQ(result.value(), testFile1.generic_string());
 }
 
-TEST(FsTest, SystemDefaultDrive)
+TEST_F(FsTestFixture, SystemDefaultDrive)
 {
     auto& drive = Fs::System::GetDefaultDrive();
 
-    const auto result = drive.GetNativePath("test.txt");
+    // Test with absolute path that we know exists (created in test setup)
+    const auto result = drive.GetNativePath(testFile1.string());
     ASSERT_TRUE(result.has_value());
-
-    const auto expectedPath = std::filesystem::current_path() / "test.txt";
-    EXPECT_EQ(result.value(), expectedPath.generic_string());
+    EXPECT_EQ(result.value(), testFile1.generic_string());
 }
 
 TEST(FsTest, RunfilesDrive)
@@ -37,7 +78,7 @@ TEST(FsTest, RunfilesDrive)
     // Desktop platforms should support runfiles
     EXPECT_TRUE(drive.IsSupported());
 
-    auto result = drive.GetNativePath("data/test.txt");
+    auto result = drive.GetNativePath("test/pkg/fs/data/test.txt");
     if (result.has_value()) {
         Log::Debug("Native path success: {}", result.value());
     } else {
@@ -48,40 +89,55 @@ TEST(FsTest, RunfilesDrive)
 #endif
 }
 
-TEST(FsTest, OverlayDrive)
+TEST_F(FsTestFixture, OverlayDrive)
 {
-    Fs::NativeDrive drive1("/first");
-    Fs::NativeDrive drive2("/second");
-    Fs::NativeDrive drive3("/third");
+    Fs::NativeDrive drive1({testDir1.string()});
+    Fs::NativeDrive drive2({testDir2.string()});
+    Fs::NativeDrive drive3({testDir3.string()});
 
     Fs::OverlayDrive overlay({&drive1, &drive2, &drive3});
 
     const auto result = overlay.GetNativePath("file.txt");
     ASSERT_TRUE(result.has_value());
     // Should use first drive
-    EXPECT_EQ(result.value(), "/first/file.txt");
+    EXPECT_EQ(result.value(), testFile1.generic_string());
 }
 
-TEST(FsTest, OverlayDriveWithRunfiles)
+TEST_F(FsTestFixture, OverlayDriveWithRunfiles)
 {
     Fs::RunfilesDrive runfiles("tx-pkg-aux");
-    Fs::NativeDrive fallback("/fallback");
+    Fs::NativeDrive fallback({testDir1.string()});
 
     Fs::OverlayDrive overlay({&runfiles, &fallback});
 
 #if defined(__EMSCRIPTEN__) || defined(__ANDROID__)
     // On WASM and Android, runfiles not supported, should fall back to native drive
-    auto result = overlay.GetNativePath("test.txt");
+    auto result = overlay.GetNativePath("file.txt");
     ASSERT_TRUE(result.has_value());
-    EXPECT_EQ(result.value(), "/fallback/test.txt");
+    EXPECT_EQ(result.value(), testFile1.generic_string());
 #else
     // On desktop, should use runfiles if available
     if (runfiles.IsSupported())
     {
-        auto result = overlay.GetNativePath("data/test.txt");
+        auto result = overlay.GetNativePath("test/pkg/fs/data/test.txt");
         ASSERT_TRUE(result.has_value());
         EXPECT_FALSE(result.value().empty());
-        EXPECT_NE(result.value(), "/fallback/data/test.txt");
+        EXPECT_NE(result.value(), testFile1.generic_string());
     }
 #endif
+}
+
+TEST_F(FsTestFixture, NativeDriveMultiplePrefixes)
+{
+    Fs::NativeDrive drive({testDir1.string(), testDir2.string(), testDir3.string()});
+
+    // Should search through all prefixes and return first match
+    const auto result = drive.GetNativePath("file.txt");
+    ASSERT_TRUE(result.has_value());
+    EXPECT_EQ(result.value(), testFile1.generic_string());
+
+    // Test file that exists only in first directory
+    const auto result2 = drive.GetNativePath("only_in_first.txt");
+    ASSERT_TRUE(result2.has_value());
+    EXPECT_EQ(result2.value(), testFile1Only.generic_string());
 }
