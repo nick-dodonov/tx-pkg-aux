@@ -46,13 +46,13 @@ namespace Fs
         return _impl && _impl->runfiles != nullptr;
     }
 
-    Drive::PathResult RunfilesDrive::GetNativePath(std::string_view path)
+    Drive::PathResult RunfilesDrive::GetNativePath(const Path& path)
     {
         if (!_impl || !_impl->runfiles) {
             return std::unexpected(std::make_error_code(std::errc::not_supported));
         }
 
-        std::string runfilePath = _impl->workspaceName + "/" + std::string(path);
+        std::string runfilePath = _impl->workspaceName + "/" + path.generic_string();
         std::string nativePath = _impl->runfiles->Rlocation(runfilePath);
 
         if (nativePath.empty()) {
@@ -61,9 +61,9 @@ namespace Fs
 
         if (_nativeDrive) {
             // check if file exists in native drive to provide better error handling (e.g., distinguish between "not supported" and "file not found")
-            return _nativeDrive->GetNativePath(nativePath);
+            return _nativeDrive->GetNativePath(Path(nativePath));
         }
 
-        return nativePath;
+        return Path(nativePath);
     }
 }

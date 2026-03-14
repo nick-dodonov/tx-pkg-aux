@@ -8,14 +8,13 @@ namespace Fs
     Drive& System::GetDefaultDrive()
     {
         static auto drive = []() {
-            std::vector<std::string> prefixes;
-            prefixes.push_back(std::filesystem::current_path().string());
+            std::vector<Path> prefixes;
+            prefixes.push_back(std::filesystem::current_path());
 
             const auto& args = Boot::GetDefaultArgs();
             if (args.size() >= 1) {
-                auto exePath = std::filesystem::path(args[0]);
-                auto exeDir = exePath.parent_path(); // remove executable name to get directory
-                prefixes.push_back(exeDir.string());
+                auto exePath = Path(args[0]);
+                prefixes.push_back(exePath.parent_path());
             }
 
             return NativeDrive(std::move(prefixes));

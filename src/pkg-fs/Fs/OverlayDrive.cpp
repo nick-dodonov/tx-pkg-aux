@@ -6,7 +6,7 @@ namespace Fs
         : _drives(std::move(drives))
     {}
 
-    Drive::PathResult OverlayDrive::GetNativePath(std::string_view path)
+    Drive::PathResult OverlayDrive::GetNativePath(const Path& path)
     {
         std::error_code lastError = std::make_error_code(std::errc::no_such_file_or_directory);
 

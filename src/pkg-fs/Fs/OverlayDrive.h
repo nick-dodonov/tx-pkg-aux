@@ -10,7 +10,7 @@ namespace Fs
         OverlayDrive(std::vector<Drive*> drives);
         ~OverlayDrive() override = default;
 
-        [[nodiscard]] PathResult GetNativePath(std::string_view path) override;
+        [[nodiscard]] PathResult GetNativePath(const Path& path) override;
 
     private:
         std::vector<Drive*> _drives;

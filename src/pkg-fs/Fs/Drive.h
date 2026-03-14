@@ -1,16 +1,18 @@
 #pragma once
 #include <expected>
-#include <string>
 #include <system_error>
+#include <filesystem>
 
 namespace Fs
 {
+    using Path = std::filesystem::path;
+
     class Drive
     {
     public:
         virtual ~Drive() = default;
-
-        using PathResult = std::expected<std::string, std::error_code>;
-        [[nodiscard]] virtual PathResult GetNativePath(std::string_view path) = 0;
+        
+        using PathResult = std::expected<Path, std::error_code>;
+        [[nodiscard]] virtual PathResult GetNativePath(const Path& path) = 0;
     };
 }

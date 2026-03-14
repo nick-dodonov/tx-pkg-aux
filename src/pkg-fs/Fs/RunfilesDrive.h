@@ -11,7 +11,7 @@ namespace Fs
         ~RunfilesDrive() override;
 
         [[nodiscard]] bool IsSupported() const;
-        [[nodiscard]] PathResult GetNativePath(std::string_view path) override;
+        [[nodiscard]] PathResult GetNativePath(const Path& path) override;
 
     private:
         class Impl;
