@@ -1,0 +1,24 @@
+load("@rules_cc//cc:cc_library.bzl", "cc_library")
+
+cc_library(
+    name = "capy",
+    srcs = glob([
+        "src/**/*.cpp",
+        "src/**/*.hpp",
+    ]),
+    hdrs = glob(["include/**/*.hpp"]),
+    includes = ["include"],
+    cxxopts = select({
+        "//conditions:default": [
+            "-std=c++23",
+        ],
+        "@platforms//os:windows": [
+            "/std:c++latest",
+        ]
+    }),
+    features = [
+        # force exceptions on wasm toolchain (capy doesn't support compiling w/o exceptions)
+        "exceptions"
+    ],
+    visibility = ["//visibility:public"],
+)

@@ -69,3 +69,14 @@ register_toolchains(
 
 # required for @rules_android//:arm64-v8a in uni.bazelrc #TODO: try declare platforms in kit and check only its deps are enough
 bazel_dep(name = "rules_android", version = "0.7.1")
+
+################################################################
+git_repository = use_repo_rule("@bazel_tools//tools/build_defs/repo:git.bzl", "git_repository")
+
+git_repository(
+    name = "capy",
+    build_file = "//repo:capy.BUILD.bazel",
+    #branch = "develop",
+    commit = "902bb1988e695b7d0f0a6656b7fbb25e2ccfde42",
+    remote = "https://github.com/cppalliance/capy.git",
+)
