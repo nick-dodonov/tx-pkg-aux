@@ -76,7 +76,13 @@ git_repository = use_repo_rule("@bazel_tools//tools/build_defs/repo:git.bzl", "g
 git_repository(
     name = "capy",
     build_file = "//repo:capy.BUILD.bazel",
-    #branch = "develop",
-    commit = "902bb1988e695b7d0f0a6656b7fbb25e2ccfde42",
+    commit = "902bb1988e695b7d0f0a6656b7fbb25e2ccfde42",  # branch = "develop",
     remote = "https://github.com/cppalliance/capy.git",
+)
+
+git_repository(
+    name = "corosio",
+    build_file = "//repo:corosio.BUILD.bazel",
+    commit = "8199f3c82d72264edbdb47c4918bec4fb3cdd884",  # branch = "develop",
+    remote = "https://github.com/cppalliance/corosio.git",
 )

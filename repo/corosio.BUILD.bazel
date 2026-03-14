@@ -1,0 +1,50 @@
+load("@rules_cc//cc:cc_library.bzl", "cc_library")
+
+cc_library(
+    name = "corosio",
+    srcs = glob([
+        "src/corosio/src/**/*.cpp",
+        "src/corosio/src/**/*.hpp",
+    ]),
+    hdrs = glob(["src/corosio/src/**/*.hpp"]),
+    cxxopts = select({
+        "//conditions:default": ["-std=c++23"],
+        "@platforms//os:windows": ["/std:c++latest"],
+    }),
+    features = [
+        "exceptions",
+    ],
+    includes = ["include"],
+    strip_include_prefix = "src/corosio",
+    visibility = ["//visibility:public"],
+    deps = [
+        "@capy",
+    ],
+)
+
+cc_library(
+    name = "corosio_ssl",
+    srcs = glob([
+        "src/openssl/**/*.cpp",
+        "src/wolfssl/**/*.cpp",
+    ]) + glob(
+        [
+            "src/openssl/**/*.hpp",
+            "src/wolfssl/**/*.hpp",
+        ],
+        allow_empty = True,
+    ),
+    hdrs = glob(["include/**/*.hpp"]),
+    cxxopts = select({
+        "//conditions:default": ["-std=c++23"],
+        "@platforms//os:windows": ["/std:c++latest"],
+    }),
+    features = [
+        "exceptions",  # force exceptions on wasm toolchain (capy doesn't support compiling w/o exceptions)
+    ],
+    includes = ["include"],
+    visibility = ["//visibility:public"],
+    deps = [
+        ":corosio",
+    ],
+)

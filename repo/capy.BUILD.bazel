@@ -7,18 +7,17 @@ cc_library(
         "src/**/*.hpp",
     ]),
     hdrs = glob(["include/**/*.hpp"]),
-    includes = ["include"],
     cxxopts = select({
         "//conditions:default": [
             "-std=c++23",
         ],
         "@platforms//os:windows": [
             "/std:c++latest",
-        ]
+        ],
     }),
     features = [
-        # force exceptions on wasm toolchain (capy doesn't support compiling w/o exceptions)
-        "exceptions"
+        "exceptions",  # force exceptions on wasm toolchain (capy doesn't support compiling w/o exceptions)
     ],
+    includes = ["include"],
     visibility = ["//visibility:public"],
 )
