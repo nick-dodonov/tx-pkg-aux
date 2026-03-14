@@ -1,8 +1,26 @@
 load("@tx-kit-ext//rules:multi_app.bzl", "multi_app")
 
 multi_app(
-    name = "capy",
-    srcs = ["main.cpp"],
+    name = "main_pool",
+    srcs = ["main_pool.cpp"],
+    deps = [
+        "//src/pkg-boot",
+        "@capy",
+    ],
+)
+
+multi_app(
+    name = "main_loop",
+    srcs = ["main_loop.cpp"],
+    deps = [
+        "//src/pkg-boot",
+        "@capy",
+    ],
+)
+
+multi_app(
+    name = "main_inline",
+    srcs = ["main_inline.cpp"],
     deps = [
         "//src/pkg-boot",
         "@capy",
