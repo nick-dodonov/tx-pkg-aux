@@ -23,7 +23,8 @@ multi_lib(
     }),
     deps = [
         "//src/pkg-log",
-        "@boost.asio//:boost.asio",
+        # "@boost.asio",
+        "//src/boost_asio_wrapped",
         "@ada-url//:ada", #TODO: maybe cxxurl?
         "@gsl//:gsl",
     ] + select({

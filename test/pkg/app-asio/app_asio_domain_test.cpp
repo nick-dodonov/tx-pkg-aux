@@ -1,4 +1,4 @@
-#include "App/Domain.h"
+#include "App/Asio/Domain.h"
 #include "App/Loop/Factory.h"
 #include "Boot/Boot.h"
 
@@ -7,18 +7,19 @@
 #include <chrono>
 
 namespace asio = boost::asio;
+using namespace App::Asio;
 
 // Test basic Domain creation and destruction
 TEST(DomainTest, CreateAndDestroy)
 {
-    auto domain = std::make_shared<App::Domain>();
+    auto domain = std::make_shared<Domain>();
     EXPECT_NE(domain, nullptr);
 }
 
 // Test simple coroutine execution that returns immediately
 TEST(DomainTest, RunSimpleCoroMain)
 {
-    auto domain = std::make_shared<App::Domain>();
+    auto domain = std::make_shared<Domain>();
     auto runner = App::Loop::CreateTestRunner(domain);
     
     auto coroMain = []() -> asio::awaitable<int> {
@@ -32,7 +33,7 @@ TEST(DomainTest, RunSimpleCoroMain)
 // Test coroutine with async timer
 TEST(DomainTest, RunCoroWithAsyncTimer)
 {
-    auto domain = std::make_shared<App::Domain>();
+    auto domain = std::make_shared<Domain>();
     auto runner = App::Loop::CreateTestRunner(domain);
     
     auto coroMain = []() -> asio::awaitable<int> {
@@ -49,7 +50,7 @@ TEST(DomainTest, RunCoroWithAsyncTimer)
 // Test coroutine with multiple async operations
 TEST(DomainTest, RunCoroWithMultipleAsyncOps)
 {
-    auto domain = std::make_shared<App::Domain>();
+    auto domain = std::make_shared<Domain>();
     auto runner = App::Loop::CreateTestRunner(domain);
     
     auto coroMain = []() -> asio::awaitable<int> {
@@ -75,7 +76,7 @@ TEST(DomainTest, RunCoroWithMultipleAsyncOps)
 // Test Domain with nested coroutines
 TEST(DomainTest, RunCoroWithNestedCoro)
 {
-    auto domain = std::make_shared<App::Domain>();
+    auto domain = std::make_shared<Domain>();
     auto runner = App::Loop::CreateTestRunner(domain);
     
     auto nestedCoro = []() -> asio::awaitable<int> {
@@ -97,7 +98,7 @@ TEST(DomainTest, RunCoroWithNestedCoro)
 // Test Domain AsyncStopped functionality
 TEST(DomainTest, AsyncStoppedSignaling)
 {
-    auto domain = std::make_shared<App::Domain>();
+    auto domain = std::make_shared<Domain>();
     auto runner = App::Loop::CreateTestRunner(domain);
     
     auto coroMain = [domain]() -> asio::awaitable<int> {

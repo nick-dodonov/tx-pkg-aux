@@ -1,4 +1,4 @@
-#include "App/Domain.h"
+#include "App/Asio/Domain.h"
 #include "App/Loop/Factory.h"
 #include "Boot/Boot.h"
 #include "Http/LiteClient.h"
@@ -8,6 +8,7 @@
 #include <gtest/gtest.h>
 
 namespace asio = boost::asio;
+using namespace App::Asio;
 
 // TODO: handle --url argument passed from stub_integration_test.py
 static constexpr auto Port = 8080;
@@ -23,7 +24,7 @@ static constexpr auto Host = "localhost";
 // Test GET request to a local stub server
 TEST(HttpClientTest, GetRequestToLocalhost)
 {
-    const auto domain = std::make_shared<App::Domain>();
+    const auto domain = std::make_shared<Domain>();
     const auto runner = App::Loop::CreateTestRunner(domain);
 
     auto coroMain = []() -> asio::awaitable<int> {
@@ -74,7 +75,7 @@ TEST(HttpClientTest, GetRequestToLocalhost)
 // Test POST request to a local stub server
 TEST(HttpClientTest, PostRequestToLocalhost)
 {
-    const auto domain = std::make_shared<App::Domain>();
+    const auto domain = std::make_shared<Domain>();
     const auto runner = App::Loop::CreateTestRunner(domain);
 
     auto coroMain = []() -> asio::awaitable<int> {

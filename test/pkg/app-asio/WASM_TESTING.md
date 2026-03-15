@@ -21,7 +21,7 @@ Use existing `TightRunner` which:
 ```cpp
 #include "App/Loop/TightRunner.h"
 
-auto domain = std::make_shared<App::Domain>();
+auto domain = std::make_shared<App::Asio::Domain>();
 auto runner = std::make_shared<App::Loop::TightRunner>(domain);
 int exitCode = domain->RunCoroMain(runner, coroMain());
 ```
@@ -98,7 +98,7 @@ TEST(DomainTest, RunSimpleCoroMain)
 #if __EMSCRIPTEN__
     GTEST_SKIP() << "Skipped on WASM - requires event loop";
 #else
-    auto domain = std::make_shared<App::Domain>();
+    auto domain = std::make_shared<App::Asio::Domain>();
     auto runner = App::Loop::CreateDefaultRunner(domain);
     int exitCode = domain->RunCoroMain(runner, coroMain());
     EXPECT_EQ(exitCode, 42);

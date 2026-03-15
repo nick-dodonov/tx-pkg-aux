@@ -6,7 +6,7 @@
 #include <boost/core/noncopyable.hpp>
 #include <memory>
 
-namespace App
+namespace App::Asio
 {
     class Domain
         : public Loop::Handler

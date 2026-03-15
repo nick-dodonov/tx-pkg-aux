@@ -40,6 +40,7 @@ bazel_dep(name = "spdlog", version = "1.17.0")
 bazel_dep(name = "ada-url", version = "3.4.2-tx.1")  # private registry
 
 _boost_version = "1.90.0.bcr.1"
+
 bazel_dep(name = "boost.throw_exception", version = _boost_version)
 bazel_dep(name = "boost.intrusive", version = _boost_version)
 bazel_dep(name = "boost.asio", version = _boost_version)
@@ -99,6 +100,7 @@ bazel_dep(name = "boost.optional", version = _boost_version)
 bazel_dep(name = "boost.static_assert", version = _boost_version)
 bazel_dep(name = "boost.url", version = _boost_version)
 bazel_dep(name = "boost.json", version = _boost_version)
+
 git_repository(
     name = "cppalliance.http",
     build_file = "//repo:cppalliance.http.BUILD.bazel",

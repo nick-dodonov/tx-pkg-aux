@@ -1,4 +1,4 @@
-#include "App/Domain.h"
+#include "App/Asio/Domain.h"
 #include "App/Loop/Factory.h"
 #include "Boot/Boot.h"
 
@@ -11,7 +11,7 @@ TEST(FailTest, AssertFail)
 
 TEST(FailTest, CoroFail)
 {
-    auto domain = std::make_shared<App::Domain>();
+    auto domain = std::make_shared<App::Asio::Domain>();
     auto runner = App::Loop::CreateTestRunner(domain);
 
     auto coroMain = []() -> boost::asio::awaitable<int> { 

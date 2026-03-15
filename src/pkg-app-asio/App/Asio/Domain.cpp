@@ -2,7 +2,7 @@
 #include "Log/Log.h"
 #include "App/Loop/Runner.h"
 
-namespace App
+namespace App::Asio
 {
     Domain::Domain()
     {
