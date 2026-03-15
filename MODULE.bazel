@@ -47,7 +47,7 @@ bazel_dep(name = "boost.beast", version = "1.90.0.bcr.1")
 single_version_override(
     module_name = "boost.asio",
     patch_strip = 0,
-    patches = ["//patches:boost.asio-1.90.0.bcr.1.patch"],
+    patches = ["//repo/patches:boost.asio-1.90.0.bcr.1.patch"],
 )
 
 bazel_dep(name = "boringssl", version = "0.20251124.0")
@@ -71,6 +71,7 @@ register_toolchains(
 bazel_dep(name = "rules_android", version = "0.7.1")
 
 ################################################################
+# new cppalliance tries (corosio and http) - TODO: make private registry modules when ready
 git_repository = use_repo_rule("@bazel_tools//tools/build_defs/repo:git.bzl", "git_repository")
 
 git_repository(
