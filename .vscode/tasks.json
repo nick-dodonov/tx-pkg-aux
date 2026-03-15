@@ -22,7 +22,7 @@
         {
             "type": "shell",
             "label": "build <user>",
-            "command": "bazel build ${config:tx.debugTaskName} --platform_suffix=vs",
+            "command": "bazel build ${config:tx.debugTaskName}",
             "group": {
                 "kind": "build",
                 "isDefault": true
@@ -45,7 +45,7 @@
             "command": "shellCommand.execute",
             "args": {
                 //"command": "echo \"$WORKSPACE\nsecond\"",
-                "command": "bazel cquery --output=files ${config:tx.debugTaskName} --platform_suffix=vs",
+                "command": "bazel cquery --output=files ${config:tx.debugTaskName}",
                 "cwd": "${workspaceFolder}",
                 "useSingleResult": true
             }

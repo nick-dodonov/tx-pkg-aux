@@ -38,7 +38,7 @@
             "type": "command",
             "command": "shellCommand.execute",  // augustocdias.tasks-shell-input extension
             "args": {
-                "command": "bazel cquery --output=files ${config:tx.debugTaskName} --platform_suffix=vs",
+                "command": "bazel cquery --output=files ${config:tx.debugTaskName}",
                 "cwd": "${workspaceFolder}",
                 "useSingleResult": true
             }
