@@ -23,6 +23,7 @@ namespace App::Loop
         UpdateCtx _updateCtx;
 
         void Update();
+        void StopAndExit(int exitCode);
     };
 #endif
 }

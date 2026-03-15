@@ -30,6 +30,7 @@ namespace App::Loop
             _options.Fps,
             true
         );
+
         // emscripten_set_main_loop_arg never returns control
         __builtin_unreachable();
         return NotStartedExitCode;
@@ -37,6 +38,11 @@ namespace App::Loop
 
     void WasmRunner::Update()
     {
+        if (auto exitCode = GetExitCode()) {
+            StopAndExit(exitCode.value());
+            return;
+        }
+
         _updateCtx.Tick();
         InvokeUpdate(_updateCtx);
     }
@@ -44,16 +50,18 @@ namespace App::Loop
     void WasmRunner::Exit(int exitCode)
     {
         SetExitCode(exitCode);
+
+        // cannot StopAndExit() here because in case of concurrent Exit() 
+        //  stop handler invoke on wrong thread and exit/emscripten_force_exit fails to stop main thread (hanging)
+        // TODO: find the way to invoke callback on main thread without `if` in Update()
+    }
+
+    void WasmRunner::StopAndExit(int exitCode)
+    {
         InvokeStop();
 
         Log::Debug("emscripten_cancel_main_loop");
         emscripten_cancel_main_loop();
-
-        // TODO: find what stops the exit with error message: "program exited (with status: 1), but keepRuntimeAlive() is set (counter=1) due to an async
-        // operation, so halting execution but not exiting the runtime or preventing further async execution (you can use emscripten_force_exit, if you want to
-        // force a true shutdown)"
-        //  Log::Trace("wasm: exit: {}", exitCode);
-        //  exit(exitCode);
 
         // WASM explicit exit because emscripten_set_main_loop_arg() never returns
         // When calling from inside emscripten_set_main_loop callback, 
@@ -61,8 +69,12 @@ namespace App::Loop
         emscripten_async_call(
             [](void* arg) {
                 auto exitCode = static_cast<WasmRunner*>(arg)->GetExitCode().value_or(0);
+
                 Log::Trace("emscripten_force_exit({})", exitCode);
                 emscripten_force_exit(exitCode);
+
+                Log::Trace("exit({})", exitCode);
+                exit(exitCode);
             },
             this,
             0
