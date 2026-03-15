@@ -88,3 +88,19 @@ git_repository(
     patches = ["//repo:corosio.patch"],
     remote = "https://github.com/cppalliance/corosio.git",
 )
+
+bazel_dep(name = "boost.config", version = "1.90.0.bcr.1")
+bazel_dep(name = "boost.system", version = "1.90.0.bcr.1")
+bazel_dep(name = "boost.core", version = "1.90.0.bcr.1")
+bazel_dep(name = "boost.optional", version = "1.90.0.bcr.1")
+bazel_dep(name = "boost.static_assert", version = "1.90.0.bcr.1")
+bazel_dep(name = "boost.url", version = "1.90.0.bcr.1")
+bazel_dep(name = "boost.json", version = "1.90.0.bcr.1")
+git_repository(
+    name = "http",
+    build_file = "//repo:http.BUILD.bazel",
+    commit = "3ae8ba20a2990c8508126177e66c57b3f90e9a99",  # branch = "develop",
+    patch_args = ["-p0"],
+    patches = ["//repo:http-clock_cast.patch"],
+    remote = "git@github.com:cppalliance/http.git",
+)
