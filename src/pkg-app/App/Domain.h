@@ -17,8 +17,6 @@ namespace App
         Domain();
         ~Domain();
 
-        [[nodiscard]] auto GetExecutor() { return _io_context.get_executor(); }
-
         int RunCoroMain(const std::shared_ptr<Loop::IRunner>& runner, boost::asio::awaitable<int> coroMain);
         boost::asio::awaitable<boost::system::error_code> AsyncStopped();
 

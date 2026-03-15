@@ -15,15 +15,6 @@ TEST(DomainTest, CreateAndDestroy)
     EXPECT_NE(domain, nullptr);
 }
 
-// Test Domain executor availability
-TEST(DomainTest, GetExecutor)
-{
-    auto domain = std::make_shared<App::Domain>();
-    auto executor = domain->GetExecutor();
-    // Just verify we can get an executor (it's a valid type)
-    EXPECT_NE(&executor, nullptr);
-}
-
 // Test simple coroutine execution that returns immediately
 TEST(DomainTest, RunSimpleCoroMain)
 {
