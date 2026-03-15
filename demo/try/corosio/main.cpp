@@ -1,8 +1,10 @@
 #include "Boot/Boot.h"
 #include "Log/Log.h"
 
+#include <boost/capy/ex/thread_pool.hpp>
 #include <boost/capy/ex/run_async.hpp>
 #include <boost/capy/task.hpp>
+#include <boost/capy/delay.hpp>
 #include <boost/corosio.hpp>
 
 #include <cstdlib>
@@ -13,9 +15,14 @@
 namespace corosio = boost::corosio;
 namespace capy = boost::capy;
 
-capy::task<void> do_lookup(corosio::io_context& ioc, std::string_view host, std::string_view service)
+using namespace std::literals;
+
+capy::task<void> do_lookup(capy::execution_context& ctx, std::string_view host, std::string_view service)
 {
-    corosio::resolver r(ioc);
+    auto executor = co_await capy::this_coro::executor;
+    corosio::resolver r(executor);
+
+    co_await capy::delay(500ms); // simulate some work before starting the lookup
 
     auto [ec, results] = co_await r.resolve(host, service);
     if (ec) {
@@ -58,9 +65,25 @@ int main(const int argc, const char** argv)
     std::string_view host = argv[1];
     std::string_view service = (argc == 3) ? argv[2] : "";
 
-    corosio::io_context ioc;
-    capy::run_async(ioc.get_executor())(do_lookup(ioc, host, service));
-    ioc.run();
+    {
+        corosio::io_context ioc;
+        auto executor = ioc.get_executor();
+        capy::run_async(executor)(do_lookup(ioc, host, service));
+        ioc.run();
+    }
 
+    // {
+    //     capy::thread_pool pool(1);
+    //     auto executor = pool.get_executor();
+    //     capy::run_async(executor, []() { Log::Info("COMPLETE"); },
+    //         [](std::exception_ptr ep) {
+    //             Log::Info("ERROR");
+    //             // try { std::rethrow_exception(ep); }
+    //             // catch (std::exception const& e) {
+    //             //     std::cout << "Error: " << e.what() << "\n";
+    //             // }
+    //         })(do_lookup(pool, host, service));
+    //     pool.join();
+    // }
     return EXIT_SUCCESS;
 }
