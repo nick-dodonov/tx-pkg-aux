@@ -5,7 +5,7 @@ multi_app(
     srcs = ["main.cpp"],
     deps = [
         "//src/pkg-boot",
-        "@corosio",
+        "@cppalliance.corosio",
     ],
     # platforms = ["host", "droid"]  # wasm doesn't have sockets
 )

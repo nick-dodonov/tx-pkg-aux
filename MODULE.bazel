@@ -74,18 +74,18 @@ bazel_dep(name = "rules_android", version = "0.7.1")
 git_repository = use_repo_rule("@bazel_tools//tools/build_defs/repo:git.bzl", "git_repository")
 
 git_repository(
-    name = "capy",
-    build_file = "//repo:capy.BUILD.bazel",
+    name = "cppalliance.capy",
+    build_file = "//repo:cppalliance.capy.BUILD.bazel",
     commit = "902bb1988e695b7d0f0a6656b7fbb25e2ccfde42",  # branch = "develop",
     remote = "https://github.com/cppalliance/capy.git",
 )
 
 git_repository(
-    name = "corosio",
-    build_file = "//repo:corosio.BUILD.bazel",
+    name = "cppalliance.corosio",
+    build_file = "//repo:cppalliance.corosio.BUILD.bazel",
     commit = "8199f3c82d72264edbdb47c4918bec4fb3cdd884",  # branch = "develop",
     patch_args = ["-p0"],
-    patches = ["//repo:corosio.patch"],
+    patches = ["//repo:cppalliance.corosio.patch"],
     remote = "https://github.com/cppalliance/corosio.git",
 )
 
@@ -97,10 +97,10 @@ bazel_dep(name = "boost.static_assert", version = "1.90.0.bcr.1")
 bazel_dep(name = "boost.url", version = "1.90.0.bcr.1")
 bazel_dep(name = "boost.json", version = "1.90.0.bcr.1")
 git_repository(
-    name = "http",
-    build_file = "//repo:http.BUILD.bazel",
+    name = "cppalliance.http",
+    build_file = "//repo:cppalliance.http.BUILD.bazel",
     commit = "3ae8ba20a2990c8508126177e66c57b3f90e9a99",  # branch = "develop",
     patch_args = ["-p0"],
-    patches = ["//repo:http-clock_cast.patch"],
+    patches = ["//repo:cppalliance.http-clock_cast.patch"],
     remote = "git@github.com:cppalliance/http.git",
 )

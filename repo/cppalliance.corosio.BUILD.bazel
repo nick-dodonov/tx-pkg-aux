@@ -1,7 +1,7 @@
 load("@rules_cc//cc:cc_library.bzl", "cc_library")
 
 cc_library(
-    name = "corosio",
+    name = "cppalliance.corosio",
     srcs = glob([
         "src/corosio/src/**/*.cpp",
         "src/corosio/src/**/*.hpp",
@@ -18,12 +18,12 @@ cc_library(
     strip_include_prefix = "src/corosio",
     visibility = ["//visibility:public"],
     deps = [
-        "@capy",
+        "@cppalliance.capy",
     ],
 )
 
 cc_library(
-    name = "corosio_ssl",
+    name = "cppalliance.corosio_ssl",
     srcs = glob([
         "src/openssl/**/*.cpp",
         "src/wolfssl/**/*.cpp",
@@ -45,6 +45,6 @@ cc_library(
     includes = ["include"],
     visibility = ["//visibility:public"],
     deps = [
-        ":corosio",
+        ":cppalliance.corosio",
     ],
 )

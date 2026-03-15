@@ -5,7 +5,7 @@ multi_app(
     srcs = ["main_pool.cpp"],
     deps = [
         "//src/pkg-boot",
-        "@capy",
+        "@cppalliance.capy",
     ],
 )
 
@@ -14,7 +14,7 @@ multi_app(
     srcs = ["main_loop.cpp"],
     deps = [
         "//src/pkg-boot",
-        "@capy",
+        "@cppalliance.capy",
     ],
 )
 
@@ -23,6 +23,6 @@ multi_app(
     srcs = ["main_inline.cpp"],
     deps = [
         "//src/pkg-boot",
-        "@capy",
+        "@cppalliance.capy",
     ],
 )

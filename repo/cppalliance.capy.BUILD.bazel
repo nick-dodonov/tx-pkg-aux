@@ -1,7 +1,7 @@
 load("@rules_cc//cc:cc_library.bzl", "cc_library")
 
 cc_library(
-    name = "http",
+    name = "cppalliance.capy",
     srcs = glob([
         "src/**/*.cpp",
         "src/**/*.hpp",
@@ -16,15 +16,4 @@ cc_library(
     ],
     includes = ["include"],
     visibility = ["//visibility:public"],
-    deps = [
-        "@capy",
-
-        "@boost.config",
-        "@boost.system",
-        "@boost.core",
-        "@boost.optional",
-        "@boost.static_assert",
-        "@boost.url",
-        "@boost.json",
-    ]
 )
