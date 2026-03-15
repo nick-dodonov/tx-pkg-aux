@@ -39,7 +39,7 @@ exec_binary(
 # Glue all together
 sh_test(
     name = "http.cmd",
-    srcs = ["@tx-kit-ext//runner:sh_wrapper.cmd"],
+    srcs = ["@tx-kit-ext//runner:sh_wrapper"],
     data = [
         "//:runner",
         ":bridge.cmd",
