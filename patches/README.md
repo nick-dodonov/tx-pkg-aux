@@ -12,10 +12,6 @@ patches/
 ├── boost.asio/                # boost.asio patch workspace
 │   ├── source/BUILD.bazel     # Original BCR BUILD file
 │   └── target/BUILD.bazel     # Modified BUILD file
-├── boost.container.patch      # Generated patch file
-└── boost.container/           # boost.container patch workspace
-    ├── source/BUILD.bazel
-    └── target/BUILD.bazel
 ```
 
 ## Current Patches
@@ -25,18 +21,10 @@ patches/
 - Adds `-pthread` flag specifically for WASM platform (`@platforms//cpu:wasm32`)
 - Patches both BUILD.bazel and adds android-specific config
 
-### boost.container.patch  
-- Adds conditional `-pthread` flag only for WASM platform (`@platforms//cpu:wasm32`)
-- **Note**: Only patches BUILD.bazel. MODULE.bazel patching via single_version_override is problematic.
-- **Limitation**: boost.container cannot see `@platforms` repository without adding it to its MODULE.bazel
-- **Workaround**: Publish to tx-kit-registry with MODULE.bazel fix as version tx.2
-
 ## Limitations
 
 Bazel's `single_version_override` has strict patch validation that makes MODULE.bazel patching difficult.
-For boost.container, the BUILD.bazel patch is ready but cannot be used without MODULE.bazel changes.
-
-**Recommended solution**: Create boost.container version 1.89.0.bcr.1-tx.2 in tx-kit-registry with proper MODULE.bazel including platforms dependency.
+**Recommended solution**: Create module version *-tx.N in tx-kit-registry with proper MODULE.bazel including required dependencies.
 
 ## Usage
 
@@ -52,7 +40,6 @@ cd patches/
 Examples:
 ```bash
 ./generate_patch.sh boost.asio
-./generate_patch.sh boost.container
 ```
 
 ### How It Works
@@ -67,7 +54,7 @@ Examples:
 Patches are applied automatically via `single_version_override` in MODULE.bazel:
 
 ```python
-bazel_dep(name = "boost.asio", version = "1.89.0.bcr.1.1-tx.1")
+bazel_dep(name = "boost.asio", version = "...")
 
 single_version_override(
     module_name = "boost.asio",

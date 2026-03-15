@@ -38,18 +38,18 @@ git_override(
 # src dependencies
 bazel_dep(name = "spdlog", version = "1.17.0")
 bazel_dep(name = "ada-url", version = "3.4.2-tx.1")  # private registry
-bazel_dep(name = "boost.throw_exception", version = "1.89.0.bcr.1")
-bazel_dep(name = "boost.asio", version = "1.89.0.bcr.1.1-tx.1")  # private registry
-bazel_dep(name = "boost.beast", version = "1.89.0.bcr.1")
+
+bazel_dep(name = "boost.throw_exception", version = "1.90.0.bcr.1")
+bazel_dep(name = "boost.asio", version = "1.90.0.bcr.1")
+bazel_dep(name = "boost.beast", version = "1.90.0.bcr.1")
 
 # Local override for development build modifications # TODO: move to private registry when ready
 single_version_override(
     module_name = "boost.asio",
     patch_strip = 0,
-    patches = ["//patches:boost.asio.patch"],
+    patches = ["//patches:boost.asio-1.90.0.bcr.1.patch"],
 )
 
-bazel_dep(name = "boost.container", version = "1.89.0.bcr.1")
 bazel_dep(name = "boringssl", version = "0.20251124.0")
 bazel_dep(name = "nghttp2", version = "1.65.0")
 bazel_dep(name = "gsl", version = "4.2.1")
@@ -85,6 +85,6 @@ git_repository(
     build_file = "//repo:corosio.BUILD.bazel",
     commit = "8199f3c82d72264edbdb47c4918bec4fb3cdd884",  # branch = "develop",
     patch_args = ["-p0"],
-    patches = ["//patches:corosio.patch"],
+    patches = ["//repo:corosio.patch"],
     remote = "https://github.com/cppalliance/corosio.git",
 )

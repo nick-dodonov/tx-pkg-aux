@@ -1,1 +1,4 @@
-exports_files(glob(["*.bazel"]))
+exports_files(glob([
+    "*.bazel",
+    "*.patch",
+]))

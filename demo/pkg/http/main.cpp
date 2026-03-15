@@ -16,7 +16,8 @@ static std::vector<std::string> ChooseTryUrls(const Boot::CliArgs& args)
         {"h400", "http://httpbun.com/status/400"},
         {"hget", "http://httpbun.com/get"},
         {"get", "https://httpbun.com/get"},
-        {"eget", " https://self-signed-cert.httpbun.com/get"},
+        {"eget", "https://self-signed-cert.httpbun.com/get"},
+        {"h2", "https://httpbin.org/get"},
     };
 
     std::vector<std::string> selectedUrls;

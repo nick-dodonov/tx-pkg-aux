@@ -28,13 +28,6 @@ config_setting(
     flag_values = {":ssl": "boringssl"},
 )
 
-config_setting(
-    name = "disable_boost_context",
-    # Disable Boost.Context on Windows ARM64 due to build issues in boost.context
-    #   bazel query --output=build "@platforms//host"
-    constraint_values = ["@platforms//cpu:aarch64", "@platforms//os:windows"],
-)
-
 write_file(
     name = "src_win",
     out = "boost.asio.src.win.cpp",
@@ -97,13 +90,7 @@ cc_library(
             "NOMINMAX",  # Prevent Windows min/max macros
         ],
         "//conditions:default": [],
-    #### Workaround for Emscripten on Windows ARM64 (w/o boost.context)
-    }) + select({
-        "//conditions:default": [],
-        "@platforms//cpu:wasm32": ["BOOST_ASIO_DISABLE_BOOST_CONTEXT_FIBER"],
-        ":disable_boost_context": ["BOOST_ASIO_DISABLE_BOOST_CONTEXT_FIBER"],
     }),
-    ####
     includes = ["include"],
     linkopts = select({
         "@platforms//os:windows": [
@@ -119,10 +106,7 @@ cc_library(
         "@boost.align",
         "@boost.assert",
         "@boost.config",
-        #### Workaround for Emscripten on Windows ARM64 (w/o boost.context)
-        #   moved to select() below
-        #"@boost.context",
-        ####
+        "@boost.context",
         "@boost.date_time",
         "@boost.system",
         "@boost.throw_exception",
@@ -130,13 +114,5 @@ cc_library(
         ":boringssl": ["@boringssl//:ssl"],
         ":no_ssl": [],
         ":openssl": ["@openssl//:ssl"],
-    #### Workaround for Emscripten on Windows ARM64 (w/o boost.context)
-    }) + select({
-        "//conditions:default": [
-            "@boost.context",
-        ],
-        "@platforms//cpu:wasm32": [],
-        ":disable_boost_context": [],
     }),
-    ####
 )
