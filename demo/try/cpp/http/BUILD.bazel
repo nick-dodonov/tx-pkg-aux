@@ -1,11 +1,10 @@
 load("@tx-kit-ext//rules:multi_app.bzl", "multi_app")
 
 multi_app(
-    name = "corosio",
+    name = "http",
     srcs = ["main.cpp"],
     deps = [
         "//src/pkg-boot",
-        "@cppalliance.corosio",
+        "@cppalliance.http",
     ],
-    # platforms = ["host", "droid"]  # wasm doesn't have sockets
 )
