@@ -77,7 +77,7 @@ git_repository = use_repo_rule("@bazel_tools//tools/build_defs/repo:git.bzl", "g
 git_repository(
     name = "cppalliance.capy",
     build_file = "//repo:cppalliance.capy.BUILD.bazel",
-    commit = "902bb1988e695b7d0f0a6656b7fbb25e2ccfde42",  # branch = "develop",
+    commit = "4138e90130c79272c49ca75c40bb30e3b9a502b2",  # branch = "develop",
     remote = "https://github.com/cppalliance/capy.git",
 )
 
@@ -90,18 +90,34 @@ git_repository(
     remote = "https://github.com/cppalliance/corosio.git",
 )
 
-bazel_dep(name = "boost.config", version = "1.90.0.bcr.1")
-bazel_dep(name = "boost.system", version = "1.90.0.bcr.1")
-bazel_dep(name = "boost.core", version = "1.90.0.bcr.1")
-bazel_dep(name = "boost.optional", version = "1.90.0.bcr.1")
-bazel_dep(name = "boost.static_assert", version = "1.90.0.bcr.1")
-bazel_dep(name = "boost.url", version = "1.90.0.bcr.1")
-bazel_dep(name = "boost.json", version = "1.90.0.bcr.1")
+_boost_version = "1.90.0.bcr.1"
+bazel_dep(name = "boost.config", version = _boost_version)
+bazel_dep(name = "boost.system", version = _boost_version)
+bazel_dep(name = "boost.core", version = _boost_version)
+bazel_dep(name = "boost.optional", version = _boost_version)
+bazel_dep(name = "boost.static_assert", version = _boost_version)
+bazel_dep(name = "boost.url", version = _boost_version)
+bazel_dep(name = "boost.json", version = _boost_version)
 git_repository(
     name = "cppalliance.http",
     build_file = "//repo:cppalliance.http.BUILD.bazel",
     commit = "3ae8ba20a2990c8508126177e66c57b3f90e9a99",  # branch = "develop",
     patch_args = ["-p0"],
     patches = ["//repo:cppalliance.http-clock_cast.patch"],
-    remote = "git@github.com:cppalliance/http.git",
+    remote = "https://github.com/cppalliance/http.git",
+)
+
+bazel_dep(name = "boost.assert", version = _boost_version)
+# git_repository(
+#     name = "cppalliance.beast2",
+#     build_file = "//repo:cppalliance.beast2.BUILD.bazel",
+#     commit = "c0491ed93e6f0714a848e3b7d5ecce73874e32f3",  # branch = "develop",
+#     # patch_args = ["-p1"],
+#     # patches = ["//repo:cppalliance.beast2-any_router.patch"],
+#     remote = "https://github.com/cppalliance/beast2.git",
+# )
+local_repository = use_repo_rule("@bazel_tools//tools/build_defs/repo:local.bzl", "local_repository")
+local_repository(
+    name = "cppalliance.beast2",
+    path = "/Users/rix/p/t/cppalliance/beast2",
 )
