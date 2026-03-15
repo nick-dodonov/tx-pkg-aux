@@ -7,5 +7,5 @@ multi_app(
         "//src/pkg-boot",
         "@corosio",
     ],
-    platforms = ["host", "droid"]  # wasm doesn't have sockets
+    # platforms = ["host", "droid"]  # wasm doesn't have sockets
 )

@@ -84,5 +84,7 @@ git_repository(
     name = "corosio",
     build_file = "//repo:corosio.BUILD.bazel",
     commit = "8199f3c82d72264edbdb47c4918bec4fb3cdd884",  # branch = "develop",
+    patch_args = ["-p0"],
+    patches = ["//patches:corosio.patch"],
     remote = "https://github.com/cppalliance/corosio.git",
 )
