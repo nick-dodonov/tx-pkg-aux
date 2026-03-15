@@ -27,7 +27,7 @@ namespace App::Asio
         Async::Mutex _mutex;
         std::shared_ptr<StopChannel> _stopChannel ASYNC_GUARDED_BY(_mutex);
 
-        // Loop::Handler interface
+        // Loop::Handler
         bool Start() override;
         void Stop() override;
         void Update(const Loop::UpdateCtx& ctx) override;

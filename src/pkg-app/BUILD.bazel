@@ -14,6 +14,8 @@ multi_lib(
     visibility = ["//visibility:public"],
     deps = [
         "//src/pkg-boot",
+        "@boost.core",
         "@boost.intrusive",
+        "@cppalliance.capy",
     ],
 )

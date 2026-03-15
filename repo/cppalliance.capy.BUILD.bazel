@@ -12,7 +12,8 @@ cc_library(
         "@platforms//os:windows": ["/std:c++latest"],
     }),
     features = [
-        "exceptions",  # force exceptions on wasm toolchain (capy doesn't support compiling w/o exceptions)
+        "exceptions",   # force exceptions on wasm toolchain (capy doesn't support compiling w/o exceptions)
+        "use_pthreads", # capy's thread_pool requires pthreads
     ],
     includes = ["include"],
     visibility = ["//visibility:public"],
