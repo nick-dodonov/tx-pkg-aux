@@ -39,9 +39,11 @@ git_override(
 bazel_dep(name = "spdlog", version = "1.17.0")
 bazel_dep(name = "ada-url", version = "3.4.2-tx.1")  # private registry
 
-bazel_dep(name = "boost.throw_exception", version = "1.90.0.bcr.1")
-bazel_dep(name = "boost.asio", version = "1.90.0.bcr.1")
-bazel_dep(name = "boost.beast", version = "1.90.0.bcr.1")
+_boost_version = "1.90.0.bcr.1"
+bazel_dep(name = "boost.throw_exception", version = _boost_version)
+bazel_dep(name = "boost.intrusive", version = _boost_version)
+bazel_dep(name = "boost.asio", version = _boost_version)
+bazel_dep(name = "boost.beast", version = _boost_version)
 
 # Local override for development build modifications # TODO: move to private registry when ready
 single_version_override(
@@ -90,7 +92,6 @@ git_repository(
     remote = "https://github.com/cppalliance/corosio.git",
 )
 
-_boost_version = "1.90.0.bcr.1"
 bazel_dep(name = "boost.config", version = _boost_version)
 bazel_dep(name = "boost.system", version = _boost_version)
 bazel_dep(name = "boost.core", version = _boost_version)
@@ -107,17 +108,17 @@ git_repository(
     remote = "https://github.com/cppalliance/http.git",
 )
 
-bazel_dep(name = "boost.assert", version = _boost_version)
-# git_repository(
+# bazel_dep(name = "boost.assert", version = _boost_version)
+# # git_repository(
+# #     name = "cppalliance.beast2",
+# #     build_file = "//repo:cppalliance.beast2.BUILD.bazel",
+# #     commit = "c0491ed93e6f0714a848e3b7d5ecce73874e32f3",  # branch = "develop",
+# #     # patch_args = ["-p1"],
+# #     # patches = ["//repo:cppalliance.beast2-any_router.patch"],
+# #     remote = "https://github.com/cppalliance/beast2.git",
+# # )
+# local_repository = use_repo_rule("@bazel_tools//tools/build_defs/repo:local.bzl", "local_repository")
+# local_repository(
 #     name = "cppalliance.beast2",
-#     build_file = "//repo:cppalliance.beast2.BUILD.bazel",
-#     commit = "c0491ed93e6f0714a848e3b7d5ecce73874e32f3",  # branch = "develop",
-#     # patch_args = ["-p1"],
-#     # patches = ["//repo:cppalliance.beast2-any_router.patch"],
-#     remote = "https://github.com/cppalliance/beast2.git",
+#     path = "/Users/rix/p/t/cppalliance/beast2",
 # )
-local_repository = use_repo_rule("@bazel_tools//tools/build_defs/repo:local.bzl", "local_repository")
-local_repository(
-    name = "cppalliance.beast2",
-    path = "/Users/rix/p/t/cppalliance/beast2",
-)
