@@ -1,20 +1,12 @@
 load("@tx-kit-ext//rules:multi_lib.bzl", "multi_lib")
 
 multi_lib(
-    name = "pkg-boot",
+    name = "fs",
     srcs = glob(["**/*.cpp"]),
     hdrs = glob(["**/*.h"]),
     strip_include_prefix = ".",
-    linkopts = select({
-        # TODO: research dbghelp.lib "price" and is it allowed in release builds?
-        "@platforms//os:windows": ["-DEFAULTLIB:dbghelp.lib"],
-        "//conditions:default": [],
-    }),
     deps = [
-        "//src/pkg-log",
-        "//src/pkg-build",
-
-        "@boost.throw_exception//:boost.throw_exception",
+        "//src/pkg/boot",
 
         # https://fuchsia.googlesource.com/fuchsia/+/HEAD/build/bazel/BAZEL_RUNFILES.md
         # Obsolete: 

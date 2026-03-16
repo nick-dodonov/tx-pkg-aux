@@ -4,7 +4,7 @@ multi_app(
     name = "http-nghttp2",
     srcs = glob(["**/*.cpp", "**/*.h"]),
     deps = [
-        "@tx-pkg-aux//src/pkg-boot",
+        "@tx-pkg-aux//src/pkg/boot",
         "@nghttp2//:nghttp2",
         "@boringssl//:ssl",
     ],

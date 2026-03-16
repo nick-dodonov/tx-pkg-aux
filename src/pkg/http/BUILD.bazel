@@ -13,7 +13,7 @@ config_setting(
 )
 
 multi_lib(
-    name = "pkg-http",
+    name = "http",
     srcs = glob(["**/*.cpp"]),
     hdrs = glob(["**/*.h"]),
     strip_include_prefix = ".",
@@ -22,7 +22,7 @@ multi_lib(
         "//conditions:default": ["HTTP_CLIENT_WITH_SSL"],
     }),
     deps = [
-        "//src/pkg-log",
+        "//src/pkg/log",
         # "@boost.asio",
         "//src/boost_asio_wrapped",
         "@ada-url//:ada", #TODO: maybe cxxurl?

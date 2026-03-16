@@ -8,7 +8,6 @@
 #include <cassert>
 
 #include "App/Loop/TightRunner.h"
-#include "src/pkg-boot/Boot/Boot.h"
 
 using IRunner = App::Loop::IRunner;
 using UpdateCtx = App::Loop::UpdateCtx;

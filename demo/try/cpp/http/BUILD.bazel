@@ -4,7 +4,7 @@ multi_app(
     name = "http",
     srcs = ["main.cpp"],
     deps = [
-        "//src/pkg-boot",
+        "//src/pkg/boot",
         "@cppalliance.http",
     ],
 )

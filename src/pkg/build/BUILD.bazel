@@ -11,7 +11,7 @@ generate_build_info(
 
 # Build info library with generated implementation
 cc_library(
-    name = "pkg-build",
+    name = "build",
     srcs = ["Build/Info.generated.cc"],
     hdrs = ["Build/Info.h"],
     strip_include_prefix = ".",

@@ -10,7 +10,7 @@ multi_test(
     srcs = ["fs_test.cpp"],
     data = [":test_data"],
     deps = [
-        "//src/pkg-fs",
+        "//src/pkg/fs",
         "@googletest//:gtest_main",
     ],
 )

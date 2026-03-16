@@ -4,7 +4,7 @@ multi_app(
     name = "bin",
     srcs = ["cc_src.cpp"],
     deps = [
-        "//src/pkg-log",
+        "//src/pkg/log",
         "@googletest//:gtest_main",
     ],
 )

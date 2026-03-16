@@ -4,7 +4,7 @@ multi_app(
     name = "http-wasm-fetch",
     srcs = glob(["*.cpp"]),
     deps = [
-        "@tx-pkg-aux//src/pkg-boot",
+        "@tx-pkg-aux//src/pkg/boot",
     ],
     linkopts = [
         "-sFETCH=1",
