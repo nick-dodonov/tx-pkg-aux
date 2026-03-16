@@ -18,7 +18,10 @@ static Coro::Task<int> MainAsync()
         Log::Error("Failed to read file: {}", result.error().message());
         co_return 1;
     }
-    Log::Info("Content:\n{}", result.value());
+
+    const auto& bytes = result.value();
+    std::string_view content(reinterpret_cast<const char*>(bytes.data()), bytes.size()); // NOLINT(cppcoreguidelines-pro-type-reinterpret-cast)
+    Log::Info("Content:\n{}", content);
 
     co_return 0;
 }

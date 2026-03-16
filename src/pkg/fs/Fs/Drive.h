@@ -20,6 +20,6 @@ namespace Fs
 
         //TODO: research capy buffer usage
         using ReadAllBytesResult = std::expected<std::vector<uint8_t>, std::error_code>;
-        [[nodiscard]] virtual Coro::Task<ReadAllBytesResult> ReadAllBytesAsync(const Path& path);
+        [[nodiscard]] virtual Coro::Task<ReadAllBytesResult> ReadAllBytesAsync(Path path) = 0;
     };
 }

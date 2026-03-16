@@ -60,10 +60,24 @@ namespace Fs
         }
 
         if (_nativeDrive) {
-            // check if file exists in native drive to provide better error handling (e.g., distinguish between "not supported" and "file not found")
+            // Verify file exists through native drive for better error handling
             return _nativeDrive->GetNativePath(Path(nativePath));
         }
 
         return Path(nativePath);
+    }
+
+    Coro::Task<Drive::ReadAllBytesResult> RunfilesDrive::ReadAllBytesAsync(Path path)
+    {
+        auto nativePathResult = GetNativePath(path);
+        if (!nativePathResult) {
+            co_return std::unexpected(nativePathResult.error());
+        }
+
+        if (_nativeDrive) {
+            co_return co_await _nativeDrive->ReadAllBytesAsync(nativePathResult.value());
+        }
+
+        co_return std::unexpected(std::make_error_code(std::errc::not_supported));
     }
 }
