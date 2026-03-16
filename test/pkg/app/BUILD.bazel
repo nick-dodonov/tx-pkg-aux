@@ -1,8 +1,8 @@
 load("@tx-kit-ext//rules:multi_app.bzl", "multi_test")
 
 multi_test(
-    name = "async_mutex",
-    srcs = ["async_mutex_test.cpp"],
+    name = "app",
+    srcs = glob(["*.cpp"]),
     deps = [
         "//src/pkg/app",
         "@googletest//:gtest_main",

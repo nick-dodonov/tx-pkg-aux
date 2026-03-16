@@ -126,7 +126,7 @@ TEST(DomainTest, AsyncStoppedSignaling)
 
 int main(int argc, char** argv)
 {
-    ::testing::InitGoogleTest(&argc, argv);
     Boot::DefaultInit(argc, const_cast<const char**>(argv));
+    ::testing::InitGoogleTest(&argc, argv);
     return RUN_ALL_TESTS();
 }
