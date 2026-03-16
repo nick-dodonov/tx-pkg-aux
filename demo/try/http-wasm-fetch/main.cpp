@@ -85,8 +85,8 @@ int main() {
 //     printf("Data: %.*s\n", (int)fetch->numBytes, fetch->data);
 //     emscripten_fetch_close(fetch);
     
-//     // Продолжаем выполнение после получения данных
-//     // Можете вызвать другую функцию отсюда
+//     // Continue execution after receiving data
+//     // You can call another function from here
 // }
 
 // void onError(emscripten_fetch_t* fetch) {
@@ -104,6 +104,6 @@ int main() {
     
 //     emscripten_fetch(&attr, "https://example.com/");
     
-//     // main() завершается немедленно, но callbacks будут вызваны позже
+//     // main() completes immediately, but callbacks will be called later
 //     return 0;
 // }

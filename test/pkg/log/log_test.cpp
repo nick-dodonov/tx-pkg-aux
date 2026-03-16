@@ -1,33 +1,33 @@
 #include "Log/Log.h"
 #include <gtest/gtest.h>
 
-// Тест проверяет, что Log::info работает корректно
+// Test verifies that Log::info works correctly
 TEST(LogTest, InfoWorks) {
-    // Просто вызываем метод - если он не крашится, тест пройден
+    // Simply call the method - if it doesn't crash, the test passes
     Log::Info("Test info message");
-    EXPECT_TRUE(true); // Подтверждаем что мы дошли до этой строки
+    EXPECT_TRUE(true); // Confirm that we reached this line
 }
 
-// Тест проверяет, что Log::warn работает корректно
+// Test verifies that Log::warn works correctly
 TEST(LogTest, WarnWorks) {
-    // Просто вызываем метод - если он не крашится, тест пройден
+    // Simply call the method - if it doesn't crash, the test passes
     Log::Warn("Test warning message");
-    EXPECT_TRUE(true); // Подтверждаем что мы дошли до этой строки
+    EXPECT_TRUE(true); // Confirm that we reached this line
 }
 
-// Тест проверяет, что Log::error работает корректно  
+// Test verifies that Log::error works correctly  
 TEST(LogTest, ErrorWorks) {
-    // Просто вызываем метод - если он не крашится, тест пройден
+    // Simply call the method - if it doesn't crash, the test passes
     Log::Error("Test error message");
-    EXPECT_TRUE(true); // Подтверждаем что мы дошли до этой строки
+    EXPECT_TRUE(true); // Confirm that we reached this line
 }
 
-// Простой интеграционный тест - проверяем что все методы можно вызвать подряд
+// Simple integration test - verify that all methods can be called in sequence
 TEST(LogTest, AllMethodsIntegration) {
     Log::Info("Integration test info");
     Log::Warn("Integration test warn");
     Log::Error("Integration test error");
     
-    // Если мы дошли до этой строки, значит все методы отработали без крашей
+    // If we reached this line, all methods executed without crashes
     EXPECT_TRUE(true);
 }

@@ -6,5 +6,5 @@ multi_app(
     deps = [
         "//src/pkg/app-asio",
         "//src/pkg/http",
-    ]
+    ],
 )

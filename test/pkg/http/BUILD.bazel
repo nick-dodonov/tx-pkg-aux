@@ -1,7 +1,7 @@
-load("@rules_shell//shell:sh_test.bzl", "sh_test")
 load("@rules_python//python:defs.bzl", "py_binary")
-load("@tx-kit-ext//rules:multi_app.bzl", "multi_app")
+load("@rules_shell//shell:sh_test.bzl", "sh_test")
 load("@tx-kit-ext//rules:exec_binary.bzl", "exec_binary")
+load("@tx-kit-ext//rules:multi_app.bzl", "multi_app")
 
 # Client on target platform with execution platform wrapper
 multi_app(
@@ -20,6 +20,7 @@ alias(
     name = "server",
     actual = "//test/pkg/http/stub:stub_server",
 )
+
 exec_binary(
     name = "server.cmd",
     binary = ":server",
@@ -31,6 +32,7 @@ py_binary(
     srcs = ["//test/pkg/http/integration_bridge:integration_bridge.py"],
     main = "integration_bridge.py",
 )
+
 exec_binary(
     name = "bridge.cmd",
     binary = ":bridge",
@@ -40,24 +42,25 @@ exec_binary(
 sh_test(
     name = "http.cmd",
     srcs = ["@tx-kit-ext//runner:sh_wrapper"],
-    data = [
-        "//:runner",
-        ":bridge.cmd",
-        ":server.cmd",
-        ":client",
-    ],
     args = [
         "$(location //:runner)",
         "$(location :bridge.cmd)",
         "$(location :server.cmd)",
         "$(location :client)",
     ],
+    data = [
+        ":bridge.cmd",
+        ":client",
+        ":server.cmd",
+        "//:runner",
+    ],
     tags = [
-        "int",  # int: integration test (longer running, external dependencies, etc.)
         "exclusive",  # exclusive: prevent parallel execution with other tests (port conflicts)
+        "int",  # int: integration test (longer running, external dependencies, etc.)
         "requires-network",  # requires-network: test uses network (local server on specific port)
     ],
 )
+
 test_suite(
     name = "http",
     tests = [":http.cmd"],

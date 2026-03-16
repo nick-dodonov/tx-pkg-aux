@@ -12,9 +12,9 @@ multi_test(
 multi_test(
     name = "fail",
     srcs = ["fail_boot.cpp"],
+    tags = ["manual"],  # Don't run this test automatically, only for manual checks
     deps = [
         "//src/pkg/boot",
         "@googletest//:gtest_main",
     ],
-    tags = ["manual"],  # Don't run this test automatically, only for manual checks
 )

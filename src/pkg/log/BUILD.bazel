@@ -4,13 +4,13 @@ multi_lib(
     name = "log",
     srcs = glob(["**/*.cpp"]),
     hdrs = glob(["**/*.h"]),
-    strip_include_prefix = ".",
     defines = [
         "SPDLOG_USE_STD_FORMAT",
         "SPDLOG_NO_EXCEPTIONS",
     ],
-    deps = [
-        "@spdlog//:spdlog",
-    ],
+    strip_include_prefix = ".",
     visibility = ["//visibility:public"],
+    deps = [
+        "@spdlog",
+    ],
 )

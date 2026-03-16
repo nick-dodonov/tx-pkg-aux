@@ -5,14 +5,15 @@ multi_lib(
     srcs = glob(["**/*.cpp"]),
     hdrs = glob(["**/*.h"]),
     strip_include_prefix = ".",
+    visibility = ["//visibility:public"],
     deps = [
         "//src/pkg/boot",
+        "//src/pkg/coro",
 
         # https://fuchsia.googlesource.com/fuchsia/+/HEAD/build/bazel/BAZEL_RUNFILES.md
-        # Obsolete: 
+        # Obsolete:
         #   "@bazel_tools//tools/cpp/runfiles",
         #   as refers to rules_cc: https://github.com/bazelbuild/bazel/blob/master/tools/cpp/runfiles/runfiles.h
         "@rules_cc//cc/runfiles",
     ],
-    visibility = ["//visibility:public"],
 )

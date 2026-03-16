@@ -1,5 +1,5 @@
-load("@tx-kit-ext//rules:multi_lib.bzl", "multi_lib")
 load("@tx-kit-ext//rules:multi_app.bzl", "multi_app")
+load("@tx-kit-ext//rules:multi_lib.bzl", "multi_lib")
 
 # sub library with exception handling enabled to demonstrate unhandled exceptions catching
 multi_lib(
@@ -18,9 +18,9 @@ multi_lib(
 multi_app(
     name = "boot",
     srcs = ["main.cpp"],
+    stamp = 1,
     deps = [
         ":sublib",
         "//src/pkg/boot",
     ],
-    stamp = 1,
 )
