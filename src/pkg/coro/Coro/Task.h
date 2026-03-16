@@ -1,3 +1,4 @@
+#pragma once
 #include <boost/capy/task.hpp>
 
 namespace Coro
