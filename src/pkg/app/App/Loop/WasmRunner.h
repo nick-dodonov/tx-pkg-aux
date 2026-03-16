@@ -1,10 +1,10 @@
 #pragma once
+#if __EMSCRIPTEN__
 #include "Handler.h"
 #include "Runner.h"
 
 namespace App::Loop
 {
-#if __EMSCRIPTEN__
     /// Runner that integrates with emscripten main loop
     class WasmRunner final: public Runner
     {
@@ -25,5 +25,5 @@ namespace App::Loop
         void Update();
         void StopAndExit(int exitCode);
     };
-#endif
 }
+#endif
