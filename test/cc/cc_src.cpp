@@ -55,5 +55,5 @@ int main(int argc, char** argv)
         fail = true;
     }
     ::testing::InitGoogleTest(&argc, argv);
-    return RUN_ALL_TESTS();
+    exit(RUN_ALL_TESTS()); // exit to workaround emscripten issue (read comment in TightRunner)
 }

@@ -27,13 +27,13 @@ namespace App::Loop
     }
 #endif
 
-    TightRunner::TightRunner(HandlerPtr handler)
+    TightRunner::TightRunner(HandlerPtr handler, bool wasmExitWorkaround)
         : Runner(std::move(handler))
     {
 #ifdef __EMSCRIPTEN__
         _asyncifyEnabled = (emscripten_has_asyncify() != 0);
         Log::Trace("created (asyncify={})", _asyncifyEnabled ? "ON" : "OFF");
-        if (!_handlerRegistered && _asyncifyEnabled) {
+        if (!_handlerRegistered && _asyncifyEnabled && wasmExitWorkaround) {
             _handlerRegistered = true;
             if (std::atexit(OnExitHandler) != 0) {
                 Log::Error("Failed to register exit handler");

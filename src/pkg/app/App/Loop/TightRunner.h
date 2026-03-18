@@ -10,7 +10,7 @@ namespace App::Loop
     class TightRunner final: public Runner
     {
     public:
-        TightRunner(HandlerPtr handler);
+        TightRunner(HandlerPtr handler, bool wasmExitWorkaround = true);
         ~TightRunner();
 
         int Run() override;

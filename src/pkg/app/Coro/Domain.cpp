@@ -4,13 +4,8 @@
 
 #include <boost/capy/ex/run_async.hpp>
 
-//XXXXXXXXXXXXXXXXXXXXX TMP
-#include <boost/capy/ex/thread_pool.hpp>
-
 namespace Coro
 {
-    //XXXXXXXXXXXXXXXXXXXXX TMP //TODO: put to Domain and replace w/ loop impl
-    static boost::capy::thread_pool _pool(1);
 
     Domain::Domain(Coro::Task<int> mainTask)
         : _mainTask(std::move(mainTask))

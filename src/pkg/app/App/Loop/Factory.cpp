@@ -11,12 +11,12 @@ namespace App::Loop
 #if __EMSCRIPTEN__
         return std::make_shared<WasmRunner>(std::move(handler), WasmRunner::Options{.Fps = 120});
 #else
-        return std::make_shared<TightRunner>(std::move(handler));
+        return std::make_shared<TightRunner>(std::move(handler), true);
 #endif
     }
 
     std::shared_ptr<IRunner> CreateTestRunner(std::shared_ptr<Handler> handler)
     {
-        return std::make_shared<TightRunner>(std::move(handler));
+        return std::make_shared<TightRunner>(std::move(handler), false);
     }
 }
