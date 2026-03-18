@@ -16,14 +16,16 @@ embedded_files(
 multi_test(
     name = "fs",
     srcs = [
-        "fs_test.cpp",
+        "main.cpp",
+        "fs_native_path_test.cpp",
         "fs_read_test.cpp",
+        "fs_embedded_test.cpp",
     ],
     data = [":test_data"],
     embedded_data = [":embedded_test_data"],
     deps = [
         "//src/pkg/app",
         "//src/pkg/fs",
-        "@googletest//:gtest_main",
+        "@googletest//:gtest",
     ],
 )
