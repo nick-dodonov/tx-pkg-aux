@@ -58,6 +58,75 @@ TEST_F(FsTestFixture, DriveOverlay)
     EXPECT_EQ(result.value(), testFile1);
 }
 
+TEST_F(FsTestFixture, GetSizeExistingFile)
+{
+    Fs::NativeDrive drive({testDir1});
+
+    auto result = drive.GetSize("file.txt");
+    ASSERT_TRUE(result.has_value());
+    EXPECT_EQ(result.value(), 5u); // "test1"
+}
+
+TEST_F(FsTestFixture, GetSizeFileNotFound)
+{
+    Fs::NativeDrive drive({testDir1});
+
+    auto result = drive.GetSize("nonexistent.txt");
+    EXPECT_FALSE(result.has_value());
+    EXPECT_EQ(result.error(), std::make_error_code(std::errc::no_such_file_or_directory));
+}
+
+TEST_F(FsTestFixture, ReadAllToExistingFile)
+{
+    Fs::NativeDrive drive({testDir1});
+
+    auto sizeResult = drive.GetSize("file.txt");
+    ASSERT_TRUE(sizeResult.has_value());
+
+    std::vector<uint8_t> buf(*sizeResult);
+    auto readResult = drive.ReadAllTo("file.txt", {buf.data(), buf.size()});
+    ASSERT_TRUE(readResult.has_value());
+    EXPECT_EQ(*readResult, 5u);
+
+    std::string_view content(reinterpret_cast<const char*>(buf.data()), *readResult);
+    EXPECT_EQ(content, "test1");
+}
+
+TEST_F(FsTestFixture, ReadAllToFileNotFound)
+{
+    Fs::NativeDrive drive({testDir1});
+
+    std::vector<uint8_t> buf(64);
+    auto result = drive.ReadAllTo("nonexistent.txt", {buf.data(), buf.size()});
+    EXPECT_FALSE(result.has_value());
+    EXPECT_EQ(result.error(), std::make_error_code(std::errc::no_such_file_or_directory));
+}
+
+TEST_F(FsTestFixture, OverlayGetSize)
+{
+    Fs::NativeDrive drive1({testDir1});
+    Fs::NativeDrive drive2({testDir2});
+    Fs::OverlayDrive overlay({&drive1, &drive2});
+
+    auto result = overlay.GetSize("file.txt");
+    ASSERT_TRUE(result.has_value());
+    EXPECT_EQ(result.value(), 5u); // "test1" from drive1
+}
+
+TEST_F(FsTestFixture, OverlayReadAllTo)
+{
+    Fs::NativeDrive drive1({testDir1});
+    Fs::NativeDrive drive2({testDir2});
+    Fs::OverlayDrive overlay({&drive1, &drive2});
+
+    std::vector<uint8_t> buf(5);
+    auto result = overlay.ReadAllTo("file.txt", {buf.data(), buf.size()});
+    ASSERT_TRUE(result.has_value());
+
+    std::string_view content(reinterpret_cast<const char*>(buf.data()), *result);
+    EXPECT_EQ(content, "test1");
+}
+
 TEST_F(FsTestFixture, SystemDefaultDrive)
 {
     auto& drive = Fs::System::GetDefaultDrive();

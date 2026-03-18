@@ -32,6 +32,44 @@ namespace Fs
         return std::unexpected(std::make_error_code(std::errc::not_supported));
     }
 
+    Drive::SizeResult AndroidDrive::GetSize(const Path& path)
+    {
+        if (!_assetManager) {
+            return std::unexpected(std::make_error_code(std::errc::not_supported));
+        }
+
+        std::string assetPath = path.generic_string();
+        AAsset* asset = AAssetManager_open(_assetManager, assetPath.c_str(), AASSET_MODE_UNKNOWN);
+        if (!asset) {
+            return std::unexpected(std::make_error_code(std::errc::no_such_file_or_directory));
+        }
+
+        auto length = static_cast<size_t>(AAsset_getLength(asset));
+        AAsset_close(asset);
+        return length;
+    }
+
+    Drive::ReadResult AndroidDrive::ReadAllTo(const Path& path, boost::capy::mutable_buffer buf)
+    {
+        if (!_assetManager) {
+            return std::unexpected(std::make_error_code(std::errc::not_supported));
+        }
+
+        std::string assetPath = path.generic_string();
+        AAsset* asset = AAssetManager_open(_assetManager, assetPath.c_str(), AASSET_MODE_BUFFER);
+        if (!asset) {
+            return std::unexpected(std::make_error_code(std::errc::no_such_file_or_directory));
+        }
+
+        auto bytesRead = AAsset_read(asset, buf.data(), buf.size());
+        AAsset_close(asset);
+
+        if (bytesRead < 0) {
+            return std::unexpected(std::make_error_code(std::errc::io_error));
+        }
+        return static_cast<size_t>(bytesRead);
+    }
+
     Coro::Task<Drive::OpenResult> AndroidDrive::OpenAsync(Path path)
     {
         if (!_assetManager) {

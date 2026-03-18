@@ -3,6 +3,7 @@
 
 #include <boost/capy/io/any_read_source.hpp>
 #include <boost/capy/read.hpp>
+#include <boost/capy/buffers.hpp>
 #include <boost/capy/buffers/string_dynamic_buffer.hpp>
 #include <boost/capy/buffers/vector_dynamic_buffer.hpp>
 
@@ -39,6 +40,12 @@ namespace Fs
         
         using PathResult = std::expected<Path, std::error_code>;
         [[nodiscard]] virtual PathResult GetNativePath(const Path& path) = 0;
+
+        using SizeResult = std::expected<size_t, std::error_code>;
+        [[nodiscard]] virtual SizeResult GetSize(const Path& path) = 0;
+
+        using ReadResult = std::expected<size_t, std::error_code>;
+        [[nodiscard]] virtual ReadResult ReadAllTo(const Path& path, boost::capy::mutable_buffer buf) = 0;
 
         /// Open a file as a ReadSource stream for flexible reading.
         using OpenResult = std::expected<boost::capy::any_read_source, std::error_code>;

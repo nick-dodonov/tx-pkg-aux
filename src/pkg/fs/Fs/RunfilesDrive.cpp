@@ -67,6 +67,30 @@ namespace Fs
         return Path(nativePath);
     }
 
+    Drive::SizeResult RunfilesDrive::GetSize(const Path& path)
+    {
+        auto nativePath = GetNativePath(path);
+        if (!nativePath) {
+            return std::unexpected(nativePath.error());
+        }
+        if (_nativeDrive) {
+            return _nativeDrive->GetSize(nativePath.value());
+        }
+        return std::unexpected(std::make_error_code(std::errc::not_supported));
+    }
+
+    Drive::ReadResult RunfilesDrive::ReadAllTo(const Path& path, boost::capy::mutable_buffer buf)
+    {
+        auto nativePath = GetNativePath(path);
+        if (!nativePath) {
+            return std::unexpected(nativePath.error());
+        }
+        if (_nativeDrive) {
+            return _nativeDrive->ReadAllTo(nativePath.value(), buf);
+        }
+        return std::unexpected(std::make_error_code(std::errc::not_supported));
+    }
+
     Coro::Task<Drive::OpenResult> RunfilesDrive::OpenAsync(Path path)
     {
         auto nativePathResult = GetNativePath(path);
