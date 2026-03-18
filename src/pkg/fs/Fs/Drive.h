@@ -1,5 +1,6 @@
 #pragma once
 #include "Coro/Task.h"
+#include "Path.h"
 
 #include <boost/capy/io/any_read_source.hpp>
 #include <boost/capy/read.hpp>
@@ -7,7 +8,6 @@
 #include <boost/capy/buffers/string_dynamic_buffer.hpp>
 #include <boost/capy/buffers/vector_dynamic_buffer.hpp>
 
-#include <filesystem>
 #include <expected>
 #include <string>
 #include <system_error>
@@ -15,8 +15,6 @@
 
 namespace Fs
 {
-    using Path = std::filesystem::path;
-
     namespace Detail
     {
         /// Overload set to create a DynamicBuffer adapter for a given container.

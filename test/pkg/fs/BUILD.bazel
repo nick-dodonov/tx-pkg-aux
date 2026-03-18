@@ -15,12 +15,8 @@ embedded_files(
 
 multi_test(
     name = "fs",
-    srcs = [
-        "main.cpp",
-        "fs_native_path_test.cpp",
-        "fs_read_test.cpp",
-        "fs_embedded_test.cpp",
-    ],
+    srcs = glob(["*.cpp"]),
+
     data = [":test_data"],
     embedded_data = [":embedded_test_data"],
     deps = [
