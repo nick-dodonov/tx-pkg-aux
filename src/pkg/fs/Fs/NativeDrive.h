@@ -10,7 +10,7 @@ namespace Fs
         NativeDrive(std::vector<Path> prefixPaths);
 
         [[nodiscard]] PathResult GetNativePath(const Path& path) override;
-        [[nodiscard]] Coro::Task<ReadAllBytesResult> ReadAllBytesAsync(Path path) override;
+        [[nodiscard]] Coro::Task<OpenResult> OpenAsync(Path path) override;
 
     private:
         std::vector<Path> _prefixPaths;

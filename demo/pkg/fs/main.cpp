@@ -13,14 +13,13 @@ static Coro::Task<int> MainAsync()
 
     auto& drive = Fs::System::GetDefaultDrive();
 
-    auto result = co_await drive.ReadAllBytesAsync("test_data/test.txt");
+    auto result = co_await drive.ReadAllAsync<std::string>("test_data/test.txt");
     if (!result) {
         Log::Error("Failed to read file: {}", result.error().message());
         co_return 1;
     }
 
-    const auto& bytes = result.value();
-    std::string_view content(reinterpret_cast<const char*>(bytes.data()), bytes.size()); // NOLINT(cppcoreguidelines-pro-type-reinterpret-cast)
+    const auto& content = result.value();
     Log::Info("Content:\n{}", content);
 
     co_return 0;

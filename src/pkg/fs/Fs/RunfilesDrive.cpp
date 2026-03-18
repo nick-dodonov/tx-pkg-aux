@@ -67,7 +67,7 @@ namespace Fs
         return Path(nativePath);
     }
 
-    Coro::Task<Drive::ReadAllBytesResult> RunfilesDrive::ReadAllBytesAsync(Path path)
+    Coro::Task<Drive::OpenResult> RunfilesDrive::OpenAsync(Path path)
     {
         auto nativePathResult = GetNativePath(path);
         if (!nativePathResult) {
@@ -75,7 +75,7 @@ namespace Fs
         }
 
         if (_nativeDrive) {
-            co_return co_await _nativeDrive->ReadAllBytesAsync(nativePathResult.value());
+            co_return co_await _nativeDrive->OpenAsync(nativePathResult.value());
         }
 
         co_return std::unexpected(std::make_error_code(std::errc::not_supported));

@@ -23,7 +23,7 @@ namespace Fs
         explicit AndroidDrive(AAssetManager* assetManager);
 
         [[nodiscard]] PathResult GetNativePath(const Path& path) override;
-        [[nodiscard]] Coro::Task<ReadAllBytesResult> ReadAllBytesAsync(Path path) override;
+        [[nodiscard]] Coro::Task<OpenResult> OpenAsync(Path path) override;
 
     private:
         AAssetManager* _assetManager = nullptr;

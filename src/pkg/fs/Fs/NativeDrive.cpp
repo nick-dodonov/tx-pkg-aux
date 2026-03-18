@@ -1,7 +1,7 @@
 #include "NativeDrive.h"
+#include "NativeFileSource.h"
 #include "Log/Log.h"
 #include <filesystem>
-#include <fstream>
 #include <sstream>
 
 namespace Fs
@@ -48,33 +48,14 @@ namespace Fs
         return std::unexpected(lastError);
     }
 
-    Coro::Task<Drive::ReadAllBytesResult> NativeDrive::ReadAllBytesAsync(Path path)
+    Coro::Task<Drive::OpenResult> NativeDrive::OpenAsync(Path path)
     {
-        namespace fs = std::filesystem;
-
         auto nativePathResult = GetNativePath(path);
         if (!nativePathResult) {
             co_return std::unexpected(nativePathResult.error());
         }
 
-        const auto& nativePath = nativePathResult.value();
-
-        std::error_code ec;
-        auto fileSize = fs::file_size(nativePath, ec);
-        if (ec) {
-            co_return std::unexpected(ec);
-        }
-
-        std::ifstream file(nativePath, std::ios::binary);
-        if (!file) {
-            co_return std::unexpected(std::make_error_code(std::errc::io_error));
-        }
-
-        std::vector<uint8_t> buffer(fileSize);
-        if (!file.read(reinterpret_cast<char*>(buffer.data()), static_cast<std::streamsize>(fileSize))) {  // NOLINT(cppcoreguidelines-pro-type-reinterpret-cast)
-            co_return std::unexpected(std::make_error_code(std::errc::io_error));
-        }
-
-        co_return buffer;
+        NativeFileSource source(nativePathResult.value());
+        co_return boost::capy::any_read_source(std::move(source));
     }
 }

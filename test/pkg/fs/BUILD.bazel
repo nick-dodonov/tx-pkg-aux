@@ -1,3 +1,4 @@
+load("@tx-kit-ext//rules:embedded.bzl", "embedded_files")
 load("@tx-kit-ext//rules:multi_app.bzl", "multi_test")
 
 filegroup(
@@ -5,11 +6,23 @@ filegroup(
     srcs = ["data/test.txt"],
 )
 
+embedded_files(
+    name = "embedded_test_data",
+    files_to_dir = {
+        "data/test.txt": "test_data",
+    },
+)
+
 multi_test(
     name = "fs",
-    srcs = ["fs_test.cpp"],
+    srcs = [
+        "fs_test.cpp",
+        "fs_read_test.cpp",
+    ],
     data = [":test_data"],
+    embedded_data = [":embedded_test_data"],
     deps = [
+        "//src/pkg/app",
         "//src/pkg/fs",
         "@googletest//:gtest_main",
     ],

@@ -12,7 +12,7 @@ namespace Fs
 
         [[nodiscard]] bool IsSupported() const;
         [[nodiscard]] PathResult GetNativePath(const Path& path) override;
-        [[nodiscard]] Coro::Task<ReadAllBytesResult> ReadAllBytesAsync(Path path) override;
+        [[nodiscard]] Coro::Task<OpenResult> OpenAsync(Path path) override;
 
     private:
         class Impl;
