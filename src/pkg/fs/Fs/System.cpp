@@ -6,10 +6,7 @@
 #ifdef __ANDROID__
 #include "AndroidDrive.h"
 #include "OverlayDrive.h"
-#include <android/native_activity.h>
-
-// Global pointer to ANativeActivity, set by droid_glue
-extern ANativeActivity* g_NativeActivity;
+#include "Droid/Glue.h"
 #endif
 
 namespace Fs
@@ -28,7 +25,7 @@ namespace Fs
             }
 
             static NativeDrive nativeDrive(std::move(prefixes));
-            static AndroidDrive androidDrive(g_NativeActivity);
+            static AndroidDrive androidDrive(Droid::Glue::Instance().GetAssetManager());
 
             // Try Android assets first, then fall back to native filesystem
             return OverlayDrive({&androidDrive, &nativeDrive});

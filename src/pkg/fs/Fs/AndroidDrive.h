@@ -2,10 +2,8 @@
 #ifdef __ANDROID__
 #include "Drive.h"
 
-
 // Forward declarations for Android types
 struct AAssetManager;
-struct ANativeActivity;
 
 namespace Fs
 {
@@ -14,10 +12,6 @@ namespace Fs
     class AndroidDrive: public Drive
     {
     public:
-        /// Create AndroidDrive from ANativeActivity pointer
-        /// The activity pointer must remain valid for the lifetime of this drive
-        explicit AndroidDrive(ANativeActivity* activity);
-
         /// Create AndroidDrive from AAssetManager pointer directly
         /// The asset manager pointer must remain valid for the lifetime of this drive
         explicit AndroidDrive(AAssetManager* assetManager);

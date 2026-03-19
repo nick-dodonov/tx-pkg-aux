@@ -8,14 +8,6 @@
 
 namespace Fs
 {
-    AndroidDrive::AndroidDrive(ANativeActivity* activity)
-        : _assetManager(activity ? activity->assetManager : nullptr)
-    {
-        if (!_assetManager) {
-            Log::Error("AndroidDrive: ANativeActivity has no assetManager");
-        }
-    }
-
     AndroidDrive::AndroidDrive(AAssetManager* assetManager)
         : _assetManager(assetManager)
     {
