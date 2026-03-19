@@ -1,7 +1,8 @@
 #include "App/Loop/Handler.h"
 #include "Coro/Task.h"
+#include "Coro/LoopContext.h"
 
-#include <boost/capy/ex/thread_pool.hpp>
+//#include <boost/capy/ex/thread_pool.hpp>
 #include <boost/core/noncopyable.hpp>
 #include <memory>
 
@@ -18,7 +19,8 @@ namespace Coro
 
     private:
         Coro::Task<int> _mainTask;
-        boost::capy::thread_pool _pool{1};  //TODO: replace w/ loop impl
+        //boost::capy::thread_pool _pool{1};  //TODO: replace w/ loop impl
+        Coro::LoopContext _context;
 
         // Loop::Handler
         bool Start() override;

@@ -7,5 +7,6 @@ multi_app(
         "//src/pkg/boot",
         "@cppalliance.corosio",
     ],
+    cxxopts = ["-fexceptions"],  # Corosio requires exception handling to work properly
     # platforms = ["host", "droid"]  # wasm doesn't have sockets
 )

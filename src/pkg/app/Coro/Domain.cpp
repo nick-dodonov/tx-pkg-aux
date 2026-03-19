@@ -21,7 +21,9 @@ namespace Coro
     bool Domain::Start()
     {
         Log::Trace("running");
-        boost::capy::run_async(_pool.get_executor(), 
+        // auto executor = _pool.get_executor();
+        auto executor = _context.get_executor();
+        boost::capy::run_async(executor,
             [this](auto&& exitCode) {
                 Log::Trace("completed: {}", exitCode);
                 GetRunner()->Exit(exitCode);
@@ -37,12 +39,16 @@ namespace Coro
     void Domain::Stop()
     {
         Log::Trace("stopping");
-        _pool.stop();
-        _pool.join();
+        // _pool.stop();
+        _context.stop();
     }
 
     void Domain::Update(const App::Loop::UpdateCtx& ctx)
     {
+        // Log::Trace("frame={} delta={} µs", ctx.frame.index, ctx.frame.delta.count());
+        if (const auto count = _context.poll(); count > 0) {
+            // TODO: enable verbose logging later and make it configurable (too noisy for now), make summary instead
+            Log::Trace("polled {} tasks on frame={}", count, ctx.frame.index);
+        }
     }
 }
-

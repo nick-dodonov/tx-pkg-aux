@@ -8,5 +8,6 @@ multi_lib(
     visibility = ["//visibility:public"],
     deps = [
         "@cppalliance.capy",
+        "@concurrentqueue",
     ],
 )

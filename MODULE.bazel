@@ -74,6 +74,9 @@ register_toolchains(
 bazel_dep(name = "rules_android", version = "0.7.1")
 
 ################################################################
+bazel_dep(name = "concurrentqueue", version = "1.0.4")
+
+################################################################
 # new cppalliance tries (corosio and http) - TODO: make private registry modules when ready
 git_repository = use_repo_rule("@bazel_tools//tools/build_defs/repo:git.bzl", "git_repository")
 

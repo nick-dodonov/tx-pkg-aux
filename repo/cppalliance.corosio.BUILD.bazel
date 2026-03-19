@@ -6,16 +6,25 @@ cc_library(
         "src/corosio/src/**/*.cpp",
         "src/corosio/src/**/*.hpp",
     ]),
-    hdrs = glob(["src/corosio/src/**/*.hpp"]),
+    hdrs = glob([
+        "include/**/*.hpp",
+        # "src/corosio/src/**/*.hpp",
+    ]),
     cxxopts = select({
-        "//conditions:default": ["-std=c++23"],
-        "@platforms//os:windows": ["/std:c++latest"],
+        "//conditions:default": [
+            "-std=c++23",
+            "-fexceptions",  # Corosio requires exception handling to work properly
+        ],
+        "@platforms//os:windows": [
+            "/std:c++latest",
+        ],
     }),
     features = [
         "exceptions",
     ],
-    includes = ["include"],
-    strip_include_prefix = "src/corosio",
+    # includes = ["include"],
+    # strip_include_prefix = "src/corosio",
+    strip_include_prefix = "include",
     visibility = ["//visibility:public"],
     deps = [
         "@cppalliance.capy",

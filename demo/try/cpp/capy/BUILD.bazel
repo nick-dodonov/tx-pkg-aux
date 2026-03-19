@@ -7,6 +7,7 @@ multi_app(
         "//src/pkg/boot",
         "@cppalliance.capy",
     ],
+    cxxopts = ["-fexceptions"],  # Capy requires exception handling to work properly
 )
 
 multi_app(
@@ -16,6 +17,7 @@ multi_app(
         "//src/pkg/boot",
         "@cppalliance.capy",
     ],
+    cxxopts = ["-fexceptions"],  # Capy requires exception handling to work properly
 )
 
 multi_app(
@@ -25,4 +27,5 @@ multi_app(
         "//src/pkg/boot",
         "@cppalliance.capy",
     ],
+    cxxopts = ["-fexceptions"],  # Capy requires exception handling to work properly
 )
