@@ -2,10 +2,12 @@
 #include "App/Loop/Factory.h"
 #include "Boot/Boot.h"
 #include "Log/Log.h"
+
 #include <exec/task.hpp>
+#include <exec/start_detached.hpp>
 
 /// Coroutine sender — returned directly to Launch(), scheduler is injected automatically.
-static auto MainTask() -> exec::task<int>
+static exec::task<int> MainTask()
 {
     Log::Info("[main] Hello from MainTask coroutine!");
     co_return 42;
@@ -23,7 +25,7 @@ int main(const int argc, const char* argv[])
             Log::Info("[run_loop] completed with result: {}", exitCode);
             loop.finish();
         });
-    stdexec::start_detached(sender);
+    exec::start_detached(sender);
     loop.run();
 
     auto domain = std::make_shared<App::Exec::Domain>();
