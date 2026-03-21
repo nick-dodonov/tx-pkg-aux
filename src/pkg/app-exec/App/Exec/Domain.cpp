@@ -19,6 +19,10 @@ namespace App::Exec
     void Domain::Stop()
     {
         Log::Trace("stopping");
+        _stopSource.request_stop();
+
+        //TODO: RESEARCH/TEST: do we need to drain the queue here to ensure that any pending tasks that observe the stop signal are given a chance to run before we destroy the op state?
+
         _opState.reset();
     }
 

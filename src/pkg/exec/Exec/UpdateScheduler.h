@@ -5,17 +5,44 @@
 
 namespace Exec
 {
-    /// Custom stdexec scheduler that enqueues work to be drained
-    /// manually during an update loop (e.g., in a frame update callback).
+    /// A P2300-compatible scheduler that integrates with a frame-based update loop.
+    ///
+    /// Instead of a dedicated thread, UpdateScheduler uses a manual, non-blocking
+    /// drain model: work scheduled via the Scheduler handle is enqueued in a
+    /// lock-free queue and executed synchronously when DrainQueue() is called —
+    /// typically once per frame in a game/render loop.
+    ///
+    /// Relationship to standard alternatives:
+    ///   stdexec::run_loop      — blocking, CV-driven; meant for dedicated threads
+    ///   exec::inline_scheduler — executes immediately on start(), never defers
+    ///   UpdateScheduler        — non-blocking, frame-boundary deferred, main-thread loops
     class UpdateScheduler
     {
-        struct TaskBase
+        /// Minimal task node stored in the concurrent queue.
+        ///
+        /// Uses a raw function pointer instead of virtual dispatch to avoid vtable
+        /// overhead — a pattern also used in stdexec::run_loop's intrusive queue.
+        /// The execute pointer is set in Operation's constructor to capture the
+        /// concrete Receiver type without requiring a virtual base class.
+        ///
+        /// Lifetime: Operation (which inherits OperationBase) lives inside the stdexec
+        /// operation state. The parent op state must not be destroyed while this
+        /// task is still in the queue.
+        struct OperationBase
         {
-            void (*execute)(TaskBase*) noexcept {};
+            void (*execute)(OperationBase*) noexcept {};
         };
 
+        /// Concrete operation state produced by Sender::connect().
+        ///
+        /// Satisfies stdexec::operation_state: start() & noexcept enqueues this
+        /// into the scheduler's lock-free queue rather than executing inline —
+        /// actual execution is deferred to the next DrainQueue() call.
+        ///
+        /// Stop-token aware: at drain time the receiver's stop token is checked;
+        /// if cancellation was requested, set_stopped() is called instead of set_value().
         template <class Receiver>
-        struct Operation: TaskBase
+        struct Operation: OperationBase
         {
             UpdateScheduler* scheduler;
             Receiver receiver;
@@ -24,7 +51,7 @@ namespace Exec
                 : scheduler(sched)
                 , receiver(static_cast<Receiver&&>(rcvr))
             {
-                this->execute = [](TaskBase* base) noexcept {
+                this->execute = [](OperationBase* base) noexcept {
                     auto& self = *static_cast<Operation*>(base);
                     const auto stopToken = stdexec::get_stop_token(stdexec::get_env(self.receiver));
                     if (stopToken.stop_requested()) {
@@ -38,9 +65,28 @@ namespace Exec
             void start() & noexcept { scheduler->Push(this); }
         };
 
+        // Minimal receiver used only to verify Operation<R> satisfies operation_state.
+        // stdexec::operation_state<Op> requires: destructible, is_object, stdexec::start(op).
+        // Unlike sender/receiver/scheduler, no operation_state_concept tag is required.
+        struct MinReceiver
+        {
+            using receiver_concept = stdexec::receiver_t;
+            [[nodiscard]] auto get_env() const noexcept { return stdexec::env<>{}; }
+            void set_value() noexcept {}
+            void set_stopped() noexcept {}
+            void set_error(auto&& _) noexcept {}
+        };
+        static_assert(stdexec::receiver<MinReceiver>);
+        static_assert(stdexec::operation_state<Operation<MinReceiver>>);
+
         struct Sender;
 
     public:
+        /// Lightweight scheduler handle — holds a pointer to the owning UpdateScheduler.
+        ///
+        /// Satisfies stdexec::scheduler: schedule() returns a Sender whose get_env()
+        /// advertises this Scheduler as the completion scheduler for all signals,
+        /// allowing stdexec::continues_on and stdexec::on to chain correctly.
         struct Scheduler
         {
             using scheduler_concept = stdexec::scheduler_t;
@@ -53,6 +99,14 @@ namespace Exec
         };
 
     private:
+        /// Sender returned by Scheduler::schedule().
+        ///
+        /// Completion signatures: set_value_t() and set_stopped_t() only —
+        /// set_error is never produced because Push() is noexcept.
+        ///
+        /// get_env() returns an Env that reports this Scheduler as the completion
+        /// scheduler for all CPOs, enabling downstream algorithms (continues_on, on)
+        /// to discover where work will complete.
         struct Sender
         {
             using sender_concept = stdexec::sender_t;
@@ -71,7 +125,7 @@ namespace Exec
                 UpdateScheduler* ctx;
 
                 template <class CPO>
-                auto query(stdexec::get_completion_scheduler_t<CPO>) const noexcept -> Scheduler
+                [[nodiscard]] auto query(stdexec::get_completion_scheduler_t<CPO> _) const noexcept -> Scheduler
                 {
                     return {ctx};
                 }
@@ -80,15 +134,23 @@ namespace Exec
             [[nodiscard]] auto get_env() const noexcept -> Env { return {ctx}; }
         };
 
+        // Verify that UpdateScheduler::Scheduler fully satisfies the P2300 scheduler concept,
+        // including the get_completion_scheduler<CPO> round-trip mandated by stdexec::scheduler.
+        static_assert(stdexec::scheduler<Scheduler>);
+
     public:
         auto GetScheduler() noexcept -> Scheduler { return {this}; }
 
-        /// Drain and execute all pending tasks. Call from the update loop.
+        /// Drain and execute all pending tasks. Call once per frame from the update loop.
+        ///
+        /// Uses try_dequeue (lock-free, non-blocking), so it returns immediately if
+        /// the queue is empty — unlike stdexec::run_loop::run() which blocks on a CV.
+        ///
         /// Returns the number of tasks executed.
         std::size_t DrainQueue()
         {
             std::size_t count = 0;
-            TaskBase* task{};
+            OperationBase* task{};
             while (_queue.try_dequeue(task)) {
                 task->execute(task);
                 ++count;
@@ -97,13 +159,14 @@ namespace Exec
         }
 
     private:
-        void Push(TaskBase* task) noexcept { _queue.enqueue(task); }
+        void Push(OperationBase* task) noexcept { _queue.enqueue(task); }
 
-        moodycamel::ConcurrentQueue<TaskBase*> _queue;
+        moodycamel::ConcurrentQueue<OperationBase*> _queue;
     };
 
     inline auto UpdateScheduler::Scheduler::schedule() const noexcept -> UpdateScheduler::Sender
     {
         return {ctx};
     }
+
 } // namespace Exec
