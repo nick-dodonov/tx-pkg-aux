@@ -10,15 +10,15 @@ namespace App::Exec
     /// Loop handler that drives a sender<int> on an UpdateScheduler.
     ///
     /// Bridges the P2300 sender/receiver model with the App::Loop update cycle.
-    /// Connect a sender pipeline by calling Launch() before passing the domain
-    /// to a runner. Each frame, Update() drains the scheduler queue. When the
-    /// sender completes with an int, the runner exits with that code.
+    /// Construct with a sender or factory, then pass to a runner. Each frame,
+    /// Update() drains the scheduler queue. When the sender completes with an int,
+    /// the runner exits with that code.
     ///
     /// Stop-token propagation: the Domain's stop source is exposed to the running
     /// sender via DomainReceiver::get_env(). When Stop() is called, request_stop()
-    /// is signalled before the op state is destroyed, giving cancellation-aware
-    /// senders (e.g. exec::task) a chance to unwind cleanly rather than being
-    /// destroyed mid-flight.
+    /// is signalled and pending queue entries are drained before the op state is
+    /// destroyed, giving cancellation-aware senders (e.g. exec::task) a chance to
+    /// unwind cleanly instead of being destroyed mid-flight.
     class Domain: public App::Loop::Handler
     {
         using Scheduler = ::Exec::UpdateScheduler::Scheduler;
@@ -27,37 +27,36 @@ namespace App::Exec
         /// Returns the scheduler used to enqueue work into the update loop.
         Scheduler GetScheduler() noexcept { return _scheduler.GetScheduler(); }
 
-        /// Launch a sender directly.
+        /// Construct with a sender directly.
         ///
         /// Wraps the sender with starts_on(GetScheduler(), sender) so that its
         /// work begins on the update loop scheduler. The !invocable<S, Scheduler>
-        /// constraint prevents this overload from matching factory lambdas that
-        /// happen to also satisfy stdexec::sender via some generic interface.
+        /// constraint prevents this overload from matching factory lambdas.
         ///
         /// Example:
-        ///   domain->Launch(MainTask());           // exec::task<int> coroutine
-        ///   domain->Launch(stdexec::just(42));    // plain value sender
+        ///   auto domain = std::make_shared<Domain>(MainTask());
+        ///   auto domain = std::make_shared<Domain>(stdexec::just(42));
         template <stdexec::sender S>
         requires (!std::invocable<S, Scheduler>)
-        void Launch(S sender)
+        explicit Domain(S sender)
         {
             Store(stdexec::starts_on(GetScheduler(), std::move(sender)));
         }
 
-        /// Launch via a factory callable: (Scheduler) → sender<int>.
+        /// Construct via a factory callable: (Scheduler) → sender<int>.
         ///
         /// Use this form when the pipeline itself needs the scheduler handle
         /// internally — e.g. to insert stdexec::continues_on between pipeline
         /// steps, or to capture the scheduler for nested scheduling decisions.
         ///
         /// Example:
-        ///   domain->Launch([](auto sched) {
+        ///   auto domain = std::make_shared<Domain>([](auto sched) {
         ///       return stdexec::schedule(sched)
         ///           | stdexec::then([] { return 42; });
         ///   });
         template <class F>
         requires std::invocable<F, Scheduler>
-        void Launch(F factory)
+        explicit Domain(F factory)
         {
             Store(std::move(factory)(GetScheduler()));
         }
@@ -81,7 +80,7 @@ namespace App::Exec
         // stdexec::connect() returns a distinct, non-movable concrete type for
         // every sender S. Because Domain is a non-template class it cannot store
         // the op state inline. The virtual pair IOpState / OpStateBox<S> is the
-        // minimal mechanism: one heap allocation per Launch(), zero overhead at
+        // minimal mechanism: one heap allocation per construction, zero overhead at
         // Start() and Stop().
         //
         // Alternative considered: unique_ptr<void> + std::function — equally one
@@ -98,7 +97,7 @@ namespace App::Exec
         struct OpStateBox;
 
         // Store() connects the sender to a DomainReceiver and boxes the resulting
-        // non-movable operation state. Must be called (via Launch()) before Start().
+        // non-movable operation state. Called from constructors.
         template <class Sender>
         void Store(Sender sender);
 
@@ -141,7 +140,7 @@ namespace App::Exec
 
         void set_value(int exitCode) const noexcept { domain->OnComplete(exitCode); }
         void set_stopped() const noexcept { domain->OnStopped(); }
-        [[noreturn]] void set_error(auto&&) noexcept { std::terminate(); }
+        [[noreturn]] void set_error(auto&& _) noexcept { std::terminate(); }
     };
 
     // Verify DomainReceiver satisfies the P2300 receiver concept:

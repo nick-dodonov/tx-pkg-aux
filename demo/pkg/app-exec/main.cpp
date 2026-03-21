@@ -16,13 +16,11 @@ int main(const int argc, const char* argv[])
 {
     Boot::DefaultInit(argc, argv);
 
-    auto domain = std::make_shared<App::Exec::Domain>();
-
     // Option A: coroutine (or any ready sender) — scheduler injected via starts_on
-    domain->Launch(MainTask());
+    auto domain = std::make_shared<App::Exec::Domain>(MainTask());
 
     // Option B: factory form — use when the pipeline depends on the scheduler internally
-    // domain->Launch([](auto sched) {
+    // auto domain = std::make_shared<App::Exec::Domain>([](auto sched) {
     //     return stdexec::schedule(sched)
     //         | stdexec::then([] { Log::Info("[main] step 1"); })
     //         | stdexec::continues_on(sched)

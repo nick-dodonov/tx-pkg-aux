@@ -20,9 +20,10 @@ namespace App::Exec
     {
         Log::Trace("stopping");
         _stopSource.request_stop();
-
-        //TODO: RESEARCH/TEST: do we need to drain the queue here to ensure that any pending tasks that observe the stop signal are given a chance to run before we destroy the op state?
-
+        // Drain any tasks already enqueued so they observe stop_requested() and call
+        // set_stopped() before we destroy the operation state. Without this, queued
+        // Operation<R> nodes would become dangling pointers inside the lock-free queue.
+        _scheduler.DrainQueue();
         _opState.reset();
     }
 
