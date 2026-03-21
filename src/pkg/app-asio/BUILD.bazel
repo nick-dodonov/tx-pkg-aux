@@ -7,9 +7,7 @@ multi_lib(
     strip_include_prefix = ".",
     visibility = ["//visibility:public"],
     deps = [
+        "//repo/boost_asio_wrapped",  # "@boost.asio",
         "//src/pkg/app",
-
-        #"@boost.asio",
-        "//src/boost_asio_wrapped",
     ],
 )
