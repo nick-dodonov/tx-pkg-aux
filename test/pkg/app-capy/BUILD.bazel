@@ -4,7 +4,7 @@ multi_test(
     name = "app-capy",
     srcs = glob(["*.cpp"]),
     deps = [
-        "//src/pkg/coro",
+        "//src/pkg/app-capy",
         "@googletest//:gtest_main",
     ],
 )

@@ -8,7 +8,7 @@ multi_lib(
     visibility = ["//visibility:public"],
     deps = [
         "//src/pkg/boot",
-        "//src/pkg/coro",  # TODO: remove as fs should not depend on coro, but currently uses it for the thread pool implementation (also used by app)
+        "//src/pkg/app-capy",  # TODO: remove as fs should not depend on coro, but currently uses it for the thread pool implementation (also used by app)
 
         # https://fuchsia.googlesource.com/fuchsia/+/HEAD/build/bazel/BAZEL_RUNFILES.md
         # Obsolete:

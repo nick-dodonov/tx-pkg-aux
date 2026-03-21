@@ -1,15 +1,14 @@
 load("@tx-kit-ext//rules:multi_lib.bzl", "multi_lib")
 
 multi_lib(
-    name = "coro",
+    name = "app-capy",
     srcs = glob(["**/*.cpp"]),
     hdrs = glob(["**/*.h"]),
     strip_include_prefix = ".",
     visibility = ["//visibility:public"],
     deps = [
         "//src/pkg/app",
-
-        "@cppalliance.capy",
         "@concurrentqueue",
+        "@cppalliance.capy",
     ],
 )
