@@ -15,3 +15,12 @@ multi_app(
         "@stdexec",
     ],
 )
+
+multi_app(
+    name = "hello_loop",
+    srcs = ["hello_loop.cpp"],
+    deps = [
+        "//src/pkg/log",
+        "@stdexec",
+    ],
+)
