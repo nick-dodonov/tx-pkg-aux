@@ -9,4 +9,5 @@ multi_app(
     ],
     cxxopts = ["-fexceptions"],  # Corosio requires exception handling to work properly
     # platforms = ["host", "droid"]  # wasm doesn't have sockets
+    tags = ["manual"],  # This example is not meant to be run as part of the CI tests
 )

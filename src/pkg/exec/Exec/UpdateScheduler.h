@@ -26,7 +26,8 @@ namespace Exec
             {
                 this->execute = [](TaskBase* base) noexcept {
                     auto& self = *static_cast<Operation*>(base);
-                    if (stdexec::get_stop_token(stdexec::get_env(self.receiver)).stop_requested()) {
+                    const auto stopToken = stdexec::get_stop_token(stdexec::get_env(self.receiver));
+                    if (stopToken.stop_requested()) {
                         stdexec::set_stopped(static_cast<Receiver&&>(self.receiver));
                     } else {
                         stdexec::set_value(static_cast<Receiver&&>(self.receiver));

@@ -8,6 +8,7 @@ multi_app(
         "@cppalliance.capy",
     ],
     cxxopts = ["-fexceptions"],  # Capy requires exception handling to work properly
+    tags = ["manual"],  # This example is not meant to be run as part of the CI tests
 )
 
 multi_app(
@@ -18,6 +19,7 @@ multi_app(
         "@cppalliance.capy",
     ],
     cxxopts = ["-fexceptions"],  # Capy requires exception handling to work properly
+    tags = ["manual"],  # This example is not meant to be run as part of the CI tests
 )
 
 multi_app(
@@ -28,4 +30,5 @@ multi_app(
         "@cppalliance.capy",
     ],
     cxxopts = ["-fexceptions"],  # Capy requires exception handling to work properly
+    tags = ["manual"],  # This example is not meant to be run as part of the CI tests
 )

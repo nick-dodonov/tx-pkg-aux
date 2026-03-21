@@ -7,4 +7,5 @@ multi_app(
         "//src/pkg/boot",
         "@cppalliance.http",
     ],
+    tags = ["manual"],  # This example is not meant to be run as part of the CI tests
 )

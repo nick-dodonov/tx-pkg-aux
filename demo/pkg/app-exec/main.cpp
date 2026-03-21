@@ -4,35 +4,30 @@
 #include "Log/Log.h"
 #include <exec/task.hpp>
 
-/// Build a sender pipeline that runs on the update scheduler and returns an exit code
-static auto MakeMainSender(Exec::UpdateScheduler::Scheduler sched)
-{
-    return
-        stdexec::schedule(sched) 
-        | stdexec::then([] { 
-            Log::Info("[main] Task 1: Hello from update scheduler!"); 
-        })
-        | stdexec::continues_on(sched) 
-        | stdexec::then([] {
-            Log::Info("[main] Task 2: Computing answer...");
-            return 42;
-        });
-}
-
+/// Coroutine sender — returned directly to Launch(), scheduler is injected automatically.
 static auto MainTask() -> exec::task<int>
 {
-    Log::Info("MainTask...");
-    co_return 17;
+    Log::Info("[main] Hello from MainTask coroutine!");
+    co_return 42;
 }
 
 int main(const int argc, const char* argv[])
 {
     Boot::DefaultInit(argc, argv);
 
-    auto domain = std::make_shared<App::Exec::Domain>(
-        [](Exec::UpdateScheduler::Scheduler sched) { 
-            return MakeMainSender(sched); 
-    });
+    auto domain = std::make_shared<App::Exec::Domain>();
+
+    // Option A: coroutine (or any ready sender) — scheduler injected via starts_on
+    domain->Launch(MainTask());
+
+    // Option B: factory form — use when the pipeline depends on the scheduler internally
+    // domain->Launch([](auto sched) {
+    //     return stdexec::schedule(sched)
+    //         | stdexec::then([] { Log::Info("[main] step 1"); })
+    //         | stdexec::continues_on(sched)
+    //         | stdexec::then([] { return 42; });
+    // });
+
     auto runner = App::Loop::CreateDefaultRunner(domain);
     return runner->Run();
 }

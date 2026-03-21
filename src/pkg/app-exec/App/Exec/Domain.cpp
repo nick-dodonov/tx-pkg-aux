@@ -12,8 +12,7 @@ namespace App::Exec
     bool Domain::Start()
     {
         Log::Trace("running");
-        _taskFactory(*this);
-        _taskFactory = nullptr; // release captured sender
+        _opState->start();
         return true;
     }
 

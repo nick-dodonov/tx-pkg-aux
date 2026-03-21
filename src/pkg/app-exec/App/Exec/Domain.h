@@ -3,30 +3,51 @@
 #include "App/Loop/Handler.h"
 #include "Exec/UpdateScheduler.h"
 
-#include <functional>
 #include <memory>
 
 namespace App::Exec
 {
-    /// Loop handler that runs a sender<int> on an UpdateScheduler.
-    /// When the sender completes, exits the runner with the resulting int.
-    /// Analogous to Coro::Domain from app-capy, but using stdexec senders.
+    /// Loop handler that drives a sender<int> on an UpdateScheduler.
+    ///
+    /// Call Launch() before handing the domain to a runner.
+    /// When the sender completes the runner is exited with the returned int.
     class Domain: public App::Loop::Handler
     {
-    public:
-        /// Type-erased factory: call to connect + store the operation, return a starter.
-        using TaskFactory = std::function<void(Domain&)>;
+        using Scheduler = ::Exec::UpdateScheduler::Scheduler;
 
-        /// Create a Domain from a callable: (Exec::UpdateScheduler::Scheduler) -> sender<int>
-        template <class SenderFactory>
-        requires std::invocable<SenderFactory, ::Exec::UpdateScheduler::Scheduler>
-        explicit Domain(SenderFactory factory)
-            : _taskFactory(MakeFactory(std::move(factory)))
-        {}
+    public:
+        /// Returns the scheduler used to enqueue work into the update loop.
+        Scheduler GetScheduler() noexcept { return _scheduler.GetScheduler(); }
+
+        /// Launch a sender directly.
+        /// The sender is automatically wrapped with starts_on(GetScheduler(), sender)
+        /// so its work runs on the update loop.
+        ///
+        /// Example:
+        ///   domain->Launch(MainTask());
+        template <stdexec::sender S>
+        requires (!std::invocable<S, Scheduler>)
+        void Launch(S sender)
+        {
+            Store(stdexec::starts_on(GetScheduler(), std::move(sender)));
+        }
+
+        /// Launch via a factory callable: (Scheduler) -> sender<int>.
+        /// Use this when the pipeline itself depends on the scheduler
+        /// (e.g. stdexec::continues_on between steps).
+        ///
+        /// Example:
+        ///   domain->Launch([](auto sched) {
+        ///       return stdexec::schedule(sched) | stdexec::then([] { return 42; });
+        ///   });
+        template <class F>
+        requires std::invocable<F, Scheduler>
+        void Launch(F factory)
+        {
+            Store(std::move(factory)(GetScheduler()));
+        }
 
         ~Domain();
-
-        ::Exec::UpdateScheduler& GetUpdateScheduler() noexcept { return _scheduler; }
 
         // App::Loop::Handler
         bool Start() override;
@@ -34,33 +55,47 @@ namespace App::Exec
         void Update(const App::Loop::UpdateCtx& ctx) override;
 
     private:
-        /// Called by the receiver when the sender completes with a value
         void OnComplete(int exitCode);
-
-        /// Called by the receiver when the sender is stopped
         void OnStopped();
 
         friend struct DomainReceiver;
 
-        template <class SenderFactory>
-        static TaskFactory MakeFactory(SenderFactory factory);
+        // ---------------------------------------------------------------
+        // Type erasure for the operation state
+        //
+        // stdexec::connect() returns a different, non-movable type for every
+        // sender type S. Because Domain is a concrete (non-template) class it
+        // must hold the operation state behind a pointer. The virtual pair
+        // IOpState / OpStateBox<S> is the minimal mechanism for this.
+        // Alternatives (unique_ptr<void> + std::function) are equally complex
+        // but harder to read.
+        // ---------------------------------------------------------------
 
-        ::Exec::UpdateScheduler _scheduler;
-        TaskFactory _taskFactory;
-
-        /// Type-erased operation state storage
         struct IOpState
         {
             virtual ~IOpState() = default;
-            virtual void Start() = 0;
+            virtual void start() = 0;
         };
-        std::unique_ptr<IOpState> _opState;
 
+        // OpStateBox<S> is defined after DomainReceiver below (forward-declared here).
         template <class Sender>
         struct OpStateBox;
+
+        // Store() is defined after DomainReceiver below.
+        template <class Sender>
+        void Store(Sender sender);
+
+        ::Exec::UpdateScheduler _scheduler;
+        std::unique_ptr<IOpState> _opState;
     };
 
-    /// Receiver that forwards completion to the Domain
+    // ---------------------------------------------------------------
+    // DomainReceiver
+    //
+    // stdexec receivers must be named, concrete types — lambdas cannot
+    // satisfy the receiver concept. This minimal struct just forwards
+    // the three possible completion signals to Domain's private handlers.
+    // ---------------------------------------------------------------
     struct DomainReceiver
     {
         using receiver_concept = stdexec::receiver_t;
@@ -68,35 +103,28 @@ namespace App::Exec
         Domain* domain;
 
         void set_value(int exitCode) const noexcept { domain->OnComplete(exitCode); }
-
         void set_stopped() const noexcept { domain->OnStopped(); }
-
-        [[noreturn]] void set_error(auto&& /*unused*/) noexcept { std::terminate(); }
+        [[noreturn]] void set_error(auto&&) noexcept { std::terminate(); }
     };
 
+    // OpStateBox<S> holds the concrete, non-movable operation state returned by
+    // stdexec::connect(). It is defined here so DomainReceiver is already complete.
     template <class Sender>
     struct Domain::OpStateBox: Domain::IOpState
     {
-        using OpState = stdexec::connect_result_t<Sender, DomainReceiver>;
+        stdexec::connect_result_t<Sender, DomainReceiver> op;
 
-        // Construct the operation state in-place via connect
-        OpStateBox(Sender&& sender, Domain& domain)
-            : op(stdexec::connect(static_cast<Sender&&>(sender), DomainReceiver{&domain}))
+        OpStateBox(Sender sender, Domain& domain)
+            : op(stdexec::connect(std::move(sender), DomainReceiver{&domain}))
         {}
 
-        void Start() override { stdexec::start(op); }
-
-        OpState op;
+        void start() override { stdexec::start(op); }
     };
 
-    template <class SenderFactory>
-    Domain::TaskFactory Domain::MakeFactory(SenderFactory factory)
+    template <class Sender>
+    void Domain::Store(Sender sender)
     {
-        return [f = std::move(factory)](Domain& self) mutable {
-            auto sender = std::move(f)(self._scheduler.GetScheduler());
-            using S = decltype(sender);
-            self._opState = std::make_unique<OpStateBox<S>>(std::move(sender), self);
-            self._opState->Start();
-        };
+        _opState = std::make_unique<OpStateBox<Sender>>(std::move(sender), *this);
     }
+
 } // namespace App::Exec
