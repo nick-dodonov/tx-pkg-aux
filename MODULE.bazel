@@ -75,6 +75,7 @@ bazel_dep(name = "rules_android", version = "0.7.1")
 
 ################################################################
 bazel_dep(name = "concurrentqueue", version = "1.0.4")
+bazel_dep(name = "stdexec", version = "5d9f3bfb032e9d71b2292b7add7d90cbf9d037a9")
 
 ################################################################
 # new cppalliance tries (corosio and http) - TODO: make private registry modules when ready

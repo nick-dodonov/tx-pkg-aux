@@ -1,0 +1,17 @@
+load("@tx-kit-ext//rules:multi_app.bzl", "multi_app")
+
+multi_app(
+    name = "hello_world",
+    srcs = ["hello_world.cpp"],
+    deps = [
+        "@stdexec",
+    ],
+)
+
+multi_app(
+    name = "hello_coro",
+    srcs = ["hello_coro.cpp"],
+    deps = [
+        "@stdexec",
+    ],
+)
