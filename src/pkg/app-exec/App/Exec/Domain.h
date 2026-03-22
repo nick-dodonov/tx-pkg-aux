@@ -1,7 +1,8 @@
 #pragma once
 
 #include "App/Loop/Handler.h"
-#include "Exec/UpdateScheduler.h"
+#include "Exec/Delay/IDelayBackend.h"
+#include "Exec/TimedScheduler.h"
 
 #include <memory>
 
@@ -21,10 +22,14 @@ namespace App::Exec
     /// unwind cleanly instead of being destroyed mid-flight.
     class Domain: public App::Loop::Handler
     {
-        using Scheduler = ::Exec::UpdateScheduler::Scheduler;
+        using Scheduler = ::Exec::TimedScheduler::Scheduler;
 
     public:
-        /// Returns the scheduler used to enqueue work into the update loop.
+        /// Returns the timed scheduler handle for this domain.
+        ///
+        /// The returned handle satisfies both stdexec::scheduler (for zero-delay
+        /// frame scheduling) and exec::timed_scheduler (for exec::schedule_after /
+        /// exec::schedule_at).
         Scheduler GetScheduler() noexcept { return _scheduler.GetScheduler(); }
 
         /// Construct with a sender directly.
@@ -36,9 +41,14 @@ namespace App::Exec
         /// Example:
         ///   auto domain = std::make_shared<Domain>(MainTask());
         ///   auto domain = std::make_shared<Domain>(stdexec::just(42));
+        /// `backend` defaults to nullptr which triggers MakeDefaultBackend() in the
+        /// member initializer — ThreadDelayBackend on desktop, LoopDelayBackend on WASM.
+        /// Pass a custom backend (e.g. LoopDelayBackend for tests) to override.
         template <stdexec::sender S>
         requires (!std::invocable<S, Scheduler>)
-        explicit Domain(S sender)
+        explicit Domain(S sender, std::unique_ptr<::Exec::IDelayBackend> backend = nullptr)
+            : _timerBackend(backend ? std::move(backend) : MakeDefaultBackend())
+            , _scheduler(_timerBackend.get())
         {
             Store(stdexec::starts_on(GetScheduler(), std::move(sender)));
         }
@@ -56,7 +66,9 @@ namespace App::Exec
         ///   });
         template <class F>
         requires std::invocable<F, Scheduler>
-        explicit Domain(F factory)
+        explicit Domain(F factory, std::unique_ptr<::Exec::IDelayBackend> backend = nullptr)
+            : _timerBackend(backend ? std::move(backend) : MakeDefaultBackend())
+            , _scheduler(_timerBackend.get())
         {
             Store(std::move(factory)(GetScheduler()));
         }
@@ -101,7 +113,15 @@ namespace App::Exec
         template <class Sender>
         void Store(Sender sender);
 
-        ::Exec::UpdateScheduler _scheduler;
+        /// Returns the platform-default timer backend.
+        /// Defined in Domain.cpp to avoid including ThreadDelayBackend.h here.
+        static std::unique_ptr<::Exec::IDelayBackend> MakeDefaultBackend();
+
+        // _timerBackend must be declared before _scheduler: it is initialized first
+        // (member init order follows declaration order), and the TimedScheduler
+        // constructor takes the raw backend pointer which must already be valid.
+        std::unique_ptr<::Exec::IDelayBackend> _timerBackend;
+        ::Exec::TimedScheduler _scheduler;
         std::unique_ptr<IOpState> _opState;
 
         // Stop-token source propagated to the running sender via DomainReceiver::get_env().

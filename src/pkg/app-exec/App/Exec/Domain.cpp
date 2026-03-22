@@ -1,9 +1,15 @@
 #include "App/Exec/Domain.h"
 #include "App/Loop/Runner.h"
+#include "Exec/Delay/ThreadDelayBackend.h"
 #include "Log/Log.h"
 
 namespace App::Exec
 {
+    std::unique_ptr<::Exec::IDelayBackend> Domain::MakeDefaultBackend()
+    {
+        return std::make_unique<::Exec::ThreadDelayBackend>();
+    }
+
     Domain::~Domain()
     {
         Log::Trace("destroy");
@@ -20,16 +26,20 @@ namespace App::Exec
     {
         Log::Trace("stopping");
         _stopSource.request_stop();
-        // Drain any tasks already enqueued so they observe stop_requested() and call
-        // set_stopped() before we destroy the operation state. Without this, queued
-        // Operation<R> nodes would become dangling pointers inside the lock-free queue.
+        // Fire any timers that were pending at shutdown so their shared states
+        // observe stop_requested() correctly, then drain the frame queue so that
+        // queued operations call set_stopped() before the op state is destroyed.
+        _scheduler.TickBackend();
         _scheduler.DrainQueue();
         _opState.reset();
     }
 
     void Domain::Update(const App::Loop::UpdateCtx& ctx)
     {
-        if (const auto count = _scheduler.DrainQueue(); count > 0) {
+        // Fire expired timer callbacks first so they can enqueue frame operations.
+        _scheduler.TickBackend();
+        const auto count = _scheduler.DrainQueue();
+        if (count > 0) {
             Log::Trace("drained {} tasks on frame={}", count, ctx.frame.index);
         }
     }

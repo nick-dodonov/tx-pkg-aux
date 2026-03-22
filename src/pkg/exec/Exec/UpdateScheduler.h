@@ -18,20 +18,23 @@ namespace Exec
     ///   UpdateScheduler        — non-blocking, frame-boundary deferred, main-thread loops
     class UpdateScheduler
     {
+    public:
         /// Minimal task node stored in the concurrent queue.
         ///
-        /// Uses a raw function pointer instead of virtual dispatch to avoid vtable
-        /// overhead — a pattern also used in stdexec::run_loop's intrusive queue.
-        /// The execute pointer is set in Operation's constructor to capture the
-        /// concrete Receiver type without requiring a virtual base class.
+        /// Public so external operation states (e.g., DelaySharedState) can inherit
+        /// from it and be enqueued via Enqueue(). Uses a raw function pointer instead
+        /// of virtual dispatch — a pattern also used in stdexec::run_loop's intrusive
+        /// queue. The execute pointer is set by the inheriting type's constructor to
+        /// capture its concrete type without requiring a virtual base class.
         ///
-        /// Lifetime: Operation (which inherits OperationBase) lives inside the stdexec
-        /// operation state. The parent op state must not be destroyed while this
-        /// task is still in the queue.
+        /// Lifetime: the inheriting node must not be destroyed while it is still in
+        /// the queue.
         struct OperationBase
         {
             void (*execute)(OperationBase*) noexcept {};
         };
+
+    private:
 
         /// Concrete operation state produced by Sender::connect().
         ///
@@ -157,6 +160,13 @@ namespace Exec
             }
             return count;
         }
+
+        /// Enqueue a task node from outside the scheduler (e.g., from a timer callback).
+        ///
+        /// Prefer this over Push() for code in other translation units that hold a
+        /// pointer to the OperationBase (such as DelaySharedState). Push() remains
+        /// private so only Operation<Receiver>::start() can enqueue via that path.
+        void Enqueue(OperationBase* task) noexcept { _queue.enqueue(task); }
 
     private:
         void Push(OperationBase* task) noexcept { _queue.enqueue(task); }
