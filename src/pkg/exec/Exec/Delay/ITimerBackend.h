@@ -18,8 +18,8 @@ namespace Exec
     ///     or has fired; callers must not rely on it for correctness (the CAS in
     ///     DelaySharedState handles the race).
     ///   - Tick() is called from the main/update thread only (via Domain::Update).
-    ///     Thread-based backends (ThreadDelayBackend) implement it as a no-op.
-    class IDelayBackend
+    ///     Thread-based backends (ThreadTimerBackend) implement it as a no-op.
+    class ITimerBackend
     {
     public:
         using TimerId   = std::uint64_t;
@@ -27,7 +27,7 @@ namespace Exec
         using Duration  = std::chrono::steady_clock::duration;
         using Callback  = std::function<void()>;
 
-        virtual ~IDelayBackend() = default;
+        virtual ~ITimerBackend() = default;
 
         /// Schedule a callback to be invoked at or after `deadline`.
         ///
@@ -47,7 +47,7 @@ namespace Exec
 
         /// Called from the main/update thread each frame (before DrainQueue).
         ///
-        /// Loop-integrated backends (LoopDelayBackend) override this to fire
+        /// Loop-integrated backends (LoopTimerBackend) override this to fire
         /// expired timers. Thread-based backends may leave this as a no-op.
         virtual void Tick() noexcept {}
     };

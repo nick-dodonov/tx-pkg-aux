@@ -1,13 +1,13 @@
 #include "Domain.h"
 #include "RunLoop/Runner.h"
-#include "Exec/Delay/ThreadDelayBackend.h"
+#include "Exec/Delay/ThreadTimerBackend.h"
 #include "Log/Log.h"
 
 namespace Exec
 {
-    std::unique_ptr<::Exec::IDelayBackend> Domain::MakeDefaultBackend()
+    std::unique_ptr<::Exec::ITimerBackend> Domain::MakeDefaultBackend()
     {
-        return std::make_unique<::Exec::ThreadDelayBackend>();
+        return std::make_unique<::Exec::ThreadTimerBackend>();
     }
 
     Domain::~Domain()

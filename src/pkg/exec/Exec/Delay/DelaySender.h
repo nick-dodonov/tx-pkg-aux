@@ -1,9 +1,8 @@
 #pragma once
-#include "IDelayBackend.h"
+#include "ITimerBackend.h"
 #include "Exec/RunLoopContext.h"
 
 #include <atomic>
-#include <chrono>
 #include <memory>
 #include <stdexec/execution.hpp>
 
@@ -65,8 +64,8 @@ namespace Exec
             stdexec::set_value_t(), stdexec::set_stopped_t()>;
 
         TimedLoopHandle timedSched; // for the Env query AND for RunLoopContext access
-        IDelayBackend*       backend;
-        IDelayBackend::TimePoint deadline;
+        ITimerBackend* backend;
+        ITimerBackend::TimePoint deadline;
 
         /// Operation state for a delay. Holds the shared control block by shared_ptr.
         ///
@@ -84,14 +83,14 @@ namespace Exec
             using StopCb      = stdexec::inplace_stop_callback<std::function<void()>>;
 
             std::shared_ptr<SharedState>    state;
-            IDelayBackend*                  backend;
-            IDelayBackend::TimePoint        deadline;
-            IDelayBackend::TimerId          timerId{};
+            ITimerBackend*                  backend;
+            ITimerBackend::TimePoint        deadline;
+            ITimerBackend::TimerId          timerId{};
             alignas(StopCb) std::byte       stopCbStorage[sizeof(StopCb)]{};
             bool                            stopCbActive{false};
 
-            Operation(TimedLoopHandle sched, IDelayBackend* be,
-                      IDelayBackend::TimePoint dl, Receiver rcvr)
+            Operation(TimedLoopHandle sched, ITimerBackend* be,
+                      ITimerBackend::TimePoint dl, Receiver rcvr)
                 : state(std::make_shared<SharedState>(
                       sched.GetRunLoop(), static_cast<Receiver&&>(rcvr)))
                 , backend(be)
@@ -177,5 +176,4 @@ namespace Exec
 
         [[nodiscard]] auto get_env() const noexcept -> Env { return {timedSched}; }
     };
-
 } // namespace Exec

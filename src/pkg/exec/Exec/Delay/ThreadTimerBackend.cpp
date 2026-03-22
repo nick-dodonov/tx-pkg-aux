@@ -1,19 +1,19 @@
-#include "ThreadDelayBackend.h"
+#include "ThreadTimerBackend.h"
 
 namespace Exec
 {
-    ThreadDelayBackend::ThreadDelayBackend()
+    ThreadTimerBackend::ThreadTimerBackend()
         : _thread([this] { RunTimerThread(); })
     {}
 
-    ThreadDelayBackend::~ThreadDelayBackend()
+    ThreadTimerBackend::~ThreadTimerBackend()
     {
         _stopping.store(true, std::memory_order_relaxed);
         _cv.notify_all();
         // jthread destructor joins automatically.
     }
 
-    auto ThreadDelayBackend::ScheduleAt(TimePoint deadline, Callback callback) -> TimerId
+    auto ThreadTimerBackend::ScheduleAt(TimePoint deadline, Callback callback) -> TimerId
     {
         const TimerId id = _nextId.fetch_add(1, std::memory_order_relaxed);
         {
@@ -25,13 +25,13 @@ namespace Exec
         return id;
     }
 
-    bool ThreadDelayBackend::Cancel(TimerId id) noexcept
+    bool ThreadTimerBackend::Cancel(TimerId id) noexcept
     {
         std::lock_guard lock{_mutex};
         return _active.erase(id) > 0;
     }
 
-    void ThreadDelayBackend::RunTimerThread()
+    void ThreadTimerBackend::RunTimerThread()
     {
         std::unique_lock lock{_mutex};
         while (!_stopping.load(std::memory_order_relaxed)) {

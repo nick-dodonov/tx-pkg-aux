@@ -1,7 +1,7 @@
 #pragma once
 
 #include "RunLoop/Handler.h"
-#include "Exec/Delay/IDelayBackend.h"
+#include "Exec/Delay/ITimerBackend.h"
 #include "Exec/RunContext.h"
 
 #include <memory>
@@ -42,11 +42,11 @@ namespace Exec
         ///   auto domain = std::make_shared<Domain>(MainTask());
         ///   auto domain = std::make_shared<Domain>(stdexec::just(42));
         /// `backend` defaults to nullptr which triggers MakeDefaultBackend() in the
-        /// member initializer — ThreadDelayBackend on desktop, LoopDelayBackend on WASM.
-        /// Pass a custom backend (e.g. LoopDelayBackend for tests) to override.
+        /// member initializer — ThreadTimerBackend on desktop, LoopTimerBackend on WASM.
+        /// Pass a custom backend (e.g. LoopTimerBackend for tests) to override.
         template <stdexec::sender S>
         requires (!std::invocable<S, Scheduler>)
-        explicit Domain(S sender, std::unique_ptr<::Exec::IDelayBackend> backend = nullptr)
+        explicit Domain(S sender, std::unique_ptr<::Exec::ITimerBackend> backend = nullptr)
             : _timerBackend(backend ? std::move(backend) : MakeDefaultBackend())
             , _scheduler(_timerBackend.get())
         {
@@ -66,7 +66,7 @@ namespace Exec
         ///   });
         template <class F>
         requires std::invocable<F, Scheduler>
-        explicit Domain(F factory, std::unique_ptr<::Exec::IDelayBackend> backend = nullptr)
+        explicit Domain(F factory, std::unique_ptr<::Exec::ITimerBackend> backend = nullptr)
             : _timerBackend(backend ? std::move(backend) : MakeDefaultBackend())
             , _scheduler(_timerBackend.get())
         {
@@ -114,13 +114,13 @@ namespace Exec
         void Store(Sender sender);
 
         /// Returns the platform-default timer backend.
-        /// Defined in Domain.cpp to avoid including ThreadDelayBackend.h here.
-        static std::unique_ptr<::Exec::IDelayBackend> MakeDefaultBackend();
+        /// Defined in Domain.cpp to avoid including ThreadTimerBackend.h here.
+        static std::unique_ptr<::Exec::ITimerBackend> MakeDefaultBackend();
 
         // _timerBackend must be declared before _scheduler — it is initialized first
         // (member init order follows declaration order), and the TimedLoopContext
         // constructor takes the raw backend pointer which must already be valid.
-        std::unique_ptr<::Exec::IDelayBackend> _timerBackend;
+        std::unique_ptr<::Exec::ITimerBackend> _timerBackend;
         ::Exec::TimedLoopContext _scheduler;
         std::unique_ptr<IOpState> _opState;
 

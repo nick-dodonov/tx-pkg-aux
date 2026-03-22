@@ -7,7 +7,7 @@ namespace Exec
 {
     /// Project-level alias for the execution context used by App::Exec::Domain.
     ///
-    /// Currently bound to TimedLoopContext (RunLoopContext + IDelayBackend). The
+    /// Currently bound to TimedLoopContext (RunLoopContext + ITimerBackend). The
     /// alias provides a stable name for code that depends on the domain's context
     /// type without coupling to the underlying implementation class.
     ///

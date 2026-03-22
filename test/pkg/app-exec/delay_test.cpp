@@ -1,6 +1,6 @@
 #include "Exec/Domain.h"
 #include "App/Factory.h"
-#include "Exec/Delay/LoopDelayBackend.h"
+#include "Exec/Delay/LoopTimerBackend.h"
 #include "TestRunner.h"
 
 #include <gtest/gtest.h>
@@ -10,7 +10,7 @@
 
 namespace {
 
-/// Returns a domain using LoopDelayBackend (no background thread, fully deterministic).
+/// Returns a domain using LoopTimerBackend (no background thread, fully deterministic).
 /// The factory lambda receives the concrete TimedLoopContext::Scheduler — necessary
 /// because exec::task type-erases the ambient scheduler to any_scheduler<>, which
 /// does not satisfy exec::timed_scheduler and therefore cannot be passed to
@@ -19,13 +19,13 @@ template <class F>
 auto MakeDomainWithLoop(F factory)
 {
     return std::make_shared<Exec::Domain>(
-        std::move(factory), std::make_unique<Exec::LoopDelayBackend>());
+        std::move(factory), std::make_unique<Exec::LoopTimerBackend>());
 }
 
 } // namespace
 
 // Zero-duration schedule_after completes in one Update() frame.
-// LoopDelayBackend::Tick() checks steady_clock::now(); nanoseconds(0) deadline
+// LoopTimerBackend::Tick() checks steady_clock::now(); nanoseconds(0) deadline
 // is already in the past by the time the first Update() runs.
 TEST(DelayTest, ZeroDurationDelayCompletesInOneFrame)
 {
@@ -38,7 +38,7 @@ TEST(DelayTest, ZeroDurationDelayCompletesInOneFrame)
 
 // schedule_at() with a time_point one second in the past fires immediately on Tick().
 // Use exec::now(sched) — not std::chrono::steady_clock::now() — so the time point
-// is relative to the same clock source that LoopDelayBackend::Tick() uses.
+// is relative to the same clock source that LoopTimerBackend::Tick() uses.
 // On some Android emulator configurations the two can differ (e.g. CLOCK_BOOTTIME
 // vs CLOCK_MONOTONIC split across translation units / linked libraries).
 TEST(DelayTest, ScheduleAtPastTimePointFiresImmediately)
@@ -62,7 +62,7 @@ TEST(DelayTest, StopBeforeDelayFiresCancelsCorrectly)
     TestRunner runner{domain};
 
     // Start(): exec::task begins, runs to co_await schedule_after, registers timer
-    // (24h deadline with LoopDelayBackend) and stop callback, then suspends.
+    // (24h deadline with LoopTimerBackend) and stop callback, then suspends.
     domain->Start();
 
     // Stop(): request_stop() → stop callback fires synchronously (CAS wins) →
@@ -79,7 +79,7 @@ TEST(DelayTest, StopBeforeDelayFiresCancelsCorrectly)
 TEST(DelayTest, TimedLoopContextNowReturnsSteadyClockTime)
 {
     auto domain = std::make_shared<Exec::Domain>(
-        stdexec::just(0), std::make_unique<Exec::LoopDelayBackend>());
+        stdexec::just(0), std::make_unique<Exec::LoopTimerBackend>());
 
     const auto before = std::chrono::steady_clock::now();
     const auto t      = exec::now(domain->GetScheduler());

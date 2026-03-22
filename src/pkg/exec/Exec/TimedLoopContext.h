@@ -1,6 +1,6 @@
 #pragma once
 #include "Delay/DelaySender.h"
-#include "Delay/IDelayBackend.h"
+#include "Delay/ITimerBackend.h"
 #include "RunLoopContext.h"
 
 #include <chrono>
@@ -11,14 +11,14 @@ namespace Exec
 {
     /// Execution context that augments RunLoopContext with timed scheduling.
     ///
-    /// Wraps RunLoopContext (for zero-delay frame scheduling) and an IDelayBackend
+    /// Wraps RunLoopContext (for zero-delay frame scheduling) and an ITimerBackend
     /// (for timed delays). Satisfies both stdexec::scheduler and exec::timed_scheduler,
     /// so code that uses exec::schedule_after or co_await exec::schedule_after works
     /// without any project-specific helpers.
     ///
     /// Ownership: TimedLoopContext owns the RunLoopContext; it holds a non-owning
-    /// pointer to the IDelayBackend — lifetime of the backend is managed externally
-    /// (typically by App::Exec::Domain which provides a unique_ptr<IDelayBackend>).
+    /// pointer to the ITimerBackend — lifetime of the backend is managed externally
+    /// (typically by App::Exec::Domain which provides a unique_ptr<ITimerBackend>).
     class TimedLoopContext
     {
     public:
@@ -108,7 +108,7 @@ namespace Exec
             auto operator==(const Scheduler&) const noexcept -> bool = default;
         };
 
-        explicit TimedLoopContext(IDelayBackend* backend) noexcept
+        explicit TimedLoopContext(ITimerBackend* backend) noexcept
             : _backend(backend)
         {}
 
@@ -122,7 +122,7 @@ namespace Exec
 
     private:
         RunLoopContext _frameLoop;
-        IDelayBackend*  _backend; // non-owning; lifetime managed by caller (Domain)
+        ITimerBackend*  _backend; // non-owning; lifetime managed by caller (Domain)
     };
 
     // Out-of-line definition: now that Scheduler is complete, the query() body compiles.

@@ -1,6 +1,6 @@
 #include "Exec/Domain.h"
 #include "App/Factory.h"
-#include "Exec/Delay/LoopDelayBackend.h"
+#include "Exec/Delay/LoopTimerBackend.h"
 #include "Exec/RunContext.h"
 #include "Exec/RunTask.h"
 #include "TestRunner.h"
@@ -16,11 +16,11 @@ namespace {
 // Helpers
 // ---------------------------------------------------------------------------
 
-/// Build a Domain with LoopDelayBackend (deterministic, no background thread).
+/// Build a Domain with LoopTimerBackend (deterministic, no background thread).
 auto MakeDomain(Exec::RunTask<int> task)
 {
     return std::make_shared<Exec::Domain>(
-        std::move(task), std::make_unique<Exec::LoopDelayBackend>());
+        std::move(task), std::make_unique<Exec::LoopTimerBackend>());
 }
 
 // ---------------------------------------------------------------------------
@@ -63,7 +63,7 @@ TEST(RunTaskTest, ScheduleAfterViaEnv)
 }
 
 // schedule_at with a past time_point fires immediately. Uses exec::now(sched)
-// obtained from the environment — same clock source as LoopDelayBackend::Tick().
+// obtained from the environment — same clock source as LoopTimerBackend::Tick().
 TEST(RunTaskTest, ScheduleAtPastTimePointViaEnv)
 {
     auto domain = MakeDomain([]() -> Exec::RunTask<int> {

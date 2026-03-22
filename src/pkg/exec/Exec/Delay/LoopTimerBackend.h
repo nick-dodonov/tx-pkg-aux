@@ -1,5 +1,5 @@
 #pragma once
-#include "IDelayBackend.h"
+#include "ITimerBackend.h"
 #include <algorithm>
 #include <atomic>
 #include <vector>
@@ -16,8 +16,8 @@ namespace Exec
     /// Thread safety: all methods are intended to be called from the same thread.
     /// ScheduleAt() and Cancel() from start() / stop-callback (both run in the
     /// main/update thread context via the domain lock-free queue), and Tick() from
-    /// Domain::Update(). If you need cross-thread use, use ThreadDelayBackend instead.
-    class LoopDelayBackend : public IDelayBackend
+    /// Domain::Update(). If you need cross-thread use, use ThreadTimerBackend instead.
+    class LoopTimerBackend : public ITimerBackend
     {
     public:
         TimerId ScheduleAt(TimePoint deadline, Callback callback) override

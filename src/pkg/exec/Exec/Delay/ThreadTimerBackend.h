@@ -1,5 +1,5 @@
 #pragma once
-#include "IDelayBackend.h"
+#include "ITimerBackend.h"
 #include <atomic>
 #include <condition_variable>
 #include <mutex>
@@ -21,14 +21,14 @@ namespace Exec
     /// Cancel() removes the entry from the active set before invocation. If the
     /// timer thread is already executing the callback, Cancel() returns false
     /// immediately — it does NOT block. Callers must tolerate a late-fire.
-    class ThreadDelayBackend : public IDelayBackend
+    class ThreadTimerBackend : public ITimerBackend
     {
     public:
-        ThreadDelayBackend();
-        ~ThreadDelayBackend() override;
+        ThreadTimerBackend();
+        ~ThreadTimerBackend() override;
 
-        ThreadDelayBackend(const ThreadDelayBackend&) = delete;
-        ThreadDelayBackend& operator=(const ThreadDelayBackend&) = delete;
+        ThreadTimerBackend(const ThreadTimerBackend&) = delete;
+        ThreadTimerBackend& operator=(const ThreadTimerBackend&) = delete;
 
         TimerId ScheduleAt(TimePoint deadline, Callback callback) override;
         bool Cancel(TimerId id) noexcept override;
