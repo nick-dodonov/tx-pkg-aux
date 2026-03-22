@@ -4,7 +4,7 @@
 
 #include <emscripten.h>
 
-namespace App::Loop
+namespace App
 {
     WasmRunner::WasmRunner(HandlerPtr handler, Options options)
         : Runner{std::move(handler)}

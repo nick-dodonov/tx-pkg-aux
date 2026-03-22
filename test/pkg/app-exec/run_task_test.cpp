@@ -32,7 +32,7 @@ auto MakeDomain(Exec::RunTask<int> task)
 TEST(RunTaskTest, ReturnsValue)
 {
     auto domain = MakeDomain([]() -> Exec::RunTask<int> { co_return 42; }());
-    EXPECT_EQ(App::Loop::CreateTestRunner(domain)->Run(), 42);
+    EXPECT_EQ(App::CreateTestRunner(domain)->Run(), 42);
 }
 
 // co_await stdexec::read_env(stdexec::get_scheduler) inside a RunTask must
@@ -47,7 +47,7 @@ TEST(RunTaskTest, SchedulerAvailableViaEnv)
             "RunTask must expose the concrete RunContext::Scheduler via get_scheduler");
         co_return 7;
     }());
-    EXPECT_EQ(App::Loop::CreateTestRunner(domain)->Run(), 7);
+    EXPECT_EQ(App::CreateTestRunner(domain)->Run(), 7);
 }
 
 // Zero-duration schedule_after obtained via read_env completes in one frame.
@@ -59,7 +59,7 @@ TEST(RunTaskTest, ScheduleAfterViaEnv)
         co_await exec::schedule_after(sched, std::chrono::nanoseconds(0));
         co_return 10;
     }());
-    EXPECT_EQ(App::Loop::CreateTestRunner(domain)->Run(), 10);
+    EXPECT_EQ(App::CreateTestRunner(domain)->Run(), 10);
 }
 
 // schedule_at with a past time_point fires immediately. Uses exec::now(sched)
@@ -72,7 +72,7 @@ TEST(RunTaskTest, ScheduleAtPastTimePointViaEnv)
         co_await exec::schedule_at(sched, past);
         co_return 77;
     }());
-    EXPECT_EQ(App::Loop::CreateTestRunner(domain)->Run(), 77);
+    EXPECT_EQ(App::CreateTestRunner(domain)->Run(), 77);
 }
 
 // Stop() before the delay fires: set_stopped propagates via exec::task → OnStopped.
@@ -115,7 +115,7 @@ Exec::RunTask<int> OuterTask()
 TEST(RunTaskTest, NestedRunTasksShareScheduler)
 {
     auto domain = MakeDomain(OuterTask());
-    EXPECT_EQ(App::Loop::CreateTestRunner(domain)->Run(), 55);
+    EXPECT_EQ(App::CreateTestRunner(domain)->Run(), 55);
 }
 
 } // namespace

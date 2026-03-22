@@ -2,7 +2,7 @@
 #include "RunLoop/Handler.h"
 #include "RunLoop/Runner.h"
 
-namespace App::Loop
+namespace App
 {
     /// Factory for simple console runner based on platform
     std::shared_ptr<RunLoop::IRunner> CreateDefaultRunner(std::shared_ptr<RunLoop::Handler> handler);

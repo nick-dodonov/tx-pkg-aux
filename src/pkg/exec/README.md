@@ -1,6 +1,6 @@
 # pkg/exec
 
-Low-level P2300 scheduling primitives. See [pkg/app-exec](../app-exec/README.md) for the `Domain` integration with `App::Loop`.
+Low-level P2300 scheduling primitives. See [pkg/app-exec](../app-exec/README.md) for the `Domain` integration with `RunLoop`.
 - [User’s Guide about `stdexec`](https://nvidia.github.io/stdexec/user/index.html).
 
 ---

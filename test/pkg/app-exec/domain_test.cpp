@@ -25,7 +25,7 @@ exec::task<int> TwoHopTask()
 TEST(DomainTest, PlainSenderCompletion)
 {
     auto domain = std::make_shared<App::Exec::Domain>(stdexec::just(42));
-    const auto runner = App::Loop::CreateTestRunner(domain);
+    const auto runner = App::CreateTestRunner(domain);
     EXPECT_EQ(runner->Run(), 42);
 }
 
@@ -35,7 +35,7 @@ TEST(DomainTest, FactoryConstructor)
     auto domain = std::make_shared<App::Exec::Domain>([](auto sched) {
         return stdexec::schedule(sched) | stdexec::then([] { return 7; });
     });
-    const auto runner = App::Loop::CreateTestRunner(domain);
+    const auto runner = App::CreateTestRunner(domain);
     EXPECT_EQ(runner->Run(), 7);
 }
 
@@ -60,7 +60,7 @@ TEST(DomainTest, StopBeforeDrainCancelsTask)
 TEST(DomainTest, CoroutineSenderWithSchedulerAccess)
 {
     auto domain = std::make_shared<App::Exec::Domain>(TwoHopTask());
-    const auto runner = App::Loop::CreateTestRunner(domain);
+    const auto runner = App::CreateTestRunner(domain);
     // DrainQueue() is greedy — it exhausts newly-enqueued tasks within the same
     // call, so all hops (starts_on bridge → exec::task start-on-scheduler →
     // co_await schedule resume) complete in a single Update() frame.

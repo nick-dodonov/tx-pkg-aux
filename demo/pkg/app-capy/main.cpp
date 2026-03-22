@@ -30,6 +30,6 @@ int main(const int argc, const char* argv[])
     auto exitCode = args.GetIntArg(1).value_or(0);
     
     auto domain = std::make_shared<Coro::Domain>(MainAsync(exitCode));
-    auto runner = App::Loop::CreateDefaultRunner(domain);
+    auto runner = App::CreateDefaultRunner(domain);
     return runner->Run();
 }

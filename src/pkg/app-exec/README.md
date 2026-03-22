@@ -1,12 +1,12 @@
 # pkg/app-exec
 
-`App::Exec::Domain` — an `App::Loop::Handler` that drives a P2300 sender pipeline on a `TimedLoopContext`. See [pkg/exec](../exec/README.md) for the P2300 mental model, available `stdexec::` algorithms, and `exec::` extensions.
+`App::Exec::Domain` — an `RunLoop::Handler` that drives a P2300 sender pipeline on a `TimedLoopContext`. See [pkg/exec](../exec/README.md) for the P2300 mental model, available `stdexec::` algorithms, and `exec::` extensions.
 
 ---
 
 ## Domain
 
-`Domain` bridges the P2300 sender/receiver model with the `App::Loop` update cycle:
+`Domain` bridges the P2300 sender/receiver model with the `RunLoop` update cycle:
 
 - Construct with a sender or factory → stores the connected op state
 - `Start()` calls `stdexec::start(op)` — the first task is enqueued on the scheduler
@@ -44,7 +44,7 @@ exec::task<int> MainTask()
 
 // In main:
 auto domain = std::make_shared<Domain>(MainTask());
-auto runner = App::Loop::CreateDefaultRunner(domain);
+auto runner = App::CreateDefaultRunner(domain);
 return runner->Run();
 ```
 

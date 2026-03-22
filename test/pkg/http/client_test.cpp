@@ -25,7 +25,7 @@ static constexpr auto Host = "localhost";
 TEST(HttpClientTest, GetRequestToLocalhost)
 {
     const auto domain = std::make_shared<Domain>();
-    const auto runner = App::Loop::CreateTestRunner(domain);
+    const auto runner = App::CreateTestRunner(domain);
 
     auto coroMain = []() -> asio::awaitable<int> {
         const auto executor = co_await asio::this_coro::executor;
@@ -76,7 +76,7 @@ TEST(HttpClientTest, GetRequestToLocalhost)
 TEST(HttpClientTest, PostRequestToLocalhost)
 {
     const auto domain = std::make_shared<Domain>();
-    const auto runner = App::Loop::CreateTestRunner(domain);
+    const auto runner = App::CreateTestRunner(domain);
 
     auto coroMain = []() -> asio::awaitable<int> {
         const auto executor = co_await asio::this_coro::executor;

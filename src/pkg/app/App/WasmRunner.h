@@ -3,7 +3,7 @@
 #include "RunLoop/Handler.h"
 #include "RunLoop/Runner.h"
 
-namespace App::Loop
+namespace App
 {
     /// Runner that integrates with emscripten main loop
     class WasmRunner final: public RunLoop::Runner

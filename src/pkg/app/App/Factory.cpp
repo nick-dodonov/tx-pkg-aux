@@ -4,7 +4,7 @@
 #include "WasmRunner.h"
 #endif
 
-namespace App::Loop
+namespace App
 {
     std::shared_ptr<RunLoop::IRunner> CreateDefaultRunner(std::shared_ptr<RunLoop::Handler> handler)
     {

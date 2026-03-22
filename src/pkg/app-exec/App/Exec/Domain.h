@@ -10,7 +10,7 @@ namespace App::Exec
 {
     /// Loop handler that drives a sender<int> on a RunLoopContext.
     ///
-    /// Bridges the P2300 sender/receiver model with the App::Loop update cycle.
+    /// Bridges the P2300 sender/receiver model with the RunLoop update cycle.
     /// Construct with a sender or factory, then pass to a runner. Each frame,
     /// Update() drains the scheduler queue. When the sender completes with an int,
     /// the runner exits with that code.
@@ -75,7 +75,7 @@ namespace App::Exec
 
         ~Domain();
 
-        // App::Loop::Handler
+        // RunLoop::Handler
         bool Start() override;
         void Stop() override;
         void Update(const RunLoop::UpdateCtx& ctx) override;

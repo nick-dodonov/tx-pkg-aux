@@ -5,7 +5,7 @@
 #include <emscripten.h>
 #endif
 
-namespace App::Loop
+namespace App
 {
 #ifdef __EMSCRIPTEN__
     // Workaround for emscripten exit handling with error code.

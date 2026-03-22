@@ -30,6 +30,6 @@ int main(const int argc, const char* argv[])
     Boot::DefaultInit(argc, argv);
     
     auto domain = std::make_shared<Coro::Domain>(MainAsync());
-    auto runner = App::Loop::CreateDefaultRunner(domain);
+    auto runner = App::CreateDefaultRunner(domain);
     return runner->Run();
 }

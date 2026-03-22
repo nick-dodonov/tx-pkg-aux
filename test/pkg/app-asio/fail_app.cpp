@@ -12,7 +12,7 @@ TEST(FailTest, AssertFail)
 TEST(FailTest, CoroFail)
 {
     auto domain = std::make_shared<App::Asio::Domain>();
-    auto runner = App::Loop::CreateTestRunner(domain);
+    auto runner = App::CreateTestRunner(domain);
 
     auto coroMain = []() -> boost::asio::awaitable<int> { 
         co_return 11;

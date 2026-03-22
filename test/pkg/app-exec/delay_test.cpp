@@ -33,7 +33,7 @@ TEST(DelayTest, ZeroDurationDelayCompletesInOneFrame)
         co_await exec::schedule_after(sched, std::chrono::nanoseconds(0));
         co_return 10;
     });
-    EXPECT_EQ(App::Loop::CreateTestRunner(domain)->Run(), 10);
+    EXPECT_EQ(App::CreateTestRunner(domain)->Run(), 10);
 }
 
 // schedule_at() with a time_point one second in the past fires immediately on Tick().
@@ -48,7 +48,7 @@ TEST(DelayTest, ScheduleAtPastTimePointFiresImmediately)
         co_await exec::schedule_at(sched, past);
         co_return 77;
     });
-    EXPECT_EQ(App::Loop::CreateTestRunner(domain)->Run(), 77);
+    EXPECT_EQ(App::CreateTestRunner(domain)->Run(), 77);
 }
 
 // Stop() before the delay fires: the stop callback wins the claimed CAS →

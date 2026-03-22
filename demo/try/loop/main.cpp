@@ -11,7 +11,7 @@
 
 using IRunner = RunLoop::IRunner;
 using UpdateCtx = RunLoop::UpdateCtx;
-using TightRunner = App::Loop::TightRunner;
+using TightRunner = App::TightRunner;
 
 /// Action interface
 template <class T>

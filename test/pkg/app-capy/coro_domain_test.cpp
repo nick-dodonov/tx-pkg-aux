@@ -15,7 +15,7 @@ TEST(CoroDomainTest, ImmediateReturn)
     };
 
     auto domain = std::make_shared<Coro::Domain>(task());
-    auto runner = App::Loop::CreateTestRunner(domain);
+    auto runner = App::CreateTestRunner(domain);
 
     Log::Trace("runner->Run() ...");
     int exitCode = runner->Run();
@@ -38,7 +38,7 @@ TEST(CoroDomainTest, TrivialCoAwait)
     };
 
     auto domain = std::make_shared<Coro::Domain>(task());
-    auto runner = App::Loop::CreateTestRunner(domain);
+    auto runner = App::CreateTestRunner(domain);
     int exitCode = runner->Run();
     EXPECT_EQ(exitCode, 7);
 }

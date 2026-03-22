@@ -20,7 +20,7 @@ TEST(DomainTest, CreateAndDestroy)
 TEST(DomainTest, RunSimpleCoroMain)
 {
     auto domain = std::make_shared<Domain>();
-    auto runner = App::Loop::CreateTestRunner(domain);
+    auto runner = App::CreateTestRunner(domain);
     
     auto coroMain = []() -> asio::awaitable<int> {
         co_return 42;
@@ -34,7 +34,7 @@ TEST(DomainTest, RunSimpleCoroMain)
 TEST(DomainTest, RunCoroWithAsyncTimer)
 {
     auto domain = std::make_shared<Domain>();
-    auto runner = App::Loop::CreateTestRunner(domain);
+    auto runner = App::CreateTestRunner(domain);
     
     auto coroMain = []() -> asio::awaitable<int> {
         auto timer = asio::steady_timer(co_await asio::this_coro::executor);
@@ -51,7 +51,7 @@ TEST(DomainTest, RunCoroWithAsyncTimer)
 TEST(DomainTest, RunCoroWithMultipleAsyncOps)
 {
     auto domain = std::make_shared<Domain>();
-    auto runner = App::Loop::CreateTestRunner(domain);
+    auto runner = App::CreateTestRunner(domain);
     
     auto coroMain = []() -> asio::awaitable<int> {
         auto executor = co_await asio::this_coro::executor;
@@ -77,7 +77,7 @@ TEST(DomainTest, RunCoroWithMultipleAsyncOps)
 TEST(DomainTest, RunCoroWithNestedCoro)
 {
     auto domain = std::make_shared<Domain>();
-    auto runner = App::Loop::CreateTestRunner(domain);
+    auto runner = App::CreateTestRunner(domain);
     
     auto nestedCoro = []() -> asio::awaitable<int> {
         auto timer = asio::steady_timer(co_await asio::this_coro::executor);
@@ -99,7 +99,7 @@ TEST(DomainTest, RunCoroWithNestedCoro)
 TEST(DomainTest, AsyncStoppedSignaling)
 {
     auto domain = std::make_shared<Domain>();
-    auto runner = App::Loop::CreateTestRunner(domain);
+    auto runner = App::CreateTestRunner(domain);
     
     auto coroMain = [domain]() -> asio::awaitable<int> {
         // Start async wait for stop

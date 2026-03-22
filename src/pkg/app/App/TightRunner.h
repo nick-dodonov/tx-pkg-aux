@@ -2,7 +2,7 @@
 #include "RunLoop/Handler.h"
 #include "RunLoop/Runner.h"
 
-namespace App::Loop
+namespace App
 {
     /// Synchronous runner that executes the update loop as fast as possible
     /// Polls io_context directly until Exit() is called

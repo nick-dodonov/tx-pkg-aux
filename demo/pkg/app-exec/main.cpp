@@ -31,6 +31,6 @@ int main(const int argc, const char* argv[])
     // without exposing it as a parameter.
     auto domain = std::make_shared<App::Exec::Domain>(MainTask());
 
-    auto runner = App::Loop::CreateDefaultRunner(domain);
+    auto runner = App::CreateDefaultRunner(domain);
     return runner->Run();
 }

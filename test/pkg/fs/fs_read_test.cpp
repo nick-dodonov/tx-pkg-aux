@@ -49,7 +49,7 @@ static void RunCoroTest(Coro::Task<> task)
         co_return 0;
     };
     auto domain = std::make_shared<Coro::Domain>(wrapper(std::move(task)));
-    auto runner = App::Loop::CreateTestRunner(domain);
+    auto runner = App::CreateTestRunner(domain);
     runner->Run();
 }
 

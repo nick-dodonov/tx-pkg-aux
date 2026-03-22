@@ -93,6 +93,6 @@ int main(const int argc, const char* argv[])
 {
     auto args = Boot::DefaultInit(argc, argv);
     const auto domain = std::make_shared<App::Asio::Domain>();
-    auto runner = App::Loop::CreateDefaultRunner(domain);
+    auto runner = App::CreateDefaultRunner(domain);
     return domain->RunCoroMain(runner, CoroMain(std::move(args)));
 }
