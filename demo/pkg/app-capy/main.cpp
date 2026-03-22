@@ -1,4 +1,4 @@
-#include "App/Capy/Domain.h"
+#include "Coro/CapyDomain.h"
 #include "App/Factory.h"
 #include "Boot/Boot.h"
 #include "Log/Scope.h"
@@ -29,7 +29,7 @@ int main(const int argc, const char* argv[])
     auto args = Boot::DefaultInit(argc, argv);
     auto exitCode = args.GetIntArg(1).value_or(0);
     
-    auto domain = std::make_shared<Coro::Domain>(MainAsync(exitCode));
+    auto domain = std::make_shared<Coro::CapyDomain>(MainAsync(exitCode));
     auto runner = App::CreateDefaultRunner(domain);
     return runner->Run();
 }

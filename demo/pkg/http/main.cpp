@@ -1,5 +1,5 @@
 #include "Boot/Boot.h"
-#include "App/Asio/Domain.h"
+#include "App/AsioDomain.h"
 #include "App/Factory.h"
 #include "Http/LiteClient.h"
 #include "Log/Log.h"
@@ -92,7 +92,7 @@ static boost::asio::awaitable<int> CoroMain(Boot::CliArgs args)
 int main(const int argc, const char* argv[])
 {
     auto args = Boot::DefaultInit(argc, argv);
-    const auto domain = std::make_shared<App::Asio::Domain>();
+    const auto domain = std::make_shared<App::AsioDomain>();
     auto runner = App::CreateDefaultRunner(domain);
     return domain->RunCoroMain(runner, CoroMain(std::move(args)));
 }

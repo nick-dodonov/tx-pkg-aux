@@ -1,4 +1,4 @@
-#include "App/Capy/Domain.h"
+#include "Coro/CapyDomain.h"
 #include "App/Factory.h"
 #include "Log/Log.h"
 
@@ -14,7 +14,7 @@ TEST(CoroDomainTest, ImmediateReturn)
         co_return 42;
     };
 
-    auto domain = std::make_shared<Coro::Domain>(task());
+    auto domain = std::make_shared<Coro::CapyDomain>(task());
     auto runner = App::CreateTestRunner(domain);
 
     Log::Trace("runner->Run() ...");
@@ -37,7 +37,7 @@ TEST(CoroDomainTest, TrivialCoAwait)
         co_return v;
     };
 
-    auto domain = std::make_shared<Coro::Domain>(task());
+    auto domain = std::make_shared<Coro::CapyDomain>(task());
     auto runner = App::CreateTestRunner(domain);
     int exitCode = runner->Run();
     EXPECT_EQ(exitCode, 7);

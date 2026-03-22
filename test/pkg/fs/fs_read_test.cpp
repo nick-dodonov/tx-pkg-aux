@@ -1,4 +1,4 @@
-#include "App/Capy/Domain.h"
+#include "Coro/CapyDomain.h"
 #include "App/Factory.h"
 #include "Fs/NativeDrive.h"
 #include "Fs/OverlayDrive.h"
@@ -48,7 +48,7 @@ static void RunCoroTest(Coro::Task<> task)
         co_await std::move(t);
         co_return 0;
     };
-    auto domain = std::make_shared<Coro::Domain>(wrapper(std::move(task)));
+    auto domain = std::make_shared<Coro::CapyDomain>(wrapper(std::move(task)));
     auto runner = App::CreateTestRunner(domain);
     runner->Run();
 }

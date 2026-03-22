@@ -1,10 +1,10 @@
-#include "Domain.h"
+#include "AsioDomain.h"
 #include "Log/Log.h"
 #include "RunLoop/Runner.h"
 
-namespace App::Asio
+namespace App
 {
-    Domain::Domain()
+    AsioDomain::AsioDomain()
     {
         Log::Trace("initialize");
         // TODO: selector for executors strategy, i.e. support system_executor (thread pool)
@@ -12,12 +12,12 @@ namespace App::Asio
         // auto& io_context = get_io_context();
     }
 
-    Domain::~Domain()
+    AsioDomain::~AsioDomain()
     {
         Log::Trace("destroy");
     }
 
-    int Domain::RunCoroMain(const std::shared_ptr<RunLoop::IRunner>& runner, boost::asio::awaitable<int> coroMain)
+    int AsioDomain::RunCoroMain(const std::shared_ptr<RunLoop::IRunner>& runner, boost::asio::awaitable<int> coroMain)
     {
         Log::Trace("starting");
         boost::asio::co_spawn(
@@ -36,7 +36,7 @@ namespace App::Asio
         return runner->Run();
     }
 
-    boost::asio::awaitable<boost::system::error_code> Domain::AsyncStopped()
+    boost::asio::awaitable<boost::system::error_code> AsioDomain::AsyncStopped()
     {
         Log::Trace("waiting...");
         auto executor = co_await boost::asio::this_coro::executor;
@@ -55,13 +55,13 @@ namespace App::Asio
         co_return ec;
     }
 
-    bool Domain::Start()
+    bool AsioDomain::Start()
     {
         Log::Debug(".");
         return true;
     }
 
-    void Domain::Stop()
+    void AsioDomain::Stop()
     {
         // Notify waiters if any
         std::shared_ptr<StopChannel> channel;
@@ -86,7 +86,7 @@ namespace App::Asio
         }
     }
 
-    void Domain::Update(const RunLoop::UpdateCtx& ctx)
+    void AsioDomain::Update(const RunLoop::UpdateCtx& ctx)
     {
         //Log::Trace("frame={} delta={} µs", ctx.frame.index, ctx.frame.delta.count());
         if (_io_context.stopped()) {

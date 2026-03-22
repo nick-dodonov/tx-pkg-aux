@@ -1,4 +1,4 @@
-#include "App/Capy/Domain.h"
+#include "CapyDomain.h"
 #include "RunLoop/Runner.h"
 #include "Log/Log.h"
 
@@ -6,19 +6,18 @@
 
 namespace Coro
 {
-
-    Domain::Domain(Coro::Task<int> mainTask)
+    CapyDomain::CapyDomain(Coro::Task<int> mainTask)
         : _mainTask(std::move(mainTask))
     {
         Log::Trace("created");
     }
 
-    Domain::~Domain()
+    CapyDomain::~CapyDomain()
     {
         Log::Trace("destroy");
     }
 
-    bool Domain::Start()
+    bool CapyDomain::Start()
     {
         Log::Trace("running");
         // auto executor = _pool.get_executor();
@@ -36,14 +35,14 @@ namespace Coro
         return true;
     }
 
-    void Domain::Stop()
+    void CapyDomain::Stop()
     {
         Log::Trace("stopping");
         // _pool.stop();
         _context.stop();
     }
 
-    void Domain::Update(const RunLoop::UpdateCtx& ctx)
+    void CapyDomain::Update(const RunLoop::UpdateCtx& ctx)
     {
         // Log::Trace("frame={} delta={} µs", ctx.frame.index, ctx.frame.delta.count());
         if (const auto count = _context.poll(); count > 0) {

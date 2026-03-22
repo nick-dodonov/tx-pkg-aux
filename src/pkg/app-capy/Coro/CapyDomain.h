@@ -8,14 +8,14 @@
 
 namespace Coro
 {
-    class Domain
+    class CapyDomain
         : public RunLoop::Handler
-        , public std::enable_shared_from_this<class Domain>
+        , public std::enable_shared_from_this<CapyDomain>
         , boost::noncopyable
     {
     public:
-        Domain(Coro::Task<int> mainTask);
-        ~Domain();
+        CapyDomain(Coro::Task<int> mainTask);
+        ~CapyDomain();
 
     private:
         Coro::Task<int> _mainTask;

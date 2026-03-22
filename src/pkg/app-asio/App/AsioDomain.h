@@ -6,16 +6,16 @@
 #include <boost/core/noncopyable.hpp>
 #include <memory>
 
-namespace App::Asio
+namespace App
 {
-    class Domain
+    class AsioDomain
         : public RunLoop::Handler
-        , public std::enable_shared_from_this<class Domain>
+        , public std::enable_shared_from_this<AsioDomain>
         , boost::noncopyable
     {
     public:
-        Domain();
-        ~Domain();
+        AsioDomain();
+        ~AsioDomain();
 
         int RunCoroMain(const std::shared_ptr<RunLoop::IRunner>& runner, boost::asio::awaitable<int> coroMain);
         boost::asio::awaitable<boost::system::error_code> AsyncStopped();
