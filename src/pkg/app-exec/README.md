@@ -1,6 +1,6 @@
 # pkg/app-exec
 
-`App::Exec::Domain` — an `App::Loop::Handler` that drives a P2300 sender pipeline on an `UpdateScheduler`. See [pkg/exec](../exec/README.md) for the P2300 mental model, available `stdexec::` algorithms, and `exec::` extensions.
+`App::Exec::Domain` — an `App::Loop::Handler` that drives a P2300 sender pipeline on a `TimedLoopContext`. See [pkg/exec](../exec/README.md) for the P2300 mental model, available `stdexec::` algorithms, and `exec::` extensions.
 
 ---
 
@@ -36,7 +36,7 @@ Use form 2 when pipeline steps need the scheduler to insert `continues_on` trans
 exec::task<int> MainTask()
 {
     // Scheduler is available via read_env because DomainReceiver::get_env()
-    // exposes get_scheduler → UpdateScheduler::Scheduler.
+    // exposes get_scheduler → TimedLoopContext::Scheduler.
     const auto sched = co_await stdexec::read_env(stdexec::get_scheduler);
     co_await stdexec::schedule(sched);   // hop to the next drain cycle
     co_return 42;
@@ -70,7 +70,7 @@ Stop-token-aware senders (`exec::task`, any custom sender that checks the token 
 
 | Query | Value | Effect |
 |-------|-------|--------|
-| `stdexec::get_scheduler` | `UpdateScheduler::Scheduler` | `co_await read_env(get_scheduler)` works inside `exec::task`; `stdexec::on` / `continues_on` can chain back to the loop |
+| `stdexec::get_scheduler` | `TimedLoopContext::Scheduler` | `co_await read_env(get_scheduler)` works inside `exec::task`; `stdexec::on` / `continues_on` can chain back to the loop |
 | `stdexec::get_stop_token` | `inplace_stop_token` | Cancellation propagates into the pipeline; `exec::task` observes it automatically |
 
 Without `get_env()` (or with `empty_env{}`), stop-token propagation and scheduler context are both silently broken — the sender executes without a scheduler in scope and can never observe cancellation between drain cycles.

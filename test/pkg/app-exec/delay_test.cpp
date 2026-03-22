@@ -92,7 +92,7 @@ TEST(DelayTest, StopBeforeDelayFiresCancelsCorrectly)
 // exec::now(sched) returns a steady_clock time_point within [before, after].
 // This is a correctness + compile-time check that TimedLoopContext::Scheduler
 // satisfies exec::__timed_scheduler (requires a .now() member returning a time_point).
-TEST(DelayTest, TimedSchedulerNowReturnsSteadyClockTime)
+TEST(DelayTest, TimedLoopContextNowReturnsSteadyClockTime)
 {
     auto domain = std::make_shared<App::Exec::Domain>(
         stdexec::just(0), std::make_unique<Exec::LoopDelayBackend>());

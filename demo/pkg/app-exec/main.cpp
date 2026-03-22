@@ -29,7 +29,7 @@ int main(const int argc, const char* argv[])
 {
     Boot::DefaultInit(argc, argv);
 
-    // Factory form: receives the concrete TimedScheduler::Scheduler and passes it
+    // Factory form: receives the concrete TimedLoopContext::Scheduler and passes it
     // to the coroutine — avoids the any_scheduler<> type-erasure inside exec::task.
     auto domain = std::make_shared<App::Exec::Domain>([](auto sched) {
         return MainTask(sched);

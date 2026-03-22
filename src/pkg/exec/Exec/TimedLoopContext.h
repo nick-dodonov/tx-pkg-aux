@@ -27,9 +27,9 @@ namespace Exec
     private:
         /// Frame-aligned sender returned by Scheduler::schedule().
         ///
-        /// Delegates the actual enqueueing to UpdateScheduler::Sender::connect(),
+        /// Delegates the actual enqueueing to RunLoopContext::Sender::connect(),
         /// but overrides the Env so the completion scheduler is reported as
-        /// TimedScheduler::Scheduler (required by stdexec::scheduler concept:
+        /// TimedLoopContext::Scheduler (required by stdexec::scheduler concept:
         /// get_completion_scheduler(get_env(schedule(sched))) == sched).
         struct FrameSender
         {
@@ -54,7 +54,7 @@ namespace Exec
                 TimedLoopContext* ctx;
 
                 template <class CPO>
-                [[nodiscard]] auto query(stdexec::get_completion_scheduler_t<CPO>) const noexcept
+                [[nodiscard]] auto query(stdexec::get_completion_scheduler_t<CPO> _) const noexcept
                     -> Scheduler; // defined after Scheduler is complete
             };
 
@@ -92,7 +92,11 @@ namespace Exec
             [[nodiscard]] auto schedule_at(std::chrono::steady_clock::time_point tp) const noexcept
                 -> DelaySender<Scheduler>
             {
-                return {*this, ctx->_backend, tp};
+                return {
+                    .timedSched=*this, 
+                    .backend=ctx->_backend, 
+                    .deadline=tp,
+                };
             }
 
             [[nodiscard]] auto schedule_after(std::chrono::steady_clock::duration dur) const noexcept
@@ -124,7 +128,7 @@ namespace Exec
     // Out-of-line definition: now that Scheduler is complete, the query() body compiles.
     template <class CPO>
     inline auto TimedLoopContext::FrameSender::Env::query(
-        stdexec::get_completion_scheduler_t<CPO>) const noexcept -> TimedLoopContext::Scheduler
+        stdexec::get_completion_scheduler_t<CPO> _) const noexcept -> TimedLoopContext::Scheduler
     {
         return {ctx};
     }

@@ -57,14 +57,14 @@ namespace Exec
     /// The Scheduler template parameter is the concrete TimedLoopContext::Scheduler
     /// type; passing it here lets the Env report the correct completion scheduler
     /// so that down-stream continues_on / exec::task chaining works correctly.
-    template <class TimedSchedulerHandle>
+    template <class TimedLoopHandle>
     struct DelaySender
     {
         using sender_concept = stdexec::sender_t;
         using completion_signatures = stdexec::completion_signatures<
             stdexec::set_value_t(), stdexec::set_stopped_t()>;
 
-        TimedSchedulerHandle timedSched; // for the Env query AND for RunLoopContext access
+        TimedLoopHandle timedSched; // for the Env query AND for RunLoopContext access
         IDelayBackend*       backend;
         IDelayBackend::TimePoint deadline;
 
@@ -90,7 +90,7 @@ namespace Exec
             alignas(StopCb) std::byte       stopCbStorage[sizeof(StopCb)]{};
             bool                            stopCbActive{false};
 
-            Operation(TimedSchedulerHandle sched, IDelayBackend* be,
+            Operation(TimedLoopHandle sched, IDelayBackend* be,
                       IDelayBackend::TimePoint dl, Receiver rcvr)
                 : state(std::make_shared<SharedState>(
                       sched.GetRunLoop(), static_cast<Receiver&&>(rcvr)))
@@ -165,11 +165,11 @@ namespace Exec
 
         struct Env
         {
-            TimedSchedulerHandle timedSched;
+            TimedLoopHandle timedSched;
 
             template <class CPO>
             [[nodiscard]] auto query(stdexec::get_completion_scheduler_t<CPO>) const noexcept
-                -> TimedSchedulerHandle
+                -> TimedLoopHandle
             {
                 return timedSched;
             }
