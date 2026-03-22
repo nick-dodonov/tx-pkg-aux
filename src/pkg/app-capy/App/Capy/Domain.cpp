@@ -1,5 +1,5 @@
 #include "App/Capy/Domain.h"
-#include "App/Loop/Runner.h"
+#include "RunLoop/Runner.h"
 #include "Log/Log.h"
 
 #include <boost/capy/ex/run_async.hpp>
@@ -43,7 +43,7 @@ namespace Coro
         _context.stop();
     }
 
-    void Domain::Update(const App::Loop::UpdateCtx& ctx)
+    void Domain::Update(const RunLoop::UpdateCtx& ctx)
     {
         // Log::Trace("frame={} delta={} µs", ctx.frame.index, ctx.frame.delta.count());
         if (const auto count = _context.poll(); count > 0) {

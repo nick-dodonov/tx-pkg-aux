@@ -1,4 +1,4 @@
-#include "App/Loop/Handler.h"
+#include "RunLoop/Handler.h"
 #include "Coro/Task.h"
 #include "Coro/LoopContext.h"
 
@@ -9,7 +9,7 @@
 namespace Coro
 {
     class Domain
-        : public App::Loop::Handler
+        : public RunLoop::Handler
         , public std::enable_shared_from_this<class Domain>
         , boost::noncopyable
     {
@@ -25,6 +25,6 @@ namespace Coro
         // Loop::Handler
         bool Start() override;
         void Stop() override;
-        void Update(const App::Loop::UpdateCtx& ctx) override;
+        void Update(const RunLoop::UpdateCtx& ctx) override;
     };
 }

@@ -51,7 +51,7 @@ namespace App::Loop
 
     int TightRunner::Run()
     {
-        UpdateCtx updateCtx{*this};
+        RunLoop::UpdateCtx updateCtx{*this};
         updateCtx.Initialize();
 
         if (!InvokeStart()) {

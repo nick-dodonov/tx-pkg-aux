@@ -1,6 +1,6 @@
 #include "Domain.h"
 #include "Log/Log.h"
-#include "App/Loop/Runner.h"
+#include "RunLoop/Runner.h"
 
 namespace App::Asio
 {
@@ -17,7 +17,7 @@ namespace App::Asio
         Log::Trace("destroy");
     }
 
-    int Domain::RunCoroMain(const std::shared_ptr<Loop::IRunner>& runner, boost::asio::awaitable<int> coroMain)
+    int Domain::RunCoroMain(const std::shared_ptr<RunLoop::IRunner>& runner, boost::asio::awaitable<int> coroMain)
     {
         Log::Trace("starting");
         boost::asio::co_spawn(
@@ -86,7 +86,7 @@ namespace App::Asio
         }
     }
 
-    void Domain::Update(const Loop::UpdateCtx& ctx)
+    void Domain::Update(const RunLoop::UpdateCtx& ctx)
     {
         //Log::Trace("frame={} delta={} µs", ctx.frame.index, ctx.frame.delta.count());
         if (_io_context.stopped()) {

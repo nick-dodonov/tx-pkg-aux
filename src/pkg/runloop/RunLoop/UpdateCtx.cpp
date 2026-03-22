@@ -1,6 +1,6 @@
 #include "UpdateCtx.h"
 
-namespace App::Loop
+namespace RunLoop
 {
     UpdateCtx::UpdateCtx(IRunner& runner)
         : Runner(runner)

@@ -6,7 +6,7 @@
 
 namespace App::Loop
 {
-    std::shared_ptr<IRunner> CreateDefaultRunner(std::shared_ptr<Handler> handler)
+    std::shared_ptr<RunLoop::IRunner> CreateDefaultRunner(std::shared_ptr<RunLoop::Handler> handler)
     {
 #if __EMSCRIPTEN__
         return std::make_shared<WasmRunner>(std::move(handler), WasmRunner::Options{.Fps = 120});
@@ -15,7 +15,7 @@ namespace App::Loop
 #endif
     }
 
-    std::shared_ptr<IRunner> CreateTestRunner(std::shared_ptr<Handler> handler)
+    std::shared_ptr<RunLoop::IRunner> CreateTestRunner(std::shared_ptr<RunLoop::Handler> handler)
     {
         return std::make_shared<TightRunner>(std::move(handler), false);
     }

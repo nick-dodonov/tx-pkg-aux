@@ -1,12 +1,12 @@
 #pragma once
 #if __EMSCRIPTEN__
-#include "Handler.h"
-#include "Runner.h"
+#include "RunLoop/Handler.h"
+#include "RunLoop/Runner.h"
 
 namespace App::Loop
 {
     /// Runner that integrates with emscripten main loop
-    class WasmRunner final: public Runner
+    class WasmRunner final: public RunLoop::Runner
     {
     public:
         struct Options
@@ -20,7 +20,7 @@ namespace App::Loop
 
     private:
         Options _options;
-        UpdateCtx _updateCtx;
+        RunLoop::UpdateCtx _updateCtx;
 
         void Update();
         void StopAndExit(int exitCode);

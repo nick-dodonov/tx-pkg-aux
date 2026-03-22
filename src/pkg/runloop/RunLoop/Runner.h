@@ -3,7 +3,7 @@
 #include <memory>
 #include <optional>
 
-namespace App::Loop
+namespace RunLoop
 {
     /// Base runner that runs the update action
     class IRunner: public std::enable_shared_from_this<IRunner>

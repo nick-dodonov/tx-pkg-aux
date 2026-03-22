@@ -1,7 +1,7 @@
 #pragma once
 #include <chrono>
 
-namespace App::Loop
+namespace RunLoop
 {
     class IRunner;
 

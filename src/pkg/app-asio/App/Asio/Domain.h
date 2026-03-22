@@ -1,6 +1,6 @@
 #pragma once
 #include "Async/Mutex.h"
-#include "App/Loop/Handler.h"
+#include "RunLoop/Handler.h"
 #include <boost/asio.hpp>
 #include <boost/asio/experimental/channel.hpp>
 #include <boost/core/noncopyable.hpp>
@@ -9,7 +9,7 @@
 namespace App::Asio
 {
     class Domain
-        : public Loop::Handler
+        : public RunLoop::Handler
         , public std::enable_shared_from_this<class Domain>
         , boost::noncopyable
     {
@@ -17,7 +17,7 @@ namespace App::Asio
         Domain();
         ~Domain();
 
-        int RunCoroMain(const std::shared_ptr<Loop::IRunner>& runner, boost::asio::awaitable<int> coroMain);
+        int RunCoroMain(const std::shared_ptr<RunLoop::IRunner>& runner, boost::asio::awaitable<int> coroMain);
         boost::asio::awaitable<boost::system::error_code> AsyncStopped();
 
     private:
@@ -30,6 +30,6 @@ namespace App::Asio
         // Loop::Handler
         bool Start() override;
         void Stop() override;
-        void Update(const Loop::UpdateCtx& ctx) override;
+        void Update(const RunLoop::UpdateCtx& ctx) override;
     };
 }

@@ -3,7 +3,7 @@
 #include <boost/intrusive/list.hpp>
 #include <ranges>
 
-namespace App::Loop
+namespace RunLoop
 {
     class IRunner;
 
@@ -119,7 +119,7 @@ namespace App::Loop
                 handler.Update(ctx);
             }
         }
-        
+
     private:
         Handler::List _handlers;
         bool _running{};

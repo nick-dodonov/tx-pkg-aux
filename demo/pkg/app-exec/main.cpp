@@ -5,25 +5,22 @@
 
 #include <chrono>
 
-namespace {
-
 /// Demonstrates timed delay via exec::schedule_after inside a RunTask coroutine.
 ///
 /// The scheduler is obtained from the receiver environment via
 /// stdexec::read_env(stdexec::get_scheduler). RunTask<T> stores the concrete
 /// Exec::RunContext::Scheduler without type-erasure, so exec::schedule_after
 /// works without a scheduler parameter.
-Exec::RunTask<int> MainTask()
+static Exec::RunTask<int> MainTask()
 {
     const auto sched = co_await stdexec::read_env(stdexec::get_scheduler);
     Log::Info("[delay-demo] starting");
     Log::Info("[delay-demo] waiting 10 ms...");
-    co_await exec::schedule_after(sched, std::chrono::milliseconds(10));
+    auto delay = std::chrono::milliseconds(10);
+    co_await exec::schedule_after(sched, delay);
     Log::Info("[delay-demo] delay elapsed, returning 42");
     co_return 42;
 }
-
-} // namespace
 
 int main(const int argc, const char* argv[])
 {

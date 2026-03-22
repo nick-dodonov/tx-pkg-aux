@@ -9,8 +9,8 @@
 
 #include "App/Loop/TightRunner.h"
 
-using IRunner = App::Loop::IRunner;
-using UpdateCtx = App::Loop::UpdateCtx;
+using IRunner = RunLoop::IRunner;
+using UpdateCtx = RunLoop::UpdateCtx;
 using TightRunner = App::Loop::TightRunner;
 
 /// Action interface

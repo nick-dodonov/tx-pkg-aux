@@ -1,6 +1,6 @@
 #pragma once
 
-#include "App/Loop/Handler.h"
+#include "RunLoop/Handler.h"
 #include "Exec/Delay/IDelayBackend.h"
 #include "Exec/RunContext.h"
 
@@ -20,7 +20,7 @@ namespace App::Exec
     /// is signalled and pending queue entries are drained before the op state is
     /// destroyed, giving cancellation-aware senders (e.g. exec::task) a chance to
     /// unwind cleanly instead of being destroyed mid-flight.
-    class Domain: public App::Loop::Handler
+    class Domain: public RunLoop::Handler
     {
         using Scheduler = ::Exec::RunContext::Scheduler;
 
@@ -78,7 +78,7 @@ namespace App::Exec
         // App::Loop::Handler
         bool Start() override;
         void Stop() override;
-        void Update(const App::Loop::UpdateCtx& ctx) override;
+        void Update(const RunLoop::UpdateCtx& ctx) override;
 
     private:
         void OnComplete(int exitCode);

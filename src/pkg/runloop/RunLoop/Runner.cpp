@@ -1,6 +1,6 @@
 #include "Runner.h"
 
-namespace App::Loop
+namespace RunLoop
 {
     Runner::Runner(HandlerPtr handler)
         : _handler(std::move(handler))

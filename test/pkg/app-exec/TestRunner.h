@@ -1,6 +1,6 @@
 #pragma once
 
-#include "App/Loop/Runner.h"
+#include "RunLoop/Runner.h"
 
 #include <memory>
 #include <optional>
@@ -11,9 +11,9 @@ namespace {
 /// Lets tests drive Domain lifecycle (Start / Stop) manually. When constructed,
 /// it registers itself with the handler via Runner::Runner(), so GetRunner()
 /// inside OnStopped/OnComplete is valid.
-struct TestRunner : App::Loop::Runner
+struct TestRunner : RunLoop::Runner
 {
-    explicit TestRunner(std::shared_ptr<App::Loop::Handler> handler)
+    explicit TestRunner(std::shared_ptr<RunLoop::Handler> handler)
         : Runner{std::move(handler)}
     {}
 
