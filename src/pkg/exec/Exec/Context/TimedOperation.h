@@ -3,17 +3,19 @@
 #include "PureLoopContext.h"
 
 #include <atomic>
+#include <functional>
 #include <memory>
+#include <optional>
 #include <stdexec/execution.hpp>
 
 namespace Exec
 {
-    /// Shared control block for a single delay operation.
+    /// Shared control block for a single timed operation.
     ///
     /// Inherits OperationBase so it can be enqueued directly into the
     /// PureLoopContext's lock-free queue. Lifetime is shared via shared_ptr
-    /// between the DelayOperation (in the coroutine frame) and the timer
-    /// callback lambda — so it remains valid even if the DelayOperation is
+    /// between the TimedOperation (in the coroutine frame) and the timer
+    /// callback lambda — so it remains valid even if the TimedOperation is
     /// destroyed (e.g., when the stop side wins the CAS and the coroutine frame
     /// is torn down) before the timer callback fires.
     ///
@@ -35,23 +37,25 @@ namespace Exec
 
         static void Execute(OperationBase* base) noexcept
         {
-            auto& receiver = static_cast<DelaySharedState*>(base)->receiver;
-            const auto stopToken = stdexec::get_stop_token(stdexec::get_env(receiver));
-            const auto stopped = static_cast<DelaySharedState*>(base)->stopWon || stopToken.stop_requested();
-            if (stopped) {
-                stdexec::set_stopped(static_cast<Receiver&&>(receiver));
+            auto& self = *static_cast<DelaySharedState*>(base);
+            const auto stopToken = stdexec::get_stop_token(stdexec::get_env(self.receiver));
+            if (self.stopWon || stopToken.stop_requested()) {
+                stdexec::set_stopped(static_cast<Receiver&&>(self.receiver));
             } else {
-                stdexec::set_value(static_cast<Receiver&&>(receiver));
+                stdexec::set_value(static_cast<Receiver&&>(self.receiver));
             }
         }
     };
 
-    /// TimedOperation state for a delay. Holds the shared control block by shared_ptr.
+    /// Operation state for a timed delay. Holds the shared control block by shared_ptr.
     ///
     /// Lifetime: sits inside the coroutine frame (awaitable storage). Destroyed
     /// when the coroutine frame is destroyed — which may happen while the timer
     /// callback lambda still holds a shared_ptr to the shared state. That is safe:
     /// the lambda only touches the shared state, never the TimedOperation itself.
+    ///
+    /// On destruction, the stop callback is deregistered and the backend timer is
+    /// cancelled (advisory — correctness is guaranteed by the CAS in DelaySharedState).
     template <class Receiver>
     struct TimedOperation
     {
@@ -59,14 +63,13 @@ namespace Exec
 
         using SharedState = DelaySharedState<Receiver>;
         using StopToken   = stdexec::stop_token_of_t<stdexec::env_of_t<Receiver>>;
-        using StopCb      = stdexec::inplace_stop_callback<std::function<void()>>;
+        using StopCb      = stdexec::stop_callback_for_t<StopToken, std::function<void()>>;
 
-        std::shared_ptr<SharedState>    state;
-        ITimerBackend*                  backend;
-        ITimerBackend::TimePoint        deadline;
-        ITimerBackend::TimerId          timerId{};
-        alignas(StopCb) std::byte       stopCbStorage[sizeof(StopCb)]{};
-        bool                            stopCbActive{false};
+        std::shared_ptr<SharedState> state;
+        ITimerBackend*               backend;
+        ITimerBackend::TimePoint     deadline;
+        ITimerBackend::TimerId       timerId{};
+        std::optional<StopCb>        stopCb{};
 
         TimedOperation(PureLoopContext* scheduler, ITimerBackend* be, ITimerBackend::TimePoint dl, Receiver rcvr)
             : state(std::make_shared<SharedState>(scheduler, std::forward<Receiver>(rcvr)))
@@ -76,15 +79,16 @@ namespace Exec
 
         ~TimedOperation()
         {
-            if (stopCbActive) {
-                std::destroy_at(reinterpret_cast<StopCb*>(stopCbStorage)); //NOLINT(cppcoreguidelines-pro-type-reinterpret-cast)
+            // Deregister stop callback before cancelling the timer to avoid a
+            // spurious CAS win racing with the Cancel call.
+            stopCb.reset();
+            if (timerId) {
+                backend->Cancel(timerId);
             }
         }
 
         TimedOperation(const TimedOperation&) = delete;
         TimedOperation& operator=(const TimedOperation&) = delete;
-        TimedOperation(TimedOperation&&) = default;
-        TimedOperation& operator=(TimedOperation&&) = default;
 
         void start() & noexcept
         {
@@ -101,15 +105,12 @@ namespace Exec
                 return;
             }
 
-            // Capture state by shared_ptr so the lambda is independent of
-            // this Operation's lifetime.
-            auto capturedState = state;
-            auto* capturedScheduler = state->scheduler;
-
             // Register stop callback — fires synchronously if the token is
-            // already in the stop-requested state.
-            new (stopCbStorage) StopCb(stopToken,
-                [s = std::move(capturedState)]() mutable noexcept {
+            // already in the stop-requested state when the callback is constructed.
+            // Captures state by shared_ptr so the lambda is independent of
+            // this TimedOperation's lifetime.
+            stopCb.emplace(stopToken,
+                [s = state]() mutable noexcept {
                     bool expected = false;
                     if (s->claimed.compare_exchange_strong(expected, true,
                             std::memory_order_acq_rel, std::memory_order_relaxed)) {
@@ -118,19 +119,18 @@ namespace Exec
                     }
                     // If we lost the CAS, the timer already won — nothing to do.
                 });
-            stopCbActive = true;
 
             // Schedule the timer — capture state by shared_ptr only,
-            // never capture `this` (the Operation may be destroyed first).
+            // never capture `this` (the TimedOperation may be destroyed first).
             timerId = backend->ScheduleAt(deadline,
-                [s = state, sched = capturedScheduler]() mutable {
+                [s = state]() mutable {
                     bool expected = false;
                     if (s->claimed.compare_exchange_strong(expected, true,
                             std::memory_order_acq_rel, std::memory_order_relaxed)) {
-                        sched->Enqueue(s.get());
+                        s->scheduler->Enqueue(s.get());
                     }
                     // If we lost, the stop side already won — nothing to do.
-                    // shared_ptr releases here; if Operation is gone, SharedState GC'd.
+                    // shared_ptr releases here; if TimedOperation is gone, SharedState GC'd.
                 });
         }
     };
