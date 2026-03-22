@@ -160,7 +160,8 @@ namespace Exec
         moodycamel::ConcurrentQueue<OperationBase*> _queue;
     };
 
-    inline auto PureLoopContext::Scheduler::schedule() const noexcept -> PureLoopContext::Sender
+    // Out-of-line definition: now Sender is complete
+    inline auto PureLoopContext::Scheduler::schedule() const noexcept -> Sender
     {
         return {ctx};
     }

@@ -1,6 +1,6 @@
 #pragma once
 #include "PureLoopContext.h"
-#include "TimedSender.h"
+#include "TimedOperation.h"
 #include "Exec/Delay/ITimerBackend.h"
 
 #include <chrono>
@@ -21,50 +21,14 @@ namespace Exec
     /// (typically by Exec::Domain which provides a unique_ptr<ITimerBackend>).
     class TimedLoopContext
     {
-    public:
-        struct Scheduler; // forward-declared for FrameSender::Env
-
-    private:
-        /// Frame-aligned sender returned by Scheduler::schedule().
-        ///
-        /// Delegates the actual enqueueing to PureLoopContext::Sender::connect(),
-        /// but overrides the Env so the completion scheduler is reported as
-        /// TimedLoopContext::Scheduler (required by stdexec::scheduler concept:
-        /// get_completion_scheduler(get_env(schedule(sched))) == sched).
-        struct FrameSender
-        {
-            using sender_concept        = stdexec::sender_t;
-            using completion_signatures = stdexec::completion_signatures<
-                stdexec::set_value_t(), stdexec::set_stopped_t()>;
-
-            TimedLoopContext* ctx;
-
-            /// Connect by delegating to the underlying PureLoopContext::Sender.
-            /// The return type is PureLoopContext::Operation<Receiver> (deduced via
-            /// auto — naming the private type is not required here).
-            template <class Receiver>
-            auto connect(Receiver rcvr) const
-            {
-                return ctx->_frameLoop.GetScheduler().schedule()
-                           .connect(static_cast<Receiver&&>(rcvr));
-            }
-
-            struct Env
-            {
-                TimedLoopContext* ctx;
-
-                template <class CPO>
-                [[nodiscard]] auto query(stdexec::get_completion_scheduler_t<CPO> _) const noexcept
-                    -> Scheduler; // defined after Scheduler is complete
-            };
-
-            [[nodiscard]] auto get_env() const noexcept -> Env { return {ctx}; }
-        };
+        // forward-declared for Scheduler
+        struct LoopSender;
+        struct TimedSender;
 
     public:
         /// Lightweight scheduler handle satisfying both stdexec::scheduler and exec::timed_scheduler.
         ///
-        ///   schedule()        — enqueue work at the next frame boundary (no delay)
+        ///   schedule()        — enqueue work at the next loop drain (frame boundary, no delay)
         ///   schedule_after()  — enqueue work after a given duration
         ///   schedule_at()     — enqueue work at a specific steady_clock time point
         ///   now()             — returns steady_clock::now()
@@ -74,32 +38,19 @@ namespace Exec
 
             TimedLoopContext* ctx;
 
-            /// Returns the PureLoopContext pointer — used by TimedSender::Operation
-            /// to enqueue the shared state back to the frame queue when a delay completes.
-            [[nodiscard]] auto GetLoopContext() const noexcept -> PureLoopContext*
-            {
-                return &ctx->_frameLoop;
-            }
-
-            [[nodiscard]] auto schedule() const noexcept -> FrameSender { return {ctx}; }
-
             [[nodiscard]] auto now() const noexcept -> std::chrono::steady_clock::time_point
             {
                 return std::chrono::steady_clock::now();
             }
 
+            [[nodiscard]] auto schedule() const noexcept
+                -> LoopSender;
+
             [[nodiscard]] auto schedule_at(std::chrono::steady_clock::time_point tp) const noexcept
-                -> TimedSender<Scheduler>
-            {
-                return {
-                    .timedSched=*this,
-                    .backend=ctx->_backend,
-                    .deadline=tp,
-                };
-            }
+                -> TimedSender;
 
             [[nodiscard]] auto schedule_after(std::chrono::steady_clock::duration dur) const noexcept
-                -> TimedSender<Scheduler>
+                -> TimedSender
             {
                 return schedule_at(now() + dur);
             }
@@ -107,29 +58,117 @@ namespace Exec
             auto operator==(const Scheduler&) const noexcept -> bool = default;
         };
 
+    private:
+        /// Base sender type for all schedule methods.
+        /// 
+        /// Overrides the Env so the completion scheduler is reported as TimedLoopContext::Scheduler
+        /// (required by stdexec::scheduler concept: get_completion_scheduler(get_env(schedule(sched))) == sched).
+        ///
+        /// Final senders must specify connect() to produce the correct operation state 
+        /// (e.g. LoopSender produces PureLoopContext::Operation, TimedSender produces TimedOperation).
+        struct BaseSender
+        {
+            using sender_concept = stdexec::sender_t;
+            using completion_signatures = stdexec::completion_signatures<
+                stdexec::set_value_t(),
+                stdexec::set_stopped_t()
+            >;
+
+            TimedLoopContext* ctx;
+
+            BaseSender(TimedLoopContext* ctx_) noexcept : ctx(ctx_) {}
+
+            struct Env
+            {
+                TimedLoopContext* ctx;
+
+                template <class CPO>
+                [[nodiscard]] auto query(stdexec::get_completion_scheduler_t<CPO> _) const noexcept
+                    -> Scheduler
+                {
+                    return {ctx};
+                }
+            };
+
+            [[nodiscard]] auto get_env() const noexcept -> Env { return {ctx}; }
+        };
+
+        /// Loop-aligned sender returned by Scheduler::schedule().
+        ///
+        /// Delegates the actual enqueueing to PureLoopContext::Sender::connect(),
+        /// but overrides the Env so the completion scheduler is reported as TimedLoopContext::Scheduler
+        /// (required by stdexec::scheduler concept: get_completion_scheduler(get_env(schedule(sched))) == sched).
+        struct LoopSender : BaseSender
+        {
+            using BaseSender::BaseSender;
+
+            /// Connect by delegating to the underlying PureLoopContext::Sender.
+            /// The return type is PureLoopContext::Operation<Receiver>
+            /// (deduced via auto — naming the private type is not required here).
+            template <class Receiver>
+            auto connect(Receiver rcvr) const
+            {
+                return ctx->_loopContext.GetScheduler().schedule().connect(static_cast<Receiver&&>(rcvr));
+            }
+        };
+
+        /// Sender produced by TimedLoopContext::Scheduler::schedule_at().
+        ///
+        /// Completion signals: set_value_t() (timer fired first) or set_stopped_t()
+        /// (stop token was raised first). Never produces set_error.
+        ///
+        /// The Scheduler template parameter is the concrete TimedLoopContext::Scheduler
+        /// type; passing it here lets the Env report the correct completion scheduler
+        /// so that down-stream continues_on / exec::task chaining works correctly.
+        struct TimedSender : BaseSender
+        {
+            ITimerBackend* backend;
+            ITimerBackend::TimePoint deadline;
+
+            TimedSender(TimedLoopContext* ctx_, ITimerBackend* backend_, ITimerBackend::TimePoint deadline_) noexcept
+                : BaseSender(ctx_)
+                , backend(backend_)
+                , deadline(deadline_)
+            {}
+
+            template <class Receiver>
+            auto connect(Receiver rcvr) const -> TimedOperation<Receiver>
+            {
+                return {&ctx->_loopContext, backend, deadline, static_cast<Receiver&&>(rcvr)};
+            }
+        };
+
+    public:
+
         explicit TimedLoopContext(ITimerBackend* backend) noexcept
             : _backend(backend)
         {}
 
         [[nodiscard]] auto GetScheduler() noexcept -> Scheduler { return {this}; }
 
-        std::size_t DrainQueue() { return _frameLoop.DrainQueue(); }
-
-        /// Call once per frame (before DrainQueue) to fire expired timers.
-        /// Thread-based backends implement this as a no-op.
-        void TickBackend() noexcept { _backend->Tick(); }
+        std::size_t DrainQueue()
+        {
+            // Fire expired timer callbacks first so they can enqueue operations (thread-based backends implement this as a no-op)
+            _backend->Tick();
+            return _loopContext.DrainQueue();
+        }
 
     private:
-        PureLoopContext _frameLoop;
+        PureLoopContext _loopContext;
         ITimerBackend* _backend; // non-owning; lifetime managed by caller (Domain)
     };
 
-    // Out-of-line definition: now that Scheduler is complete, the query() body compiles.
-    template <class CPO>
-    inline auto TimedLoopContext::FrameSender::Env::query(
-        stdexec::get_completion_scheduler_t<CPO> _) const noexcept -> TimedLoopContext::Scheduler
+    // Out-of-line definition: now that sender types are complete
+    inline auto TimedLoopContext::Scheduler::schedule() const noexcept 
+        -> LoopSender
     {
         return {ctx};
+    }
+
+    inline auto TimedLoopContext::Scheduler::schedule_at(std::chrono::steady_clock::time_point tp) const noexcept 
+        -> TimedSender
+    {
+        return {ctx, ctx->_backend, tp};
     }
 
     static_assert(LoopContext<TimedLoopContext>);
