@@ -1,21 +1,9 @@
-#include "Coro/CapyDomain.h"
-#include "App/Factory.h"
 #include "Fs/NativeDrive.h"
 #include "Fs/OverlayDrive.h"
-
-#include <boost/capy/buffers/string_dynamic_buffer.hpp>
-#include <boost/capy/read.hpp>
 
 #include <filesystem>
 #include <fstream>
 #include <gtest/gtest.h>
-
-/// CO_ASSERT_TRUE equivalent for coroutine bodies (ASSERT_TRUE uses return, incompatible with co_return).
-#define CO_ASSERT_TRUE(expr) \
-    do { \
-        EXPECT_TRUE(expr); \
-        if (!(expr)) co_return; \
-    } while (false)
 
 class FsReadFixture: public ::testing::Test
 {
@@ -42,77 +30,59 @@ protected:
     std::filesystem::path testDir2;
 };
 
-static void RunCoroTest(Coro::Task<> task)
+TEST_F(FsReadFixture, ReadAllToBytes)
 {
-    auto wrapper = [](Coro::Task<> t) -> Coro::Task<int> {
-        co_await std::move(t);
-        co_return 0;
-    };
-    auto domain = std::make_shared<Coro::CapyDomain>(wrapper(std::move(task)));
-    auto runner = App::CreateTestRunner(domain);
-    runner->Run();
+    Fs::NativeDrive drive({testDir1});
+
+    auto sizeResult = drive.GetSize("file.txt");
+    ASSERT_TRUE(sizeResult.has_value());
+
+    std::vector<uint8_t> buf(*sizeResult);
+    auto readResult = drive.ReadAllTo("file.txt", buf);
+    ASSERT_TRUE(readResult.has_value());
+
+    std::string_view content(reinterpret_cast<const char*>(buf.data()), *readResult); // NOLINT(cppcoreguidelines-pro-type-reinterpret-cast)
+    EXPECT_EQ(content, "test1");
 }
 
-TEST_F(FsReadFixture, ReadAllAsyncDefaultBytes)
+TEST_F(FsReadFixture, ReadAllToString)
 {
-    RunCoroTest([this]() -> Coro::Task<> {
-        Fs::NativeDrive drive({testDir1});
-        auto result = co_await drive.ReadAllAsync("file.txt");
-        CO_ASSERT_TRUE(result.has_value());
+    Fs::NativeDrive drive({testDir1});
 
-        const auto& bytes = result.value();
-        std::string_view content(reinterpret_cast<const char*>(bytes.data()), bytes.size()); // NOLINT(cppcoreguidelines-pro-type-reinterpret-cast)
-        EXPECT_EQ(content, "test1");
-    }());
+    auto sizeResult = drive.GetSize("file.txt");
+    ASSERT_TRUE(sizeResult.has_value());
+
+    std::vector<uint8_t> buf(*sizeResult);
+    auto readResult = drive.ReadAllTo("file.txt", buf);
+    ASSERT_TRUE(readResult.has_value());
+
+    buf.resize(*readResult);
+    std::string content(reinterpret_cast<const char*>(buf.data()), buf.size()); // NOLINT(cppcoreguidelines-pro-type-reinterpret-cast)
+    EXPECT_EQ(content, "test1");
 }
 
-TEST_F(FsReadFixture, ReadAllAsyncString)
+TEST_F(FsReadFixture, ReadAllToFileNotFound)
 {
-    RunCoroTest([this]() -> Coro::Task<> {
-        Fs::NativeDrive drive({testDir1});
-        auto result = co_await drive.ReadAllAsync<std::string>("file.txt");
-        CO_ASSERT_TRUE(result.has_value());
+    Fs::NativeDrive drive({testDir1});
 
-        EXPECT_EQ(result.value(), "test1");
-    }());
+    auto sizeResult = drive.GetSize("nonexistent.txt");
+    EXPECT_FALSE(sizeResult.has_value());
+    EXPECT_EQ(sizeResult.error(), std::make_error_code(std::errc::no_such_file_or_directory));
 }
 
-TEST_F(FsReadFixture, OpenAsyncAndRead)
+TEST_F(FsReadFixture, OverlayDriveReadAllTo)
 {
-    RunCoroTest([this]() -> Coro::Task<> {
-        Fs::NativeDrive drive({testDir1});
-        auto result = co_await drive.OpenAsync("file.txt");
-        CO_ASSERT_TRUE(result.has_value());
+    Fs::NativeDrive drive1({testDir1});
+    Fs::NativeDrive drive2({testDir2});
+    Fs::OverlayDrive overlay({&drive1, &drive2});
 
-        auto& source = result.value();
-        std::string content;
-        auto readResult = co_await boost::capy::read(source, boost::capy::string_dynamic_buffer(&content));
-        auto [ec, bytesRead] = readResult;
-        EXPECT_GT(bytesRead, 0u);
-        EXPECT_EQ(content, "test1");
-    }());
-}
+    auto sizeResult = overlay.GetSize("file.txt");
+    ASSERT_TRUE(sizeResult.has_value());
 
-TEST_F(FsReadFixture, ReadAllAsyncFileNotFound)
-{
-    RunCoroTest([this]() -> Coro::Task<> {
-        Fs::NativeDrive drive({testDir1});
-        auto result = co_await drive.ReadAllAsync("nonexistent.txt");
-        EXPECT_FALSE(result.has_value());
-        EXPECT_EQ(result.error(), std::make_error_code(std::errc::no_such_file_or_directory));
-    }());
-}
+    std::vector<uint8_t> buf(*sizeResult);
+    auto readResult = overlay.ReadAllTo("file.txt", buf);
+    ASSERT_TRUE(readResult.has_value());
 
-TEST_F(FsReadFixture, OverlayDriveReadAllAsync)
-{
-    RunCoroTest([this]() -> Coro::Task<> {
-        Fs::NativeDrive drive1({testDir1});
-        Fs::NativeDrive drive2({testDir2});
-        Fs::OverlayDrive overlay({&drive1, &drive2});
-
-        auto result = co_await overlay.ReadAllAsync<std::string>("file.txt");
-        CO_ASSERT_TRUE(result.has_value());
-
-        EXPECT_EQ(result.value(), "test1");
-    }());
+    std::string_view content(reinterpret_cast<const char*>(buf.data()), *readResult); // NOLINT(cppcoreguidelines-pro-type-reinterpret-cast)
+    EXPECT_EQ(content, "test1");
 }

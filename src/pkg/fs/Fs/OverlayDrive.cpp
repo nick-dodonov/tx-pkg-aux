@@ -46,7 +46,7 @@ namespace Fs
         return std::unexpected(lastError);
     }
 
-    Drive::ReadResult OverlayDrive::ReadAllTo(const Path& path, boost::capy::mutable_buffer buf)
+    Drive::ReadResult OverlayDrive::ReadAllTo(const Path& path, std::vector<uint8_t>& buf)
     {
         std::error_code lastError = std::make_error_code(std::errc::no_such_file_or_directory);
 
@@ -64,25 +64,5 @@ namespace Fs
         }
 
         return std::unexpected(lastError);
-    }
-
-    Coro::Task<Drive::OpenResult> OverlayDrive::OpenAsync(Path path)
-    {
-        std::error_code lastError = std::make_error_code(std::errc::no_such_file_or_directory);
-
-        for (auto* drive : _drives) {
-            if (!drive) {
-                continue;
-            }
-
-            auto result = co_await drive->OpenAsync(path);
-            if (result.has_value()) {
-                co_return std::move(result);
-            }
-
-            lastError = result.error();
-        }
-
-        co_return std::unexpected(lastError);
     }
 }

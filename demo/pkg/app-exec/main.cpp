@@ -3,6 +3,7 @@
 #include "App/Factory.h"
 #include "Boot/Boot.h"
 #include "Log/Log.h"
+#include "Log/Scope.h"
 
 #include <chrono>
 
@@ -14,11 +15,14 @@
 /// works without a scheduler parameter.
 static Exec::RunTask<int> MainTask()
 {
-    const auto sched = co_await stdexec::read_env(stdexec::get_scheduler);
     Log::Info("[delay-demo] starting");
-    Log::Info("[delay-demo] waiting 10 ms...");
-    auto delay = std::chrono::milliseconds(10);
-    co_await exec::schedule_after(sched, delay);
+    {
+        const auto sched = co_await stdexec::read_env(stdexec::get_scheduler);
+
+        auto _ = Log::Scope{"[delay-demo] waiting 10 ms"};
+        co_await exec::schedule_after(sched, std::chrono::milliseconds(10));
+    }
+
     Log::Info("[delay-demo] delay elapsed, returning 42");
     co_return 42;
 }

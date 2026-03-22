@@ -84,7 +84,7 @@ TEST_F(FsTestFixture, ReadAllToExistingFile)
     ASSERT_TRUE(sizeResult.has_value());
 
     std::vector<uint8_t> buf(*sizeResult);
-    auto readResult = drive.ReadAllTo("file.txt", {buf.data(), buf.size()});
+    auto readResult = drive.ReadAllTo("file.txt", buf);
     ASSERT_TRUE(readResult.has_value());
     EXPECT_EQ(*readResult, 5u);
 
@@ -97,7 +97,7 @@ TEST_F(FsTestFixture, ReadAllToFileNotFound)
     Fs::NativeDrive drive({testDir1});
 
     std::vector<uint8_t> buf(64);
-    auto result = drive.ReadAllTo("nonexistent.txt", {buf.data(), buf.size()});
+    auto result = drive.ReadAllTo("nonexistent.txt", buf);
     EXPECT_FALSE(result.has_value());
     EXPECT_EQ(result.error(), std::make_error_code(std::errc::no_such_file_or_directory));
 }
@@ -120,7 +120,7 @@ TEST_F(FsTestFixture, OverlayReadAllTo)
     Fs::OverlayDrive overlay({&drive1, &drive2});
 
     std::vector<uint8_t> buf(5);
-    auto result = overlay.ReadAllTo("file.txt", {buf.data(), buf.size()});
+    auto result = overlay.ReadAllTo("file.txt", buf);
     ASSERT_TRUE(result.has_value());
 
     std::string_view content(reinterpret_cast<const char*>(buf.data()), *result);

@@ -11,8 +11,7 @@ namespace Fs
 
         [[nodiscard]] PathResult GetNativePath(const Path& path) override;
         [[nodiscard]] SizeResult GetSize(const Path& path) override;
-        [[nodiscard]] ReadResult ReadAllTo(const Path& path, boost::capy::mutable_buffer buf) override;
-        [[nodiscard]] Coro::Task<OpenResult> OpenAsync(Path path) override;
+        [[nodiscard]] ReadResult ReadAllTo(const Path& path, std::vector<uint8_t>& buf) override;
 
     private:
         std::vector<Path> _prefixPaths;

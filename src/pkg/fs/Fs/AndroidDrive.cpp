@@ -1,6 +1,5 @@
 #ifdef __ANDROID__
 #include "AndroidDrive.h"
-#include "AndroidAssetSource.h"
 #include "Log/Log.h"
 
 #include <android/asset_manager.h>
@@ -41,7 +40,7 @@ namespace Fs
         return length;
     }
 
-    Drive::ReadResult AndroidDrive::ReadAllTo(const Path& path, boost::capy::mutable_buffer buf)
+    Drive::ReadResult AndroidDrive::ReadAllTo(const Path& path, std::vector<uint8_t>& buf)
     {
         if (!_assetManager) {
             return std::unexpected(std::make_error_code(std::errc::not_supported));
@@ -60,23 +59,6 @@ namespace Fs
             return std::unexpected(std::make_error_code(std::errc::io_error));
         }
         return static_cast<size_t>(bytesRead);
-    }
-
-    Coro::Task<Drive::OpenResult> AndroidDrive::OpenAsync(Path path)
-    {
-        if (!_assetManager) {
-            co_return std::unexpected(std::make_error_code(std::errc::not_supported));
-        }
-
-        std::string assetPath = path.generic_string();
-        AAsset* asset = AAssetManager_open(_assetManager, assetPath.c_str(), AASSET_MODE_STREAMING);
-        if (!asset) {
-            Log::Trace("AndroidDrive: Failed to open asset: {}", assetPath);
-            co_return std::unexpected(std::make_error_code(std::errc::no_such_file_or_directory));
-        }
-
-        AndroidAssetSource source(asset);
-        co_return boost::capy::any_read_source(std::move(source));
     }
 }
 

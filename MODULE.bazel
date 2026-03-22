@@ -15,6 +15,8 @@ bazel_dep(name = "emsdk", version = "4.0.17-tx.1")  # private registry (custom v
 bazel_dep(name = "rules_shell", version = "0.6.1")
 bazel_dep(name = "rules_python", version = "1.8.4")
 
+git_repository = use_repo_rule("@bazel_tools//tools/build_defs/repo:git.bzl", "git_repository")
+
 # Hedron's Compile Commands Extractor for Bazel
 # - https://github.com/hedronvision/bazel-compile-commands-extractor
 bazel_dep(name = "hedron_compile_commands", dev_dependency = True)
@@ -74,64 +76,10 @@ register_toolchains(
 bazel_dep(name = "rules_android", version = "0.7.1")
 
 ################################################################
-git_repository = use_repo_rule("@bazel_tools//tools/build_defs/repo:git.bzl", "git_repository")
-
 bazel_dep(name = "concurrentqueue", version = "1.0.4")
-
-# bazel_dep(name = "stdexec", version = "5d9f3bfb032e9d71b2292b7add7d90cbf9d037a9")
 git_repository(
     name = "stdexec",
     build_file = "//repo:stdexec.BUILD.bazel",
     commit = "46ca0458a9806f63cde1c3bba76a2ec720974c00",
     remote = "https://github.com/NVIDIA/stdexec.git",
 )
-
-################################################################
-# new cppalliance tries (corosio and http) - TODO: make private registry modules when ready
-git_repository(
-    name = "cppalliance.capy",
-    build_file = "//repo:cppalliance.capy.BUILD.bazel",
-    commit = "4138e90130c79272c49ca75c40bb30e3b9a502b2",  # branch = "develop",
-    remote = "https://github.com/cppalliance/capy.git",
-)
-
-git_repository(
-    name = "cppalliance.corosio",
-    build_file = "//repo:cppalliance.corosio.BUILD.bazel",
-    commit = "8199f3c82d72264edbdb47c4918bec4fb3cdd884",  # branch = "develop",
-    patch_args = ["-p0"],
-    patches = ["//repo:cppalliance.corosio.patch"],
-    remote = "https://github.com/cppalliance/corosio.git",
-)
-
-bazel_dep(name = "boost.config", version = _boost_version)
-bazel_dep(name = "boost.system", version = _boost_version)
-bazel_dep(name = "boost.core", version = _boost_version)
-bazel_dep(name = "boost.optional", version = _boost_version)
-bazel_dep(name = "boost.static_assert", version = _boost_version)
-bazel_dep(name = "boost.url", version = _boost_version)
-bazel_dep(name = "boost.json", version = _boost_version)
-
-git_repository(
-    name = "cppalliance.http",
-    build_file = "//repo:cppalliance.http.BUILD.bazel",
-    commit = "3ae8ba20a2990c8508126177e66c57b3f90e9a99",  # branch = "develop",
-    patch_args = ["-p0"],
-    patches = ["//repo:cppalliance.http-clock_cast.patch"],
-    remote = "https://github.com/cppalliance/http.git",
-)
-
-# bazel_dep(name = "boost.assert", version = _boost_version)
-# # git_repository(
-# #     name = "cppalliance.beast2",
-# #     build_file = "//repo:cppalliance.beast2.BUILD.bazel",
-# #     commit = "c0491ed93e6f0714a848e3b7d5ecce73874e32f3",  # branch = "develop",
-# #     # patch_args = ["-p1"],
-# #     # patches = ["//repo:cppalliance.beast2-any_router.patch"],
-# #     remote = "https://github.com/cppalliance/beast2.git",
-# # )
-# local_repository = use_repo_rule("@bazel_tools//tools/build_defs/repo:local.bzl", "local_repository")
-# local_repository(
-#     name = "cppalliance.beast2",
-#     path = "/Users/rix/p/t/cppalliance/beast2",
-# )

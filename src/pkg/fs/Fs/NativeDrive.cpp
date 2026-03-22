@@ -1,5 +1,4 @@
 #include "NativeDrive.h"
-#include "NativeFileSource.h"
 #include "Log/Log.h"
 #include <filesystem>
 #include <fstream>
@@ -64,7 +63,7 @@ namespace Fs
         return size;
     }
 
-    Drive::ReadResult NativeDrive::ReadAllTo(const Path& path, boost::capy::mutable_buffer buf)
+    Drive::ReadResult NativeDrive::ReadAllTo(const Path& path, std::vector<uint8_t>& buf)
     {
         auto nativePath = GetNativePath(path);
         if (!nativePath) {
@@ -76,18 +75,7 @@ namespace Fs
             return std::unexpected(std::make_error_code(std::errc::no_such_file_or_directory));
         }
 
-        file.read(static_cast<char*>(buf.data()), static_cast<std::streamsize>(buf.size()));
+        file.read(reinterpret_cast<char*>(buf.data()), static_cast<std::streamsize>(buf.size()));
         return static_cast<size_t>(file.gcount());
-    }
-
-    Coro::Task<Drive::OpenResult> NativeDrive::OpenAsync(Path path)
-    {
-        auto nativePathResult = GetNativePath(path);
-        if (!nativePathResult) {
-            co_return std::unexpected(nativePathResult.error());
-        }
-
-        NativeFileSource source(nativePathResult.value());
-        co_return boost::capy::any_read_source(std::move(source));
     }
 }

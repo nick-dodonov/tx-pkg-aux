@@ -79,7 +79,7 @@ namespace Fs
         return std::unexpected(std::make_error_code(std::errc::not_supported));
     }
 
-    Drive::ReadResult RunfilesDrive::ReadAllTo(const Path& path, boost::capy::mutable_buffer buf)
+    Drive::ReadResult RunfilesDrive::ReadAllTo(const Path& path, std::vector<uint8_t>& buf)
     {
         auto nativePath = GetNativePath(path);
         if (!nativePath) {
@@ -89,19 +89,5 @@ namespace Fs
             return _nativeDrive->ReadAllTo(nativePath.value(), buf);
         }
         return std::unexpected(std::make_error_code(std::errc::not_supported));
-    }
-
-    Coro::Task<Drive::OpenResult> RunfilesDrive::OpenAsync(Path path)
-    {
-        auto nativePathResult = GetNativePath(path);
-        if (!nativePathResult) {
-            co_return std::unexpected(nativePathResult.error());
-        }
-
-        if (_nativeDrive) {
-            co_return co_await _nativeDrive->OpenAsync(nativePathResult.value());
-        }
-
-        co_return std::unexpected(std::make_error_code(std::errc::not_supported));
     }
 }
