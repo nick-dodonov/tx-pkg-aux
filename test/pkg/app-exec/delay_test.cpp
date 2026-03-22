@@ -1,7 +1,7 @@
 #include "App/Exec/Domain.h"
 #include "App/Loop/Factory.h"
-#include "App/Loop/Runner.h"
 #include "Exec/Delay/LoopDelayBackend.h"
+#include "TestRunner.h"
 
 #include <gtest/gtest.h>
 #include <stdexec/execution.hpp>
@@ -9,22 +9,6 @@
 #include <exec/timed_scheduler.hpp>
 
 namespace {
-
-/// Minimal runner that captures the exit code without running an actual loop.
-/// Lets tests drive Domain lifecycle (Start / Stop) manually. When constructed,
-/// it registers itself with the handler via Runner::Runner(), so GetRunner()
-/// inside OnStopped/OnComplete is valid.
-struct DelayTestRunner : App::Loop::Runner
-{
-    explicit DelayTestRunner(std::shared_ptr<App::Loop::Handler> handler)
-        : Runner{std::move(handler)}
-    {}
-
-    int Run() override { return exitCode.value_or(-1); }
-    void Exit(int code) override { exitCode = code; }
-
-    std::optional<int> exitCode;
-};
 
 /// Returns a domain using LoopDelayBackend (no background thread, fully deterministic).
 /// The factory lambda receives the concrete TimedLoopContext::Scheduler — necessary
@@ -75,7 +59,7 @@ TEST(DelayTest, StopBeforeDelayFiresCancelsCorrectly)
         co_await exec::schedule_after(sched, std::chrono::hours(24));
         co_return 99; // unreachable if stop fires
     });
-    DelayTestRunner runner{domain};
+    TestRunner runner{domain};
 
     // Start(): exec::task begins, runs to co_await schedule_after, registers timer
     // (24h deadline with LoopDelayBackend) and stop callback, then suspends.

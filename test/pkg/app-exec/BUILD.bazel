@@ -2,7 +2,7 @@ load("@tx-kit-ext//rules:multi_app.bzl", "multi_test")
 
 multi_test(
     name = "app-exec",
-    srcs = glob(["*.cpp"]),
+    srcs = glob(["*.cpp", "*.h"]),
     deps = [
         "//src/pkg/app-exec",
         "@googletest//:gtest_main",

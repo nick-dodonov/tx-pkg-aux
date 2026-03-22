@@ -1,26 +1,12 @@
 #include "App/Exec/Domain.h"
 #include "App/Loop/Factory.h"
-#include "App/Loop/Runner.h"
+#include "TestRunner.h"
 
 #include <gtest/gtest.h>
 #include <stdexec/execution.hpp>
 #include <exec/task.hpp>
 
 namespace {
-
-/// Minimal runner that captures the exit code without running a loop.
-/// Lets tests drive Domain's lifecycle (Start / Update / Stop) manually.
-struct TestRunner : App::Loop::Runner
-{
-    explicit TestRunner(std::shared_ptr<App::Loop::Handler> handler)
-        : Runner{std::move(handler)}
-    {}
-
-    int Run() override { return exitCode.value_or(-1); }
-    void Exit(int code) override { exitCode = code; }
-
-    std::optional<int> exitCode;
-};
 
 /// Coroutine that performs one extra queue hop via co_await schedule().
 /// Frame 1: coroutine starts, suspends at co_await schedule(sched).

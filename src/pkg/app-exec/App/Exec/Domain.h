@@ -2,7 +2,7 @@
 
 #include "App/Loop/Handler.h"
 #include "Exec/Delay/IDelayBackend.h"
-#include "Exec/TimedLoopContext.h"
+#include "Exec/RunContext.h"
 
 #include <memory>
 
@@ -22,7 +22,7 @@ namespace App::Exec
     /// unwind cleanly instead of being destroyed mid-flight.
     class Domain: public App::Loop::Handler
     {
-        using Scheduler = ::Exec::TimedLoopContext::Scheduler;
+        using Scheduler = ::Exec::RunContext::Scheduler;
 
     public:
         /// Returns the timed scheduler handle for this domain.
@@ -117,7 +117,7 @@ namespace App::Exec
         /// Defined in Domain.cpp to avoid including ThreadDelayBackend.h here.
         static std::unique_ptr<::Exec::IDelayBackend> MakeDefaultBackend();
 
-        // _timerBackend must be declared before _scheduler: it is initialized first
+        // _timerBackend must be declared before _scheduler — it is initialized first
         // (member init order follows declaration order), and the TimedLoopContext
         // constructor takes the raw backend pointer which must already be valid.
         std::unique_ptr<::Exec::IDelayBackend> _timerBackend;

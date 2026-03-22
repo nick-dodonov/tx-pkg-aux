@@ -3,19 +3,19 @@
 #include "Boot/Boot.h"
 #include "Log/Log.h"
 
-#include <exec/task.hpp>
-#include <exec/timed_scheduler.hpp>
 #include <chrono>
 
 namespace {
 
-/// Demonstrates timed delay via exec::schedule_after inside an exec::task coroutine.
+/// Demonstrates timed delay via exec::schedule_after inside a RunTask coroutine.
 ///
-/// The scheduler is received as a parameter (concrete type from the Domain) rather
-/// than via read_env(get_scheduler) — exec::task type-erases the ambient scheduler
-/// to any_scheduler<> which does not satisfy exec::timed_scheduler.
-exec::task<int> MainTask(auto sched)
+/// The scheduler is obtained from the receiver environment via
+/// stdexec::read_env(stdexec::get_scheduler). RunTask<T> stores the concrete
+/// Exec::RunContext::Scheduler without type-erasure, so exec::schedule_after
+/// works without a scheduler parameter.
+Exec::RunTask<int> MainTask()
 {
+    const auto sched = co_await stdexec::read_env(stdexec::get_scheduler);
     Log::Info("[delay-demo] starting");
     Log::Info("[delay-demo] waiting 10 ms...");
     co_await exec::schedule_after(sched, std::chrono::milliseconds(10));
@@ -29,11 +29,10 @@ int main(const int argc, const char* argv[])
 {
     Boot::DefaultInit(argc, argv);
 
-    // Factory form: receives the concrete TimedLoopContext::Scheduler and passes it
-    // to the coroutine — avoids the any_scheduler<> type-erasure inside exec::task.
-    auto domain = std::make_shared<App::Exec::Domain>([](auto sched) {
-        return MainTask(sched);
-    });
+    // Direct sender form: RunTask<int> is sent as a sender to Domain.
+    // The scheduler is available inside the coroutine body via read_env,
+    // without exposing it as a parameter.
+    auto domain = std::make_shared<App::Exec::Domain>(MainTask());
 
     auto runner = App::Loop::CreateDefaultRunner(domain);
     return runner->Run();
