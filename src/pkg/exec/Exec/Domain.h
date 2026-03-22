@@ -6,7 +6,7 @@
 
 #include <memory>
 
-namespace App::Exec
+namespace Exec
 {
     /// Loop handler that drives a sender<int> on a RunLoopContext.
     ///

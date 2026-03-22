@@ -1,4 +1,4 @@
-#include "App/Exec/Domain.h"
+#include "Exec/Domain.h"
 #include "App/Factory.h"
 #include "Boot/Boot.h"
 #include "Log/Log.h"
@@ -29,7 +29,7 @@ int main(const int argc, const char* argv[])
     // Direct sender form: RunTask<int> is sent as a sender to Domain.
     // The scheduler is available inside the coroutine body via read_env,
     // without exposing it as a parameter.
-    auto domain = std::make_shared<App::Exec::Domain>(MainTask());
+    auto domain = std::make_shared<Exec::Domain>(MainTask());
 
     auto runner = App::CreateDefaultRunner(domain);
     return runner->Run();

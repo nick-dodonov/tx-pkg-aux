@@ -4,7 +4,8 @@ multi_test(
     name = "app-exec",
     srcs = glob(["*.cpp", "*.h"]),
     deps = [
-        "//src/pkg/app-exec",
+        "//src/pkg/app",
+        "//src/pkg/exec",
         "@googletest//:gtest_main",
     ],
 )

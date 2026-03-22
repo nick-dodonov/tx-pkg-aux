@@ -1,4 +1,4 @@
-#include "App/Exec/Domain.h"
+#include "Exec/Domain.h"
 #include "App/Factory.h"
 #include "Exec/Delay/LoopDelayBackend.h"
 #include "Exec/RunContext.h"
@@ -19,7 +19,7 @@ namespace {
 /// Build a Domain with LoopDelayBackend (deterministic, no background thread).
 auto MakeDomain(Exec::RunTask<int> task)
 {
-    return std::make_shared<App::Exec::Domain>(
+    return std::make_shared<Exec::Domain>(
         std::move(task), std::make_unique<Exec::LoopDelayBackend>());
 }
 

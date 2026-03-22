@@ -1,4 +1,4 @@
-#include "App/Exec/Domain.h"
+#include "Exec/Domain.h"
 #include "App/Factory.h"
 #include "Exec/Delay/LoopDelayBackend.h"
 #include "TestRunner.h"
@@ -18,7 +18,7 @@ namespace {
 template <class F>
 auto MakeDomainWithLoop(F factory)
 {
-    return std::make_shared<App::Exec::Domain>(
+    return std::make_shared<Exec::Domain>(
         std::move(factory), std::make_unique<Exec::LoopDelayBackend>());
 }
 
@@ -78,7 +78,7 @@ TEST(DelayTest, StopBeforeDelayFiresCancelsCorrectly)
 // satisfies exec::__timed_scheduler (requires a .now() member returning a time_point).
 TEST(DelayTest, TimedLoopContextNowReturnsSteadyClockTime)
 {
-    auto domain = std::make_shared<App::Exec::Domain>(
+    auto domain = std::make_shared<Exec::Domain>(
         stdexec::just(0), std::make_unique<Exec::LoopDelayBackend>());
 
     const auto before = std::chrono::steady_clock::now();

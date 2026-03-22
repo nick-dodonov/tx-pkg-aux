@@ -1,4 +1,4 @@
-#include "App/Exec/Domain.h"
+#include "Exec/Domain.h"
 #include "App/Factory.h"
 #include "TestRunner.h"
 
@@ -24,7 +24,7 @@ exec::task<int> TwoHopTask()
 // Domain(sender) wraps with starts_on internally and completes in one drain cycle.
 TEST(DomainTest, PlainSenderCompletion)
 {
-    auto domain = std::make_shared<App::Exec::Domain>(stdexec::just(42));
+    auto domain = std::make_shared<Exec::Domain>(stdexec::just(42));
     const auto runner = App::CreateTestRunner(domain);
     EXPECT_EQ(runner->Run(), 42);
 }
@@ -32,7 +32,7 @@ TEST(DomainTest, PlainSenderCompletion)
 // Domain(factory) stores the factory's sender directly — no extra starts_on wrapping.
 TEST(DomainTest, FactoryConstructor)
 {
-    auto domain = std::make_shared<App::Exec::Domain>([](auto sched) {
+    auto domain = std::make_shared<Exec::Domain>([](auto sched) {
         return stdexec::schedule(sched) | stdexec::then([] { return 7; });
     });
     const auto runner = App::CreateTestRunner(domain);
@@ -44,7 +44,7 @@ TEST(DomainTest, FactoryConstructor)
 // (which would leave a dangling Operation<R>* inside the lock-free queue).
 TEST(DomainTest, StopBeforeDrainCancelsTask)
 {
-    auto domain = std::make_shared<App::Exec::Domain>(stdexec::just(99));
+    auto domain = std::make_shared<Exec::Domain>(stdexec::just(99));
     TestRunner runner{domain};
 
     domain->Start();  // enqueues the starts_on bridge task
@@ -59,7 +59,7 @@ TEST(DomainTest, StopBeforeDrainCancelsTask)
 // and co_await schedule(sched) would fail at compile time or produce wrong results.
 TEST(DomainTest, CoroutineSenderWithSchedulerAccess)
 {
-    auto domain = std::make_shared<App::Exec::Domain>(TwoHopTask());
+    auto domain = std::make_shared<Exec::Domain>(TwoHopTask());
     const auto runner = App::CreateTestRunner(domain);
     // DrainQueue() is greedy — it exhausts newly-enqueued tasks within the same
     // call, so all hops (starts_on bridge → exec::task start-on-scheduler →
