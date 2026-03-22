@@ -1,5 +1,5 @@
 #include "App/Exec/Domain.h"
-#include "App/Loop/Factory.h"
+#include "App/Factory.h"
 #include "TestRunner.h"
 
 #include <gtest/gtest.h>

@@ -19,7 +19,7 @@ Use existing `TightRunner` which:
 
 ### Usage in Tests:
 ```cpp
-#include "App/Loop/TightRunner.h"
+#include "App/TightRunner.h"
 
 auto domain = std::make_shared<App::Asio::Domain>();
 auto runner = std::make_shared<App::Loop::TightRunner>(domain);

@@ -1,5 +1,5 @@
 #include "App/Capy/Domain.h"
-#include "App/Loop/Factory.h"
+#include "App/Factory.h"
 #include "Log/Log.h"
 
 #include <gtest/gtest.h>

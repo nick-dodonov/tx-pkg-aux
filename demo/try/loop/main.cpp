@@ -7,7 +7,7 @@
 #include <memory>
 #include <cassert>
 
-#include "App/Loop/TightRunner.h"
+#include "App/TightRunner.h"
 
 using IRunner = RunLoop::IRunner;
 using UpdateCtx = RunLoop::UpdateCtx;
