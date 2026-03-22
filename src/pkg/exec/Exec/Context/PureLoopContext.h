@@ -1,7 +1,8 @@
 #pragma once
-#include <stdexec/execution.hpp>
-
+#include "LoopContext.h"
 #include "concurrentqueue.h"
+
+#include <stdexec/execution.hpp>
 
 namespace Exec
 {
@@ -140,10 +141,6 @@ namespace Exec
             [[nodiscard]] auto get_env() const noexcept -> Env { return {ctx}; }
         };
 
-        // Verify that PureLoopContext::Scheduler fully satisfies the P2300 scheduler concept,
-        // including the get_completion_scheduler<CPO> round-trip mandated by stdexec::scheduler.
-        static_assert(stdexec::scheduler<Scheduler>);
-
     public:
         auto GetScheduler() noexcept -> Scheduler { return {this}; }
 
@@ -181,4 +178,10 @@ namespace Exec
     {
         return {ctx};
     }
-}
+
+    static_assert(LoopContext<PureLoopContext>);
+    // Verify that PureLoopContext::Scheduler fully satisfies the P2300 scheduler concept,
+    // including the get_completion_scheduler<CPO> round-trip mandated by stdexec::scheduler.
+    static_assert(stdexec::scheduler<PureLoopContext::Scheduler>);
+
+} // namespace Exec

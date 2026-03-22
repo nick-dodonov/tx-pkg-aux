@@ -1,7 +1,7 @@
 #pragma once
-#include "Exec/Delay/ITimerBackend.h"
 #include "PureLoopContext.h"
 #include "TimedSender.h"
+#include "Exec/Delay/ITimerBackend.h"
 
 #include <chrono>
 #include <exec/timed_scheduler.hpp>
@@ -133,6 +133,7 @@ namespace Exec
         return {ctx};
     }
 
+    static_assert(LoopContext<TimedLoopContext>);
     static_assert(stdexec::scheduler<TimedLoopContext::Scheduler>);
     static_assert(exec::timed_scheduler<TimedLoopContext::Scheduler>);
 
