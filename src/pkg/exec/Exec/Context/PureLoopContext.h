@@ -44,12 +44,12 @@ namespace Exec
 
             static void Execute(OperationBase* base) noexcept
             {
-                auto& self = *static_cast<Operation*>(base);
-                const auto stopToken = stdexec::get_stop_token(stdexec::get_env(self.receiver));
+                auto& receiver = static_cast<Operation*>(base)->receiver;
+                const auto stopToken = stdexec::get_stop_token(stdexec::get_env(receiver));
                 if (stopToken.stop_requested()) {
-                    stdexec::set_stopped(static_cast<Receiver&&>(self.receiver));
+                    stdexec::set_stopped(static_cast<Receiver&&>(receiver));
                 } else {
-                    stdexec::set_value(static_cast<Receiver&&>(self.receiver));
+                    stdexec::set_value(static_cast<Receiver&&>(receiver));
                 }
             }
 

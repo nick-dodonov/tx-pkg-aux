@@ -35,13 +35,13 @@ namespace Exec
 
         static void Execute(OperationBase* base) noexcept
         {
-            auto& self = *static_cast<DelaySharedState*>(base);
-            const auto stopToken = stdexec::get_stop_token(stdexec::get_env(self.receiver));
-            const auto stopped = self.stopWon || stopToken.stop_requested();
+            auto& receiver = static_cast<DelaySharedState*>(base)->receiver;
+            const auto stopToken = stdexec::get_stop_token(stdexec::get_env(receiver));
+            const auto stopped = static_cast<DelaySharedState*>(base)->stopWon || stopToken.stop_requested();
             if (stopped) {
-                stdexec::set_stopped(static_cast<Receiver&&>(self.receiver));
+                stdexec::set_stopped(static_cast<Receiver&&>(receiver));
             } else {
-                stdexec::set_value(static_cast<Receiver&&>(self.receiver));
+                stdexec::set_value(static_cast<Receiver&&>(receiver));
             }
         }
     };
