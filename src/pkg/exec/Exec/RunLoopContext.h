@@ -5,9 +5,10 @@
 
 namespace Exec
 {
-    /// A P2300-compatible scheduler that integrates with a frame-based update loop.
+    /// Execution context that integrates a P2300-compatible scheduler with a
+    /// frame-based update loop.
     ///
-    /// Instead of a dedicated thread, UpdateScheduler uses a manual, non-blocking
+    /// Instead of a dedicated thread, RunLoopContext uses a manual, non-blocking
     /// drain model: work scheduled via the Scheduler handle is enqueued in a
     /// lock-free queue and executed synchronously when DrainQueue() is called —
     /// typically once per frame in a game/render loop.
@@ -15,8 +16,8 @@ namespace Exec
     /// Relationship to standard alternatives:
     ///   stdexec::run_loop      — blocking, CV-driven; meant for dedicated threads
     ///   exec::inline_scheduler — executes immediately on start(), never defers
-    ///   UpdateScheduler        — non-blocking, frame-boundary deferred, main-thread loops
-    class UpdateScheduler
+    ///   RunLoopContext         — non-blocking, frame-boundary deferred, main-thread loops
+    class RunLoopContext
     {
     public:
         /// Minimal task node stored in the concurrent queue.
@@ -47,10 +48,10 @@ namespace Exec
         template <class Receiver>
         struct Operation: OperationBase
         {
-            UpdateScheduler* scheduler;
+            RunLoopContext* scheduler;
             Receiver receiver;
 
-            Operation(UpdateScheduler* sched, Receiver rcvr)
+            Operation(RunLoopContext* sched, Receiver rcvr)
                 : scheduler(sched)
                 , receiver(static_cast<Receiver&&>(rcvr))
             {
@@ -85,7 +86,7 @@ namespace Exec
         struct Sender;
 
     public:
-        /// Lightweight scheduler handle — holds a pointer to the owning UpdateScheduler.
+        /// Lightweight scheduler handle — holds a pointer to the owning RunLoopContext.
         ///
         /// Satisfies stdexec::scheduler: schedule() returns a Sender whose get_env()
         /// advertises this Scheduler as the completion scheduler for all signals,
@@ -94,7 +95,7 @@ namespace Exec
         {
             using scheduler_concept = stdexec::scheduler_t;
 
-            UpdateScheduler* ctx;
+            RunLoopContext* ctx;
 
             [[nodiscard]] auto schedule() const noexcept -> Sender;
 
@@ -115,7 +116,7 @@ namespace Exec
             using sender_concept = stdexec::sender_t;
             using completion_signatures = stdexec::completion_signatures<stdexec::set_value_t(), stdexec::set_stopped_t()>;
 
-            UpdateScheduler* ctx;
+            RunLoopContext* ctx;
 
             template <class Receiver>
             auto connect(Receiver rcvr) const -> Operation<Receiver>
@@ -125,7 +126,7 @@ namespace Exec
 
             struct Env
             {
-                UpdateScheduler* ctx;
+                RunLoopContext* ctx;
 
                 template <class CPO>
                 [[nodiscard]] auto query(stdexec::get_completion_scheduler_t<CPO> _) const noexcept -> Scheduler
@@ -137,7 +138,7 @@ namespace Exec
             [[nodiscard]] auto get_env() const noexcept -> Env { return {ctx}; }
         };
 
-        // Verify that UpdateScheduler::Scheduler fully satisfies the P2300 scheduler concept,
+        // Verify that RunLoopContext::Scheduler fully satisfies the P2300 scheduler concept,
         // including the get_completion_scheduler<CPO> round-trip mandated by stdexec::scheduler.
         static_assert(stdexec::scheduler<Scheduler>);
 
@@ -174,7 +175,7 @@ namespace Exec
         moodycamel::ConcurrentQueue<OperationBase*> _queue;
     };
 
-    inline auto UpdateScheduler::Scheduler::schedule() const noexcept -> UpdateScheduler::Sender
+    inline auto RunLoopContext::Scheduler::schedule() const noexcept -> RunLoopContext::Sender
     {
         return {ctx};
     }

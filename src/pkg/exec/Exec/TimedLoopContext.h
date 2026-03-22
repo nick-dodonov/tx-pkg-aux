@@ -1,7 +1,7 @@
 #pragma once
 #include "Delay/DelaySender.h"
 #include "Delay/IDelayBackend.h"
-#include "UpdateScheduler.h"
+#include "RunLoopContext.h"
 
 #include <chrono>
 #include <exec/timed_scheduler.hpp>
@@ -9,17 +9,17 @@
 
 namespace Exec
 {
-    /// A timed scheduler that integrates with a frame-based update loop.
+    /// Execution context that augments RunLoopContext with timed scheduling.
     ///
-    /// Wraps UpdateScheduler (for zero-delay frame scheduling) and an IDelayBackend
+    /// Wraps RunLoopContext (for zero-delay frame scheduling) and an IDelayBackend
     /// (for timed delays). Satisfies both stdexec::scheduler and exec::timed_scheduler,
     /// so code that uses exec::schedule_after or co_await exec::schedule_after works
     /// without any project-specific helpers.
     ///
-    /// Ownership: TimedScheduler owns the UpdateScheduler; it holds a non-owning
+    /// Ownership: TimedLoopContext owns the RunLoopContext; it holds a non-owning
     /// pointer to the IDelayBackend — lifetime of the backend is managed externally
     /// (typically by App::Exec::Domain which provides a unique_ptr<IDelayBackend>).
-    class TimedScheduler
+    class TimedLoopContext
     {
     public:
         struct Scheduler; // forward-declared for FrameSender::Env
@@ -37,21 +37,21 @@ namespace Exec
             using completion_signatures = stdexec::completion_signatures<
                 stdexec::set_value_t(), stdexec::set_stopped_t()>;
 
-            TimedScheduler* ctx;
+            TimedLoopContext* ctx;
 
-            /// Connect by delegating to the underlying UpdateScheduler::Sender.
-            /// The return type is UpdateScheduler::Operation<Receiver> (deduced via
+            /// Connect by delegating to the underlying RunLoopContext::Sender.
+            /// The return type is RunLoopContext::Operation<Receiver> (deduced via
             /// auto — naming the private type is not required here).
             template <class Receiver>
             auto connect(Receiver rcvr) const
             {
-                return ctx->_frameScheduler.GetScheduler().schedule()
+                return ctx->_frameLoop.GetScheduler().schedule()
                            .connect(static_cast<Receiver&&>(rcvr));
             }
 
             struct Env
             {
-                TimedScheduler* ctx;
+                TimedLoopContext* ctx;
 
                 template <class CPO>
                 [[nodiscard]] auto query(stdexec::get_completion_scheduler_t<CPO>) const noexcept
@@ -73,13 +73,13 @@ namespace Exec
         {
             using scheduler_concept = stdexec::scheduler_t;
 
-            TimedScheduler* ctx;
+            TimedLoopContext* ctx;
 
-            /// Returns the UpdateScheduler pointer — used by DelaySender::Operation
+            /// Returns the RunLoopContext pointer — used by DelaySender::Operation
             /// to enqueue the shared state back to the frame queue when a delay completes.
-            [[nodiscard]] auto GetUpdateScheduler() const noexcept -> UpdateScheduler*
+            [[nodiscard]] auto GetRunLoop() const noexcept -> RunLoopContext*
             {
-                return &ctx->_frameScheduler;
+                return &ctx->_frameLoop;
             }
 
             [[nodiscard]] auto schedule() const noexcept -> FrameSender { return {ctx}; }
@@ -104,32 +104,32 @@ namespace Exec
             auto operator==(const Scheduler&) const noexcept -> bool = default;
         };
 
-        explicit TimedScheduler(IDelayBackend* backend) noexcept
+        explicit TimedLoopContext(IDelayBackend* backend) noexcept
             : _backend(backend)
         {}
 
         [[nodiscard]] auto GetScheduler() noexcept -> Scheduler { return {this}; }
 
-        std::size_t DrainQueue() { return _frameScheduler.DrainQueue(); }
+        std::size_t DrainQueue() { return _frameLoop.DrainQueue(); }
 
         /// Call once per frame (before DrainQueue) to fire expired timers.
         /// Thread-based backends implement this as a no-op.
         void TickBackend() noexcept { _backend->Tick(); }
 
     private:
-        UpdateScheduler _frameScheduler;
+        RunLoopContext _frameLoop;
         IDelayBackend*  _backend; // non-owning; lifetime managed by caller (Domain)
     };
 
     // Out-of-line definition: now that Scheduler is complete, the query() body compiles.
     template <class CPO>
-    inline auto TimedScheduler::FrameSender::Env::query(
-        stdexec::get_completion_scheduler_t<CPO>) const noexcept -> TimedScheduler::Scheduler
+    inline auto TimedLoopContext::FrameSender::Env::query(
+        stdexec::get_completion_scheduler_t<CPO>) const noexcept -> TimedLoopContext::Scheduler
     {
         return {ctx};
     }
 
-    static_assert(stdexec::scheduler<TimedScheduler::Scheduler>);
-    static_assert(exec::timed_scheduler<TimedScheduler::Scheduler>);
+    static_assert(stdexec::scheduler<TimedLoopContext::Scheduler>);
+    static_assert(exec::timed_scheduler<TimedLoopContext::Scheduler>);
 
 } // namespace Exec

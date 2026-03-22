@@ -1,6 +1,6 @@
 #pragma once
 #include "IDelayBackend.h"
-#include "Exec/UpdateScheduler.h"
+#include "Exec/RunLoopContext.h"
 
 #include <atomic>
 #include <chrono>
@@ -12,7 +12,7 @@ namespace Exec
     /// Shared control block for a single delay operation.
     ///
     /// Inherits OperationBase so it can be enqueued directly into the
-    /// UpdateScheduler's lock-free queue. Lifetime is shared via shared_ptr
+    /// RunLoopContext's lock-free queue. Lifetime is shared via shared_ptr
     /// between the DelayOperation (in the coroutine frame) and the timer
     /// callback lambda — so it remains valid even if the DelayOperation is
     /// destroyed (e.g., when the stop side wins the CAS and the coroutine frame
@@ -21,18 +21,18 @@ namespace Exec
     /// The `claimed` flag is the single synchronisation point between the timer
     /// and the stop side: whichever raises it first wins and enqueues this node.
     template <class Receiver>
-    struct DelaySharedState : UpdateScheduler::OperationBase
+    struct DelaySharedState : RunLoopContext::OperationBase
     {
-        UpdateScheduler* scheduler;
+        RunLoopContext* scheduler;
         Receiver receiver;
         std::atomic<bool> claimed{false};
         bool stopWon{false};
 
-        DelaySharedState(UpdateScheduler* sched, Receiver&& rcvr)
+        DelaySharedState(RunLoopContext* sched, Receiver&& rcvr)
             : scheduler(sched)
             , receiver(static_cast<Receiver&&>(rcvr))
         {
-            this->execute = [](UpdateScheduler::OperationBase* base) noexcept {
+            this->execute = [](RunLoopContext::OperationBase* base) noexcept {
                 auto& self = *static_cast<DelaySharedState*>(base);
                 const auto stopToken = stdexec::get_stop_token(stdexec::get_env(self.receiver));
                 const auto stopped = self.stopWon || stopToken.stop_requested();
@@ -46,15 +46,15 @@ namespace Exec
     };
 
     // Forward-declare for the scheduler type alias used in DelaySender::Env.
-    // TimedScheduler.h is NOT included here to avoid a circular dependency.
+    // TimedLoopContext.h is NOT included here to avoid a circular dependency.
     // Instead, DelaySender is parametrised on the scheduler type.
 
-    /// Sender produced by TimedScheduler::Scheduler::schedule_at().
+    /// Sender produced by TimedLoopContext::Scheduler::schedule_at().
     ///
     /// Completion signals: set_value_t() (timer fired first) or set_stopped_t()
     /// (stop token was raised first). Never produces set_error.
     ///
-    /// The Scheduler template parameter is the concrete TimedScheduler::Scheduler
+    /// The Scheduler template parameter is the concrete TimedLoopContext::Scheduler
     /// type; passing it here lets the Env report the correct completion scheduler
     /// so that down-stream continues_on / exec::task chaining works correctly.
     template <class TimedSchedulerHandle>
@@ -64,7 +64,7 @@ namespace Exec
         using completion_signatures = stdexec::completion_signatures<
             stdexec::set_value_t(), stdexec::set_stopped_t()>;
 
-        TimedSchedulerHandle timedSched; // for the Env query AND for UpdateScheduler access
+        TimedSchedulerHandle timedSched; // for the Env query AND for RunLoopContext access
         IDelayBackend*       backend;
         IDelayBackend::TimePoint deadline;
 
@@ -93,7 +93,7 @@ namespace Exec
             Operation(TimedSchedulerHandle sched, IDelayBackend* be,
                       IDelayBackend::TimePoint dl, Receiver rcvr)
                 : state(std::make_shared<SharedState>(
-                      sched.GetUpdateScheduler(), static_cast<Receiver&&>(rcvr)))
+                      sched.GetRunLoop(), static_cast<Receiver&&>(rcvr)))
                 , backend(be)
                 , deadline(dl)
             {}

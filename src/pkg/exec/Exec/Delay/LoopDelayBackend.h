@@ -9,7 +9,7 @@ namespace Exec
     /// Frame-loop-integrated timer backend. No background thread.
     ///
     /// Callbacks fire synchronously when Tick() is called from the main/update
-    /// thread (via Domain::Update → TimedScheduler::TickBackend → Tick()), which
+    /// thread (via Domain::Update → TimedLoopContext::TickBackend → Tick()), which
     /// makes behaviour deterministic and easy to test: advance time by calling
     /// Tick() repeatedly.
     ///
@@ -42,7 +42,7 @@ namespace Exec
 
         /// Fire all callbacks whose deadline is at or before steady_clock::now().
         ///
-        /// Called from the main thread (Domain::Update → TimedScheduler::TickBackend).
+        /// Called from the main thread (Domain::Update → TimedLoopContext::TickBackend).
         /// Callbacks are invoked in deadline order. Entries added during a callback
         /// are NOT fired in the same Tick() call (they appear after the current
         /// snapshot boundary).

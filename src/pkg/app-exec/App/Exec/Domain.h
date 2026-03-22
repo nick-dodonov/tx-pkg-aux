@@ -2,13 +2,13 @@
 
 #include "App/Loop/Handler.h"
 #include "Exec/Delay/IDelayBackend.h"
-#include "Exec/TimedScheduler.h"
+#include "Exec/TimedLoopContext.h"
 
 #include <memory>
 
 namespace App::Exec
 {
-    /// Loop handler that drives a sender<int> on an UpdateScheduler.
+    /// Loop handler that drives a sender<int> on a RunLoopContext.
     ///
     /// Bridges the P2300 sender/receiver model with the App::Loop update cycle.
     /// Construct with a sender or factory, then pass to a runner. Each frame,
@@ -22,7 +22,7 @@ namespace App::Exec
     /// unwind cleanly instead of being destroyed mid-flight.
     class Domain: public App::Loop::Handler
     {
-        using Scheduler = ::Exec::TimedScheduler::Scheduler;
+        using Scheduler = ::Exec::TimedLoopContext::Scheduler;
 
     public:
         /// Returns the timed scheduler handle for this domain.
@@ -118,10 +118,10 @@ namespace App::Exec
         static std::unique_ptr<::Exec::IDelayBackend> MakeDefaultBackend();
 
         // _timerBackend must be declared before _scheduler: it is initialized first
-        // (member init order follows declaration order), and the TimedScheduler
+        // (member init order follows declaration order), and the TimedLoopContext
         // constructor takes the raw backend pointer which must already be valid.
         std::unique_ptr<::Exec::IDelayBackend> _timerBackend;
-        ::Exec::TimedScheduler _scheduler;
+        ::Exec::TimedLoopContext _scheduler;
         std::unique_ptr<IOpState> _opState;
 
         // Stop-token source propagated to the running sender via DomainReceiver::get_env().
@@ -138,7 +138,7 @@ namespace App::Exec
     // checks for a receiver_concept tag and a queryable get_env().
     //
     // get_env() returns a composed environment that exposes:
-    //   get_scheduler  → the Domain's UpdateScheduler handle, so that nested
+    //   get_scheduler  → the Domain's RunLoopContext handle, so that nested
     //                    senders (e.g. stdexec::read_env(get_scheduler) inside
     //                    a coroutine) can discover and reschedule onto it.
     //   get_stop_token → the Domain's inplace_stop_source token, so that

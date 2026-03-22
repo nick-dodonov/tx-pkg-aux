@@ -27,7 +27,7 @@ struct DelayTestRunner : App::Loop::Runner
 };
 
 /// Returns a domain using LoopDelayBackend (no background thread, fully deterministic).
-/// The factory lambda receives the concrete TimedScheduler::Scheduler — necessary
+/// The factory lambda receives the concrete TimedLoopContext::Scheduler — necessary
 /// because exec::task type-erases the ambient scheduler to any_scheduler<>, which
 /// does not satisfy exec::timed_scheduler and therefore cannot be passed to
 /// exec::schedule_after / schedule_at.
@@ -90,7 +90,7 @@ TEST(DelayTest, StopBeforeDelayFiresCancelsCorrectly)
 }
 
 // exec::now(sched) returns a steady_clock time_point within [before, after].
-// This is a correctness + compile-time check that TimedScheduler::Scheduler
+// This is a correctness + compile-time check that TimedLoopContext::Scheduler
 // satisfies exec::__timed_scheduler (requires a .now() member returning a time_point).
 TEST(DelayTest, TimedSchedulerNowReturnsSteadyClockTime)
 {
