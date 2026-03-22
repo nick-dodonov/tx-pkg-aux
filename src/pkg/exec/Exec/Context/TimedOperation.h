@@ -3,135 +3,143 @@
 #include "PureLoopContext.h"
 
 #include <atomic>
-#include <functional>
-#include <memory>
-#include <optional>
 #include <stdexec/execution.hpp>
 
 namespace Exec
 {
-    /// Shared control block for a single timed operation.
+    /// Operation state for a timed delay.
     ///
-    /// Inherits OperationBase so it can be enqueued directly into the
-    /// PureLoopContext's lock-free queue. Lifetime is shared via shared_ptr
-    /// between the TimedOperation (in the coroutine frame) and the timer
-    /// callback lambda — so it remains valid even if the TimedOperation is
-    /// destroyed (e.g., when the stop side wins the CAS and the coroutine frame
-    /// is torn down) before the timer callback fires.
+    /// Inherits OperationBase so it can be enqueued directly into PureLoopContext's
+    /// lock-free queue. Contains the receiver, synchronisation flag, and ownership
+    /// of both the stop callback and timer registration — no heap allocation needed.
     ///
-    /// The `claimed` flag is the single synchronisation point between the timer
-    /// and the stop side: whichever raises it first wins and enqueues this node.
+    /// Lifetime is guaranteed by P2300: the op state must remain alive until a
+    /// completion signal (set_value / set_stopped) is delivered. Combined with
+    /// ITimerBackend::Cancel() blocking until any in-flight timer callback finishes,
+    /// this means it is safe to destroy TimedOperation immediately after
+    /// the completion signal returns.
+    ///
+    /// Once start() is called, the stop callback and timer lambda both capture `this`.
+    /// TimedOperation must NOT be moved after start() — it is immovable by design.
+    ///
+    /// The `state` atomic is the single synchronisation point between the timer
+    /// and the stop side: whichever side raises it first prevents the other from
+    /// enqueuing this node a second time.
     template <class Receiver>
-    struct DelaySharedState : OperationBase
-    {
-        PureLoopContext* scheduler;
-        Receiver receiver;
-        std::atomic<bool> claimed{false};
-        bool stopWon{false};
-
-        DelaySharedState(PureLoopContext* sched, Receiver&& rcvr)
-            : OperationBase{&Execute}
-            , scheduler(sched)
-            , receiver(std::move(rcvr))
-        {}
-
-        static void Execute(OperationBase* base) noexcept
-        {
-            auto& self = *static_cast<DelaySharedState*>(base);
-            const auto stopToken = stdexec::get_stop_token(stdexec::get_env(self.receiver));
-            if (self.stopWon || stopToken.stop_requested()) {
-                stdexec::set_stopped(static_cast<Receiver&&>(self.receiver));
-            } else {
-                stdexec::set_value(static_cast<Receiver&&>(self.receiver));
-            }
-        }
-    };
-
-    /// Operation state for a timed delay. Holds the shared control block by shared_ptr.
-    ///
-    /// Lifetime: sits inside the coroutine frame (awaitable storage). Destroyed
-    /// when the coroutine frame is destroyed — which may happen while the timer
-    /// callback lambda still holds a shared_ptr to the shared state. That is safe:
-    /// the lambda only touches the shared state, never the TimedOperation itself.
-    ///
-    /// On destruction, the stop callback is deregistered and the backend timer is
-    /// cancelled (advisory — correctness is guaranteed by the CAS in DelaySharedState).
-    template <class Receiver>
-    struct TimedOperation
+    struct TimedOperation : OperationBase
     {
         using operation_state_concept = stdexec::operation_state_t;
 
-        using SharedState = DelaySharedState<Receiver>;
-        using StopToken   = stdexec::stop_token_of_t<stdexec::env_of_t<Receiver>>;
-        using StopCb      = stdexec::stop_callback_for_t<StopToken, std::function<void()>>;
+        using StopToken = stdexec::stop_token_of_t<stdexec::env_of_t<Receiver>>;
 
-        std::shared_ptr<SharedState> state;
-        ITimerBackend*               backend;
-        ITimerBackend::TimePoint     deadline;
-        ITimerBackend::TimerId       timerId{};
-        std::optional<StopCb>        stopCb{};
+        /// Lightweight stop callback — captures `this` by raw pointer.
+        /// Safe because the stop callback is deregistered (stopRegistration.reset()) in
+        /// the destructor before TimedOperation's storage is released.
+        struct StopCallback
+        {
+            TimedOperation* op;
+            void operator()() noexcept
+            {
+                op->TryEnqueueStop();
+            }
+        };
+        using StopRegistration = stdexec::stop_callback_for_t<StopToken, StopCallback>;
 
-        TimedOperation(PureLoopContext* scheduler, ITimerBackend* be, ITimerBackend::TimePoint dl, Receiver rcvr)
-            : state(std::make_shared<SharedState>(scheduler, std::forward<Receiver>(rcvr)))
+        enum class State : std::uint8_t { Pending, TimerWon, StopWon };
+
+        PureLoopContext* scheduler;
+        ITimerBackend* backend;
+        ITimerBackend::TimePoint deadline;
+        Receiver receiver;
+        std::atomic<State> state{State::Pending};
+        ITimerBackend::TimerId timerId{};
+        std::optional<StopRegistration> stopRegistration{};
+
+        TimedOperation(PureLoopContext* sched, ITimerBackend* be, ITimerBackend::TimePoint dl, Receiver rcvr)
+            : OperationBase{&Execute}
+            , scheduler(sched)
             , backend(be)
             , deadline(dl)
+            , receiver(std::move(rcvr))
         {}
 
         ~TimedOperation()
         {
-            // Deregister stop callback before cancelling the timer to avoid a
-            // spurious CAS win racing with the Cancel call.
-            stopCb.reset();
+            // Deregister stop callback first — prevents a spurious CAS win from
+            // racing with the Cancel call below.
+            stopRegistration.reset();
+            // Cancel blocks until any in-flight timer callback has returned,
+            // so `this` is safe to destroy the moment Cancel() returns.
             if (timerId) {
                 backend->Cancel(timerId);
             }
         }
 
+        // Immovable: lambdas registered in start() capture `this` by raw pointer.
+        // Guaranteed copy elision (C++17) ensures connect() constructs the op state
+        // directly in the caller's storage — no move is ever needed.
         TimedOperation(const TimedOperation&) = delete;
         TimedOperation& operator=(const TimedOperation&) = delete;
+        TimedOperation(TimedOperation&&) = delete;
+        TimedOperation& operator=(TimedOperation&&) = delete;
+
+        static void Execute(OperationBase* base) noexcept
+        {
+            auto& self = *static_cast<TimedOperation*>(base);
+            auto& receiver = self.receiver;
+            // Outcome is determined by stop_requested() at drain time, not by which
+            // side won the CAS. This gives frame-accurate cancellation: a stop
+            // request raised after the timer fires but before DrainQueue runs is
+            // still honoured. StopWon always implies stop_requested() == true;
+            // TimerWon may or may not, depending on what happened in the interim.
+            const auto stopToken = stdexec::get_stop_token(stdexec::get_env(receiver));
+            if (stopToken.stop_requested()) {
+                stdexec::set_stopped(static_cast<Receiver&&>(receiver));
+            } else {
+                stdexec::set_value(static_cast<Receiver&&>(receiver));
+            }
+        }
 
         void start() & noexcept
         {
-            const auto stopToken = stdexec::get_stop_token(stdexec::get_env(state->receiver));
+            //TODO: `if constexpr (unstoppable_token<stop_token_of_t<env_of_t<Receiver>>>)` to avoid registering a stop callback at all in that case
+            const auto stopToken = stdexec::get_stop_token(stdexec::get_env(receiver));
 
-            // Fast path: already cancelled before we even start.
-            if (stopToken.stop_requested()) {
-                bool expected = false;
-                if (state->claimed.compare_exchange_strong(expected, true,
-                        std::memory_order_acq_rel, std::memory_order_relaxed)) {
-                    state->stopWon = true;
-                    state->scheduler->Enqueue(state.get());
-                }
+            // Register stop callback. If stop is already requested at this point,
+            // stop_callback_for_t fires StopCallback synchronously during construction,
+            // winning the CAS and setting stopWon — no need to schedule the timer.
+            stopRegistration.emplace(stopToken, StopCallback{this});
+            if (state.load(std::memory_order_relaxed) != State::Pending) {
                 return;
             }
 
-            // Register stop callback — fires synchronously if the token is
-            // already in the stop-requested state when the callback is constructed.
-            // Captures state by shared_ptr so the lambda is independent of
-            // this TimedOperation's lifetime.
-            stopCb.emplace(stopToken,
-                [s = state]() mutable noexcept {
-                    bool expected = false;
-                    if (s->claimed.compare_exchange_strong(expected, true,
-                            std::memory_order_acq_rel, std::memory_order_relaxed)) {
-                        s->stopWon = true;
-                        s->scheduler->Enqueue(s.get());
-                    }
-                    // If we lost the CAS, the timer already won — nothing to do.
-                });
+            // Schedule the timer. The lambda captures `this` by raw pointer — safe
+            // because ITimerBackend::Cancel() blocks until the callback completes,
+            // guaranteeing `this` is alive for the callback's entire execution.
+            timerId = backend->ScheduleAt(deadline, [this]() {
+                timerId = ITimerBackend::InvalidTimerId; // prevent unnecessary cancel in destructor as already fired
+                TryEnqueue(State::TimerWon);
+            });
+        }
 
-            // Schedule the timer — capture state by shared_ptr only,
-            // never capture `this` (the TimedOperation may be destroyed first).
-            timerId = backend->ScheduleAt(deadline,
-                [s = state]() mutable {
-                    bool expected = false;
-                    if (s->claimed.compare_exchange_strong(expected, true,
-                            std::memory_order_acq_rel, std::memory_order_relaxed)) {
-                        s->scheduler->Enqueue(s.get());
-                    }
-                    // If we lost, the stop side already won — nothing to do.
-                    // shared_ptr releases here; if TimedOperation is gone, SharedState GC'd.
-                });
+        void TryEnqueueStop()
+        {
+            // Cancel the timer eagerly when stop wins — 
+            //  avoids leaving a now-pointless entry in the backend
+            if (timerId) {
+                backend->Cancel(std::exchange(timerId, ITimerBackend::InvalidTimerId));
+            }
+            TryEnqueue(State::StopWon);
+        }
+
+        void TryEnqueue(State desired)
+        {
+            State expected = State::Pending;
+            if (state.compare_exchange_strong(expected, desired,
+                    std::memory_order_acq_rel, std::memory_order_relaxed)) {
+                scheduler->Enqueue(this);
+            }
         }
     };
 }
+

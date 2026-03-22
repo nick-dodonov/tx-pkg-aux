@@ -264,8 +264,10 @@ TEST(TimedSenderTest, StopBeforeTimer_DeliversSetStopped)
     EXPECT_TRUE(outcome.stopped);
 }
 
-// Stop pre-requested before start() → fast path: set_stopped without scheduling a timer.
-TEST(TimedSenderTest, PreStopFastPath_NoTimerScheduled)
+// Stop pre-requested before start() → stop_callback_for_t fires StopCallback
+// synchronously during stopCb.emplace(), winning the CAS. start() skips
+// ScheduleAt and returns early — no timer is registered.
+TEST(TimedSenderTest, PreStop_DeliversSetStopped)
 {
     FakeTimerBackend fake;
     TimedLoopContext ctx{&fake};
@@ -275,7 +277,7 @@ TEST(TimedSenderTest, PreStopFastPath_NoTimerScheduled)
 
     auto op = stdexec::connect(ctx.GetScheduler().schedule_at(Future()),
                                StopReceiver{.outcome = &outcome, .token = source.get_token()});
-    stdexec::start(op); // fast path: enqueues immediately, no ScheduleAt call
+    stdexec::start(op); // stop callback fires synchronously; ScheduleAt skipped
 
     EXPECT_EQ(fake.scheduled.size(), 0u); // no timer registered
     ctx.DrainQueue();
@@ -283,11 +285,10 @@ TEST(TimedSenderTest, PreStopFastPath_NoTimerScheduled)
     EXPECT_TRUE(outcome.stopped);
 }
 
-// Timer fires first (wins CAS, enqueues state), but stop is requested before
-// DrainQueue runs. The live stop_requested() check inside Execute trumps the
-// timer win from the CAS race → set_stopped is delivered.
-// This documents the frame-loop semantic: any stop request within a frame takes effect.
-TEST(TimedSenderTest, TimerFires_ButStopRequestedBeforeDrain_DeliversSetStopped)
+// Timer fires first, winning the CAS (State::TimerWon). Stop is then requested
+// before DrainQueue. Execute checks stop_requested() at drain time (frame-accurate
+// cancellation) → set_stopped, even though the timer won the CAS race.
+TEST(TimedSenderTest, TimerWinsCAS_StopBeforeDrain_DeliversSetStopped)
 {
     FakeTimerBackend fake;
     TimedLoopContext ctx{&fake};
@@ -298,8 +299,8 @@ TEST(TimedSenderTest, TimerFires_ButStopRequestedBeforeDrain_DeliversSetStopped)
                                StopReceiver{.outcome = &outcome, .token = source.get_token()});
     stdexec::start(op);
 
-    fake.FireAll();        // timer fires, wins CAS, enqueues state
-    source.request_stop(); // stop callback loses CAS; stop_requested() is now true
+    fake.FireAll();        // timer wins CAS → State::TimerWon, enqueued
+    source.request_stop(); // stop callback loses CAS, but stop_requested() is now true
     ctx.DrainQueue();      // Execute: stop_requested() → set_stopped
 
     EXPECT_FALSE(outcome.valued);
@@ -328,9 +329,9 @@ TEST(TimedSenderTest, ScheduleAfter_FiresAfterDuration)
 // Destructor / Cancel hygiene
 // ---------------------------------------------------------------------------
 
-// When stop wins CAS and set_stopped is delivered, the TimedOperation destructor
-// must call Cancel() on the backend to remove the pending timer entry.
-TEST(DestructorTest, StopWins_TimerCancelledOnOpDestruction)
+// When stop wins CAS and set_stopped is delivered, TryEnqueueStop() eagerly cancels
+// the backend timer — removing the pending entry immediately, not waiting for the destructor.
+TEST(DestructorTest, StopWins_TimerCancelledEagerly)
 {
     FakeTimerBackend fake;
     TimedLoopContext ctx{&fake};
@@ -344,19 +345,19 @@ TEST(DestructorTest, StopWins_TimerCancelledOnOpDestruction)
 
         ASSERT_EQ(fake.scheduled.size(), 1u);
 
-        source.request_stop(); // stop wins CAS
+        source.request_stop(); // stop wins CAS → TryEnqueueStop cancels timer eagerly
         ctx.DrainQueue();      // set_stopped delivered
         ASSERT_TRUE(outcome.stopped);
 
-        // op destructor runs here: Cancel(timerId) should be called
+        // op destructor: timerId already cleared by TryEnqueueStop → no second Cancel
     }
 
     EXPECT_TRUE(fake.WasCancelled(1)); // FakeTimerBackend assigns id 1 to first timer
 }
 
-// When the timer wins and set_value is delivered, Cancel is called in the destructor
-// but returns false (already fired) — this must not crash or have visible side-effects.
-TEST(DestructorTest, TimerWins_CancelCalledHarmlessly)
+// When the timer wins and set_value is delivered, the timer callback has already cleared
+// timerId — so the destructor skips Cancel. No redundant cancel for a timer that already fired.
+TEST(DestructorTest, TimerWins_NoCancelOnOpDestruction)
 {
     FakeTimerBackend fake;
     TimedLoopContext ctx{&fake};
@@ -367,15 +368,14 @@ TEST(DestructorTest, TimerWins_CancelCalledHarmlessly)
                                    BasicReceiver{&outcome});
         stdexec::start(op);
 
-        fake.FireAll();    // timer fires, wins CAS, enqueues state
+        fake.FireAll();    // timer fires, clears timerId, wins CAS, enqueues
         ctx.DrainQueue();  // set_value delivered
         ASSERT_TRUE(outcome.valued);
 
-        // op destructor calls Cancel(1) → returns false (not in `scheduled`) but
-        // still appends to `cancelled` in our fake — harmless
+        // op destructor: timerId == InvalidTimerId (cleared in lambda) → Cancel not called
     }
 
-    EXPECT_TRUE(fake.WasCancelled(1)); // Cancel was called, even if it returned false
+    EXPECT_FALSE(fake.WasCancelled(1)); // timer already fired — no Cancel needed or issued
 }
 
 // ---------------------------------------------------------------------------

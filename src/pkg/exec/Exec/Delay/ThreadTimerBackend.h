@@ -8,6 +8,7 @@
 #include <unordered_set>
 #include <vector>
 
+
 namespace Exec
 {
     /// Thread-based timer backend. The default choice on desktop platforms.
@@ -19,8 +20,9 @@ namespace Exec
     /// an OperationBase pointer into the lock-free ConcurrentQueue).
     ///
     /// Cancel() removes the entry from the active set before invocation. If the
-    /// timer thread is already executing the callback, Cancel() returns false
-    /// immediately — it does NOT block. Callers must tolerate a late-fire.
+    /// timer thread is already executing the callback, Cancel() BLOCKS until the
+    /// callback finishes before returning false. This lets callers destroy the
+    /// data the callback accesses immediately after Cancel() returns.
     class ThreadTimerBackend : public ITimerBackend
     {
     public:
@@ -29,6 +31,8 @@ namespace Exec
 
         ThreadTimerBackend(const ThreadTimerBackend&) = delete;
         ThreadTimerBackend& operator=(const ThreadTimerBackend&) = delete;
+        ThreadTimerBackend(ThreadTimerBackend&&) = delete;
+        ThreadTimerBackend& operator=(ThreadTimerBackend&&) = delete;
 
         TimerId ScheduleAt(TimePoint deadline, Callback callback) override;
         bool Cancel(TimerId id) noexcept override;
@@ -49,8 +53,10 @@ namespace Exec
 
         std::mutex _mutex;
         std::condition_variable _cv;
-        std::priority_queue<Entry, std::vector<Entry>, std::greater<Entry>> _queue;
-        std::unordered_set<TimerId> _active; // ids currently waiting (not yet fired / cancelled)
+        std::condition_variable _doneCv; // notified when _inflightId clears
+        std::priority_queue<Entry, std::vector<Entry>, std::greater<>> _queue;
+        std::unordered_set<TimerId> _active; // ids waiting to fire (not yet fired / cancelled)
+        TimerId _inflightId{InvalidTimerId}; // id of the callback currently executing (at most one)
         std::atomic<bool> _stopping{false};
         std::atomic<TimerId> _nextId{1};
         std::jthread _thread;

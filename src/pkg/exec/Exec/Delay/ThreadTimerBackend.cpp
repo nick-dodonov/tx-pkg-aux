@@ -27,7 +27,11 @@ namespace Exec
 
     bool ThreadTimerBackend::Cancel(TimerId id) noexcept
     {
-        std::lock_guard lock{_mutex};
+        std::unique_lock lock{_mutex};
+        // Block until any in-flight execution of this callback has finished.
+        // Invariant: once the callback exits, RunTimerThread clears _inflightId
+        // and notifies _doneCv — so this wait always terminates.
+        _doneCv.wait(lock, [this, id] { return _inflightId != id; });
         return _active.erase(id) > 0;
     }
 
@@ -59,11 +63,17 @@ namespace Exec
                         continue;
                     }
 
+                    // Mark as in-flight so Cancel() can block until we finish.
+                    _inflightId = entry.id;
+
                     // Invoke callback with the lock released so the callback can
                     // safely call back into ScheduleAt/Cancel without deadlocking.
                     lock.unlock();
                     entry.callback();
                     lock.lock();
+
+                    _inflightId = InvalidTimerId;
+                    _doneCv.notify_all();
                 }
             }
         }

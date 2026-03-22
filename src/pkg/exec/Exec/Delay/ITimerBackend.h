@@ -27,6 +27,8 @@ namespace Exec
         using Duration  = std::chrono::steady_clock::duration;
         using Callback  = std::function<void()>;
 
+        static constexpr TimerId InvalidTimerId = 0;
+
         virtual ~ITimerBackend() = default;
 
         /// Schedule a callback to be invoked at or after `deadline`.
@@ -41,8 +43,9 @@ namespace Exec
         /// Returns true if the callback was removed before firing.
         /// Returns false if the callback has already fired or is currently executing.
         ///
-        /// This method must NOT block waiting for an in-flight callback to complete.
-        /// The CAS in DelaySharedState ensures correctness even when Cancel() returns false.
+        /// If the callback is currently executing, Cancel() MUST block until it finishes
+        /// before returning. This guarantee allows callers to safely destroy the data
+        /// that the callback may access, immediately after Cancel() returns.
         virtual bool Cancel(TimerId id) noexcept = 0;
 
         /// Called from the main/update thread each frame (before DrainQueue).
