@@ -1,7 +1,7 @@
 #pragma once
 #include "Delay/DelaySender.h"
 #include "Delay/ITimerBackend.h"
-#include "RunLoopContext.h"
+#include "PureLoopContext.h"
 
 #include <chrono>
 #include <exec/timed_scheduler.hpp>
@@ -9,14 +9,14 @@
 
 namespace Exec
 {
-    /// Execution context that augments RunLoopContext with timed scheduling.
+    /// Execution context that augments PureLoopContext with timed scheduling.
     ///
-    /// Wraps RunLoopContext (for zero-delay frame scheduling) and an ITimerBackend
+    /// Wraps PureLoopContext (for zero-delay frame scheduling) and an ITimerBackend
     /// (for timed delays). Satisfies both stdexec::scheduler and exec::timed_scheduler,
     /// so code that uses exec::schedule_after or co_await exec::schedule_after works
     /// without any project-specific helpers.
     ///
-    /// Ownership: TimedLoopContext owns the RunLoopContext; it holds a non-owning
+    /// Ownership: TimedLoopContext owns the PureLoopContext; it holds a non-owning
     /// pointer to the ITimerBackend — lifetime of the backend is managed externally
     /// (typically by App::Exec::Domain which provides a unique_ptr<ITimerBackend>).
     class TimedLoopContext
@@ -27,7 +27,7 @@ namespace Exec
     private:
         /// Frame-aligned sender returned by Scheduler::schedule().
         ///
-        /// Delegates the actual enqueueing to RunLoopContext::Sender::connect(),
+        /// Delegates the actual enqueueing to PureLoopContext::Sender::connect(),
         /// but overrides the Env so the completion scheduler is reported as
         /// TimedLoopContext::Scheduler (required by stdexec::scheduler concept:
         /// get_completion_scheduler(get_env(schedule(sched))) == sched).
@@ -39,8 +39,8 @@ namespace Exec
 
             TimedLoopContext* ctx;
 
-            /// Connect by delegating to the underlying RunLoopContext::Sender.
-            /// The return type is RunLoopContext::Operation<Receiver> (deduced via
+            /// Connect by delegating to the underlying PureLoopContext::Sender.
+            /// The return type is PureLoopContext::Operation<Receiver> (deduced via
             /// auto — naming the private type is not required here).
             template <class Receiver>
             auto connect(Receiver rcvr) const
@@ -75,9 +75,9 @@ namespace Exec
 
             TimedLoopContext* ctx;
 
-            /// Returns the RunLoopContext pointer — used by DelaySender::Operation
+            /// Returns the PureLoopContext pointer — used by DelaySender::Operation
             /// to enqueue the shared state back to the frame queue when a delay completes.
-            [[nodiscard]] auto GetRunLoop() const noexcept -> RunLoopContext*
+            [[nodiscard]] auto GetRunLoop() const noexcept -> PureLoopContext*
             {
                 return &ctx->_frameLoop;
             }
@@ -121,7 +121,7 @@ namespace Exec
         void TickBackend() noexcept { _backend->Tick(); }
 
     private:
-        RunLoopContext _frameLoop;
+        PureLoopContext _frameLoop;
         ITimerBackend*  _backend; // non-owning; lifetime managed by caller (Domain)
     };
 

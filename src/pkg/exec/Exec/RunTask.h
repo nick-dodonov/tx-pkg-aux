@@ -23,8 +23,8 @@ namespace Exec
     /// Not constructed directly — use RunTask<T>.
     struct RunTaskCtx
     {
-        TimedLoopContext::Scheduler _scheduler;   // concrete; set in ctor from parent env
-        stdexec::inplace_stop_token _stopToken{}; // populated by RunAwaiterCtx
+        TimedLoopContext::Scheduler _scheduler; // concrete; set in ctor from parent env
+        stdexec::inplace_stop_token _stopToken; // populated by RunAwaiterCtx
 
         // --- exec::basic_task context policy interface ---
 

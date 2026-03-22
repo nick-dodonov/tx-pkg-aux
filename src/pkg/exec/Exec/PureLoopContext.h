@@ -8,7 +8,7 @@ namespace Exec
     /// Execution context that integrates a P2300-compatible scheduler with a
     /// frame-based update loop.
     ///
-    /// Instead of a dedicated thread, RunLoopContext uses a manual, non-blocking
+    /// Instead of a dedicated thread, PureLoopContext uses a manual, non-blocking
     /// drain model: work scheduled via the Scheduler handle is enqueued in a
     /// lock-free queue and executed synchronously when DrainQueue() is called —
     /// typically once per frame in a game/render loop.
@@ -16,8 +16,8 @@ namespace Exec
     /// Relationship to standard alternatives:
     ///   stdexec::run_loop      — blocking, CV-driven; meant for dedicated threads
     ///   exec::inline_scheduler — executes immediately on start(), never defers
-    ///   RunLoopContext         — non-blocking, frame-boundary deferred, main-thread loops
-    class RunLoopContext
+    ///   PureLoopContext        — non-blocking, frame-boundary deferred, main-thread loops
+    class PureLoopContext
     {
     public:
         /// Minimal task node stored in the concurrent queue.
@@ -28,8 +28,7 @@ namespace Exec
         /// queue. The execute pointer is set by the inheriting type's constructor to
         /// capture its concrete type without requiring a virtual base class.
         ///
-        /// Lifetime: the inheriting node must not be destroyed while it is still in
-        /// the queue.
+        /// Lifetime: the inheriting node must not be destroyed while it is still in the queue.
         struct OperationBase
         {
             void (*execute)(OperationBase*) noexcept {};
@@ -48,10 +47,10 @@ namespace Exec
         template <class Receiver>
         struct Operation: OperationBase
         {
-            RunLoopContext* scheduler;
+            PureLoopContext* scheduler;
             Receiver receiver;
 
-            Operation(RunLoopContext* sched, Receiver rcvr)
+            Operation(PureLoopContext* sched, Receiver rcvr)
                 : scheduler(sched)
                 , receiver(static_cast<Receiver&&>(rcvr))
             {
@@ -86,7 +85,7 @@ namespace Exec
         struct Sender;
 
     public:
-        /// Lightweight scheduler handle — holds a pointer to the owning RunLoopContext.
+        /// Lightweight scheduler handle — holds a pointer to the owning PureLoopContext.
         ///
         /// Satisfies stdexec::scheduler: schedule() returns a Sender whose get_env()
         /// advertises this Scheduler as the completion scheduler for all signals,
@@ -95,7 +94,7 @@ namespace Exec
         {
             using scheduler_concept = stdexec::scheduler_t;
 
-            RunLoopContext* ctx;
+            PureLoopContext* ctx;
 
             [[nodiscard]] auto schedule() const noexcept -> Sender;
 
@@ -116,7 +115,7 @@ namespace Exec
             using sender_concept = stdexec::sender_t;
             using completion_signatures = stdexec::completion_signatures<stdexec::set_value_t(), stdexec::set_stopped_t()>;
 
-            RunLoopContext* ctx;
+            PureLoopContext* ctx;
 
             template <class Receiver>
             auto connect(Receiver rcvr) const -> Operation<Receiver>
@@ -126,7 +125,7 @@ namespace Exec
 
             struct Env
             {
-                RunLoopContext* ctx;
+                PureLoopContext* ctx;
 
                 template <class CPO>
                 [[nodiscard]] auto query(stdexec::get_completion_scheduler_t<CPO> _) const noexcept -> Scheduler
@@ -138,7 +137,7 @@ namespace Exec
             [[nodiscard]] auto get_env() const noexcept -> Env { return {ctx}; }
         };
 
-        // Verify that RunLoopContext::Scheduler fully satisfies the P2300 scheduler concept,
+        // Verify that PureLoopContext::Scheduler fully satisfies the P2300 scheduler concept,
         // including the get_completion_scheduler<CPO> round-trip mandated by stdexec::scheduler.
         static_assert(stdexec::scheduler<Scheduler>);
 
@@ -165,7 +164,7 @@ namespace Exec
         /// Enqueue a task node from outside the scheduler (e.g., from a timer callback).
         ///
         /// Prefer this over Push() for code in other translation units that hold a
-        /// pointer to the OperationBase (such as DelaySharedState). Push() remains
+        /// pointer to the OperationBase (such as TimerSharedState). Push() remains
         /// private so only Operation<Receiver>::start() can enqueue via that path.
         void Enqueue(OperationBase* task) noexcept { _queue.enqueue(task); }
 
@@ -175,9 +174,8 @@ namespace Exec
         moodycamel::ConcurrentQueue<OperationBase*> _queue;
     };
 
-    inline auto RunLoopContext::Scheduler::schedule() const noexcept -> RunLoopContext::Sender
+    inline auto PureLoopContext::Scheduler::schedule() const noexcept -> PureLoopContext::Sender
     {
         return {ctx};
     }
-
-} // namespace Exec
+}

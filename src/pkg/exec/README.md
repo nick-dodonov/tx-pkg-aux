@@ -74,9 +74,9 @@ if (token.stop_requested()) { ... }
 
 ---
 
-## RunLoopContext
+## PureLoopContext
 
-`Exec::RunLoopContext` is a P2300 scheduler for frame-based update loops.
+`Exec::PureLoopContext` is a P2300 scheduler for frame-based update loops.
 
 ### How it works
 
@@ -95,7 +95,7 @@ if (token.stop_requested()) { ... }
 | `exec::inline_scheduler` | Immediate; executes inside `start()` | Caller's thread |
 | `exec::trampoline_scheduler` | Depth-limited inline execution | Caller's thread |
 | `exec::system_scheduler` | Thread-pool, platform-managed | Worker threads |
-| **`RunLoopContext`** | Non-blocking deferred drain | Main/render thread |
+| **`PureLoopContext`** | Non-blocking deferred drain | Main/render thread |
 
-Use `RunLoopContext` when work must run on the main thread at a controlled frame boundary, without blocking while waiting for work to arrive.
+Use `PureLoopContext` when work must run on the main thread at a controlled frame boundary, without blocking while waiting for work to arrive.
 

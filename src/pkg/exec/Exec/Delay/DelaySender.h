@@ -1,6 +1,6 @@
 #pragma once
 #include "ITimerBackend.h"
-#include "Exec/RunLoopContext.h"
+#include "Exec/PureLoopContext.h"
 
 #include <atomic>
 #include <memory>
@@ -11,7 +11,7 @@ namespace Exec
     /// Shared control block for a single delay operation.
     ///
     /// Inherits OperationBase so it can be enqueued directly into the
-    /// RunLoopContext's lock-free queue. Lifetime is shared via shared_ptr
+    /// PureLoopContext's lock-free queue. Lifetime is shared via shared_ptr
     /// between the DelayOperation (in the coroutine frame) and the timer
     /// callback lambda — so it remains valid even if the DelayOperation is
     /// destroyed (e.g., when the stop side wins the CAS and the coroutine frame
@@ -20,18 +20,18 @@ namespace Exec
     /// The `claimed` flag is the single synchronisation point between the timer
     /// and the stop side: whichever raises it first wins and enqueues this node.
     template <class Receiver>
-    struct DelaySharedState : RunLoopContext::OperationBase
+    struct DelaySharedState : PureLoopContext::OperationBase
     {
-        RunLoopContext* scheduler;
+        PureLoopContext* scheduler;
         Receiver receiver;
         std::atomic<bool> claimed{false};
         bool stopWon{false};
 
-        DelaySharedState(RunLoopContext* sched, Receiver&& rcvr)
+        DelaySharedState(PureLoopContext* sched, Receiver&& rcvr)
             : scheduler(sched)
             , receiver(static_cast<Receiver&&>(rcvr))
         {
-            this->execute = [](RunLoopContext::OperationBase* base) noexcept {
+            this->execute = [](PureLoopContext::OperationBase* base) noexcept {
                 auto& self = *static_cast<DelaySharedState*>(base);
                 const auto stopToken = stdexec::get_stop_token(stdexec::get_env(self.receiver));
                 const auto stopped = self.stopWon || stopToken.stop_requested();
@@ -63,7 +63,7 @@ namespace Exec
         using completion_signatures = stdexec::completion_signatures<
             stdexec::set_value_t(), stdexec::set_stopped_t()>;
 
-        TimedLoopHandle timedSched; // for the Env query AND for RunLoopContext access
+        TimedLoopHandle timedSched; // for the Env query AND for PureLoopContext access
         ITimerBackend* backend;
         ITimerBackend::TimePoint deadline;
 

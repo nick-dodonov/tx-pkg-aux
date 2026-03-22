@@ -8,7 +8,7 @@
 
 namespace Exec
 {
-    /// Loop handler that drives a sender<int> on a RunLoopContext.
+    /// Loop handler that drives a sender<int> on a PureLoopContext.
     ///
     /// Bridges the P2300 sender/receiver model with the RunLoop update cycle.
     /// Construct with a sender or factory, then pass to a runner. Each frame,
@@ -138,7 +138,7 @@ namespace Exec
     // checks for a receiver_concept tag and a queryable get_env().
     //
     // get_env() returns a composed environment that exposes:
-    //   get_scheduler  → the Domain's RunLoopContext handle, so that nested
+    //   get_scheduler  → the Domain's PureLoopContext handle, so that nested
     //                    senders (e.g. stdexec::read_env(get_scheduler) inside
     //                    a coroutine) can discover and reschedule onto it.
     //   get_stop_token → the Domain's inplace_stop_source token, so that
