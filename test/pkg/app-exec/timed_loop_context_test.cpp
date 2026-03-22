@@ -1,5 +1,6 @@
 #include "Exec/Context/TimedLoopContext.h"
 #include "Exec/Delay/LoopTimerBackend.h"
+#include "ExecTestReceivers.h"
 
 #include <gtest/gtest.h>
 #include <stdexec/execution.hpp>
@@ -12,6 +13,7 @@
 namespace {
 
 using namespace Exec;
+using namespace ExecTest;
 using namespace std::chrono_literals;
 using TimePoint = ITimerBackend::TimePoint;
 using TimerId   = ITimerBackend::TimerId;
@@ -90,51 +92,6 @@ struct FakeTimerBackend : ITimerBackend
 
 [[nodiscard]] inline auto Past()   { return std::chrono::steady_clock::now() - 1h; }
 [[nodiscard]] inline auto Future() { return std::chrono::steady_clock::now() + 1h; }
-
-// ---------------------------------------------------------------------------
-// Shared receiver types (same pattern as pure_loop_context_test.cpp)
-// ---------------------------------------------------------------------------
-
-struct Outcome
-{
-    bool valued  = false;
-    bool stopped = false;
-};
-
-/// Receiver with no stop token — never-stop fallback.
-struct BasicReceiver
-{
-    using receiver_concept = stdexec::receiver_t;
-
-    Outcome* outcome;
-
-    [[nodiscard]] auto get_env() const noexcept { return stdexec::env<>{}; }
-    void set_value() const noexcept  { outcome->valued  = true; }
-    void set_stopped() const noexcept { outcome->stopped = true; }
-    void set_error(auto&&) noexcept {}
-};
-
-/// Environment that provides a concrete inplace_stop_token.
-struct StopEnv
-{
-    stdexec::inplace_stop_token token;
-
-    [[nodiscard]] auto query(stdexec::get_stop_token_t) const noexcept { return token; }
-};
-
-/// Receiver that exposes a stop token — needed for set_stopped tests.
-struct StopReceiver
-{
-    using receiver_concept = stdexec::receiver_t;
-
-    Outcome*                    outcome;
-    stdexec::inplace_stop_token token;
-
-    [[nodiscard]] auto get_env() const noexcept { return StopEnv{token}; }
-    void set_value() const noexcept  { outcome->valued  = true; }
-    void set_stopped() const noexcept { outcome->stopped = true; }
-    void set_error(auto&&) noexcept {}
-};
 
 } // namespace
 

@@ -1,5 +1,5 @@
-#include "Exec/Context/LoopContext.h"
 #include "Exec/Context/PureLoopContext.h"
+#include "ExecTestReceivers.h"
 
 #include <gtest/gtest.h>
 #include <stdexec/execution.hpp>
@@ -7,52 +7,11 @@
 namespace {
 
 using namespace Exec;
+using namespace ExecTest;
 
 // ---------------------------------------------------------------------------
 // Test helpers
 // ---------------------------------------------------------------------------
-
-struct Outcome
-{
-    bool valued  = false;
-    bool stopped = false;
-};
-
-/// Receiver that records set_value / set_stopped. Provides no stop token
-/// (get_stop_token falls back to never_stop_token — stop_requested() == false).
-struct BasicReceiver
-{
-    using receiver_concept = stdexec::receiver_t;
-
-    Outcome* outcome;
-
-    [[nodiscard]] auto get_env() const noexcept { return stdexec::env<>{}; }
-    void set_value() const noexcept { outcome->valued = true; }
-    void set_stopped() const noexcept { outcome->stopped = true; }
-    void set_error(auto&&) noexcept {}
-};
-
-/// Environment that provides a concrete inplace_stop_token.
-struct StopEnv
-{
-    stdexec::inplace_stop_token token;
-
-    [[nodiscard]] auto query(stdexec::get_stop_token_t) const noexcept { return token; }
-};
-
-/// Receiver that exposes a stop token — allows testing the set_stopped path.
-struct StopReceiver
-{
-    using receiver_concept = stdexec::receiver_t;
-
-    Outcome*                     outcome;
-    stdexec::inplace_stop_token  token;
-
-    [[nodiscard]] auto get_env() const noexcept { return StopEnv{token}; }
-    void set_value() const noexcept { outcome->valued = true; }
-    void set_stopped() const noexcept { outcome->stopped = true; }
-    void set_error(auto&&) noexcept {}
-};
 
 /// Minimal OperationBase node that sets a flag when executed.
 /// Used to test the public Enqueue(OperationBase*) path without going through
