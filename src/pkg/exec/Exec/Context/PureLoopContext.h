@@ -54,15 +54,18 @@ namespace Exec
                 : scheduler(sched)
                 , receiver(static_cast<Receiver&&>(rcvr))
             {
-                this->execute = [](OperationBase* base) noexcept {
-                    auto& self = *static_cast<Operation*>(base);
-                    const auto stopToken = stdexec::get_stop_token(stdexec::get_env(self.receiver));
-                    if (stopToken.stop_requested()) {
-                        stdexec::set_stopped(static_cast<Receiver&&>(self.receiver));
-                    } else {
-                        stdexec::set_value(static_cast<Receiver&&>(self.receiver));
-                    }
-                };
+                this->execute = Execute;
+            }
+
+            static void Execute(PureLoopContext::OperationBase* base) noexcept
+            {
+                auto& self = *static_cast<Operation*>(base);
+                const auto stopToken = stdexec::get_stop_token(stdexec::get_env(self.receiver));
+                if (stopToken.stop_requested()) {
+                    stdexec::set_stopped(static_cast<Receiver&&>(self.receiver));
+                } else {
+                    stdexec::set_value(static_cast<Receiver&&>(self.receiver));
+                }
             }
 
             void start() & noexcept { scheduler->Push(this); }

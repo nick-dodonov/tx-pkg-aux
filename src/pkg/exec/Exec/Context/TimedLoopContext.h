@@ -1,7 +1,7 @@
 #pragma once
-#include "Delay/DelaySender.h"
-#include "Delay/ITimerBackend.h"
+#include "Exec/Delay/ITimerBackend.h"
 #include "PureLoopContext.h"
+#include "TimedSender.h"
 
 #include <chrono>
 #include <exec/timed_scheduler.hpp>
@@ -75,7 +75,7 @@ namespace Exec
 
             TimedLoopContext* ctx;
 
-            /// Returns the PureLoopContext pointer — used by DelaySender::Operation
+            /// Returns the PureLoopContext pointer — used by TimedSender::Operation
             /// to enqueue the shared state back to the frame queue when a delay completes.
             [[nodiscard]] auto GetRunLoop() const noexcept -> PureLoopContext*
             {
@@ -90,7 +90,7 @@ namespace Exec
             }
 
             [[nodiscard]] auto schedule_at(std::chrono::steady_clock::time_point tp) const noexcept
-                -> DelaySender<Scheduler>
+                -> TimedSender<Scheduler>
             {
                 return {
                     .timedSched=*this, 
@@ -100,7 +100,7 @@ namespace Exec
             }
 
             [[nodiscard]] auto schedule_after(std::chrono::steady_clock::duration dur) const noexcept
-                -> DelaySender<Scheduler>
+                -> TimedSender<Scheduler>
             {
                 return schedule_at(now() + dur);
             }
@@ -122,7 +122,7 @@ namespace Exec
 
     private:
         PureLoopContext _frameLoop;
-        ITimerBackend*  _backend; // non-owning; lifetime managed by caller (Domain)
+        ITimerBackend* _backend; // non-owning; lifetime managed by caller (Domain)
     };
 
     // Out-of-line definition: now that Scheduler is complete, the query() body compiles.

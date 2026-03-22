@@ -1,6 +1,6 @@
 #pragma once
-#include "ITimerBackend.h"
-#include "Exec/PureLoopContext.h"
+#include "Exec/Delay/ITimerBackend.h"
+#include "PureLoopContext.h"
 
 #include <atomic>
 #include <memory>
@@ -31,22 +31,25 @@ namespace Exec
             : scheduler(sched)
             , receiver(static_cast<Receiver&&>(rcvr))
         {
-            this->execute = [](PureLoopContext::OperationBase* base) noexcept {
-                auto& self = *static_cast<DelaySharedState*>(base);
-                const auto stopToken = stdexec::get_stop_token(stdexec::get_env(self.receiver));
-                const auto stopped = self.stopWon || stopToken.stop_requested();
-                if (stopped) {
-                    stdexec::set_stopped(static_cast<Receiver&&>(self.receiver));
-                } else {
-                    stdexec::set_value(static_cast<Receiver&&>(self.receiver));
-                }
-            };
+            this->execute = Execute;
+        }
+
+        static void Execute(PureLoopContext::OperationBase* base) noexcept
+        {
+            auto& self = *static_cast<DelaySharedState*>(base);
+            const auto stopToken = stdexec::get_stop_token(stdexec::get_env(self.receiver));
+            const auto stopped = self.stopWon || stopToken.stop_requested();
+            if (stopped) {
+                stdexec::set_stopped(static_cast<Receiver&&>(self.receiver));
+            } else {
+                stdexec::set_value(static_cast<Receiver&&>(self.receiver));
+            }
         }
     };
 
-    // Forward-declare for the scheduler type alias used in DelaySender::Env.
+    // Forward-declare for the scheduler type alias used in TimedSender::Env.
     // TimedLoopContext.h is NOT included here to avoid a circular dependency.
-    // Instead, DelaySender is parametrised on the scheduler type.
+    // Instead, TimedSender is parametrised on the scheduler type.
 
     /// Sender produced by TimedLoopContext::Scheduler::schedule_at().
     ///
@@ -57,7 +60,7 @@ namespace Exec
     /// type; passing it here lets the Env report the correct completion scheduler
     /// so that down-stream continues_on / exec::task chaining works correctly.
     template <class TimedLoopHandle>
-    struct DelaySender
+    struct TimedSender
     {
         using sender_concept = stdexec::sender_t;
         using completion_signatures = stdexec::completion_signatures<
