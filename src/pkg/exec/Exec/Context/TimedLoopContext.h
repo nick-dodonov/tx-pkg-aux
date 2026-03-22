@@ -18,7 +18,7 @@ namespace Exec
     ///
     /// Ownership: TimedLoopContext owns the PureLoopContext; it holds a non-owning
     /// pointer to the ITimerBackend — lifetime of the backend is managed externally
-    /// (typically by App::Exec::Domain which provides a unique_ptr<ITimerBackend>).
+    /// (typically by Exec::Domain which provides a unique_ptr<ITimerBackend>).
     class TimedLoopContext
     {
     public:
@@ -62,8 +62,7 @@ namespace Exec
         };
 
     public:
-        /// Lightweight scheduler handle satisfying both stdexec::scheduler and
-        /// exec::timed_scheduler.
+        /// Lightweight scheduler handle satisfying both stdexec::scheduler and exec::timed_scheduler.
         ///
         ///   schedule()        — enqueue work at the next frame boundary (no delay)
         ///   schedule_after()  — enqueue work after a given duration
@@ -77,7 +76,7 @@ namespace Exec
 
             /// Returns the PureLoopContext pointer — used by TimedSender::Operation
             /// to enqueue the shared state back to the frame queue when a delay completes.
-            [[nodiscard]] auto GetRunLoop() const noexcept -> PureLoopContext*
+            [[nodiscard]] auto GetLoopContext() const noexcept -> PureLoopContext*
             {
                 return &ctx->_frameLoop;
             }
@@ -93,8 +92,8 @@ namespace Exec
                 -> TimedSender<Scheduler>
             {
                 return {
-                    .timedSched=*this, 
-                    .backend=ctx->_backend, 
+                    .timedSched=*this,
+                    .backend=ctx->_backend,
                     .deadline=tp,
                 };
             }
@@ -136,5 +135,4 @@ namespace Exec
     static_assert(LoopContext<TimedLoopContext>);
     static_assert(stdexec::scheduler<TimedLoopContext::Scheduler>);
     static_assert(exec::timed_scheduler<TimedLoopContext::Scheduler>);
-
-} // namespace Exec
+}

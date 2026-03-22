@@ -17,4 +17,4 @@ namespace Exec
         { ctx.DrainQueue() } -> std::convertible_to<std::size_t>;
     };
 
-} // namespace Exec
+}

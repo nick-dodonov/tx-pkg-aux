@@ -1,5 +1,6 @@
 #pragma once
 #include "LoopContext.h"
+#include "OperationBase.h"
 #include "concurrentqueue.h"
 
 #include <stdexec/execution.hpp>
@@ -20,23 +21,7 @@ namespace Exec
     ///   PureLoopContext        — non-blocking, frame-boundary deferred, main-thread loops
     class PureLoopContext
     {
-    public:
-        /// Minimal task node stored in the concurrent queue.
-        ///
-        /// Public so external operation states (e.g., DelaySharedState) can inherit
-        /// from it and be enqueued via Enqueue(). Uses a raw function pointer instead
-        /// of virtual dispatch — a pattern also used in stdexec::run_loop's intrusive
-        /// queue. The execute pointer is set by the inheriting type's constructor to
-        /// capture its concrete type without requiring a virtual base class.
-        ///
-        /// Lifetime: the inheriting node must not be destroyed while it is still in the queue.
-        struct OperationBase
-        {
-            void (*execute)(OperationBase*) noexcept {};
-        };
-
     private:
-
         /// Concrete operation state produced by Sender::connect().
         ///
         /// Satisfies stdexec::operation_state: start() & noexcept enqueues this
@@ -52,13 +37,12 @@ namespace Exec
             Receiver receiver;
 
             Operation(PureLoopContext* sched, Receiver rcvr)
-                : scheduler(sched)
+                : OperationBase{&Execute}
+                , scheduler(sched)
                 , receiver(static_cast<Receiver&&>(rcvr))
-            {
-                this->execute = Execute;
-            }
+            {}
 
-            static void Execute(PureLoopContext::OperationBase* base) noexcept
+            static void Execute(OperationBase* base) noexcept
             {
                 auto& self = *static_cast<Operation*>(base);
                 const auto stopToken = stdexec::get_stop_token(stdexec::get_env(self.receiver));
@@ -101,7 +85,6 @@ namespace Exec
             PureLoopContext* ctx;
 
             [[nodiscard]] auto schedule() const noexcept -> Sender;
-
             auto operator==(const Scheduler&) const noexcept -> bool = default;
         };
 
@@ -117,7 +100,10 @@ namespace Exec
         struct Sender
         {
             using sender_concept = stdexec::sender_t;
-            using completion_signatures = stdexec::completion_signatures<stdexec::set_value_t(), stdexec::set_stopped_t()>;
+            using completion_signatures = stdexec::completion_signatures<
+                stdexec::set_value_t(),
+                stdexec::set_stopped_t()
+            >;
 
             PureLoopContext* ctx;
 
@@ -183,5 +169,4 @@ namespace Exec
     // Verify that PureLoopContext::Scheduler fully satisfies the P2300 scheduler concept,
     // including the get_completion_scheduler<CPO> round-trip mandated by stdexec::scheduler.
     static_assert(stdexec::scheduler<PureLoopContext::Scheduler>);
-
-} // namespace Exec
+}

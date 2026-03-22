@@ -6,7 +6,7 @@
 
 namespace {
 
-using Exec::PureLoopContext;
+using namespace Exec;
 
 // ---------------------------------------------------------------------------
 // Test helpers
@@ -57,11 +57,11 @@ struct StopReceiver
 /// Minimal OperationBase node that sets a flag when executed.
 /// Used to test the public Enqueue(OperationBase*) path without going through
 /// the sender/receiver machinery.
-struct ManualNode : PureLoopContext::OperationBase
+struct ManualNode : OperationBase
 {
     bool& flag;
 
-    static void Run(PureLoopContext::OperationBase* base) noexcept
+    static void Run(OperationBase* base) noexcept
     {
         static_cast<ManualNode*>(base)->flag = true;
     }
@@ -287,20 +287,20 @@ TEST(PureLoopContextTest, DrainIsGreedy)
 
     ManualNode secondNode{second};
 
-    struct ChainNode : PureLoopContext::OperationBase
+    struct ChainNode : OperationBase
     {
-        PureLoopContext*             ctx;
-        bool&                        flag;
-        PureLoopContext::OperationBase* next;
+        PureLoopContext* ctx;
+        bool& flag;
+        OperationBase* next;
 
-        static void Run(PureLoopContext::OperationBase* base) noexcept
+        static void Run(OperationBase* base) noexcept
         {
             auto& self = *static_cast<ChainNode*>(base);
             self.flag = true;
             self.ctx->Enqueue(self.next);
         }
 
-        ChainNode(PureLoopContext* c, bool& f, PureLoopContext::OperationBase* n)
+        ChainNode(PureLoopContext* c, bool& f, OperationBase* n)
             : ctx(c), flag(f), next(n)
         {
             this->execute = Run;

@@ -20,7 +20,7 @@ namespace Exec
     /// The `claimed` flag is the single synchronisation point between the timer
     /// and the stop side: whichever raises it first wins and enqueues this node.
     template <class Receiver>
-    struct DelaySharedState : PureLoopContext::OperationBase
+    struct DelaySharedState : OperationBase
     {
         PureLoopContext* scheduler;
         Receiver receiver;
@@ -28,13 +28,12 @@ namespace Exec
         bool stopWon{false};
 
         DelaySharedState(PureLoopContext* sched, Receiver&& rcvr)
-            : scheduler(sched)
+            : OperationBase{&Execute}
+            , scheduler(sched)
             , receiver(static_cast<Receiver&&>(rcvr))
-        {
-            this->execute = Execute;
-        }
+        {}
 
-        static void Execute(PureLoopContext::OperationBase* base) noexcept
+        static void Execute(OperationBase* base) noexcept
         {
             auto& self = *static_cast<DelaySharedState*>(base);
             const auto stopToken = stdexec::get_stop_token(stdexec::get_env(self.receiver));
@@ -95,7 +94,7 @@ namespace Exec
             Operation(TimedLoopHandle sched, ITimerBackend* be,
                       ITimerBackend::TimePoint dl, Receiver rcvr)
                 : state(std::make_shared<SharedState>(
-                      sched.GetRunLoop(), static_cast<Receiver&&>(rcvr)))
+                      sched.GetLoopContext(), static_cast<Receiver&&>(rcvr)))
                 , backend(be)
                 , deadline(dl)
             {}
@@ -179,4 +178,4 @@ namespace Exec
 
         [[nodiscard]] auto get_env() const noexcept -> Env { return {timedSched}; }
     };
-} // namespace Exec
+}

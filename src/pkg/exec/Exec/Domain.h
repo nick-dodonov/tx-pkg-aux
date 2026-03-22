@@ -186,5 +186,4 @@ namespace Exec
     {
         _opState = std::make_unique<OpStateBox<Sender>>(std::move(sender), *this);
     }
-
-} // namespace App::Exec
+}

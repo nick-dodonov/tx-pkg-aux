@@ -51,5 +51,4 @@ namespace Exec
         /// expired timers. Thread-based backends may leave this as a no-op.
         virtual void Tick() noexcept {}
     };
-
-} // namespace Exec
+}

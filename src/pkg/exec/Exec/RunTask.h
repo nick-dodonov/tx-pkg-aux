@@ -130,7 +130,7 @@ namespace Exec
     ///   // satisfies exec::timed_scheduler — exec::schedule_after / schedule_at work
     ///
     /// RunTask<T> satisfies stdexec::sender and can be:
-    ///   - Sent directly to App::Exec::Domain (no scheduler parameter required).
+    ///   - Sent directly to Exec::Domain (no scheduler parameter required).
     ///   - co_await-ed from another RunTask<T>.
     ///
     /// Attempting to co_await RunTask<T> from exec::task<T> is a compile error:

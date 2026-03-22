@@ -55,5 +55,4 @@ namespace Exec
         std::atomic<TimerId> _nextId{1};
         std::jthread _thread;
     };
-
-} // namespace Exec
+}

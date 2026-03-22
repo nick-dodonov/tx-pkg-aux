@@ -71,5 +71,4 @@ namespace Exec
         std::vector<Entry> _entries;
         std::atomic<TimerId> _nextId{1};
     };
-
-} // namespace Exec
+}

@@ -55,5 +55,4 @@ namespace Exec
         Log::Trace("stopped");
         GetRunner()->Exit(0);
     }
-
-} // namespace App::Exec
+}
