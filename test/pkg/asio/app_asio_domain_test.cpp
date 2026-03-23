@@ -1,13 +1,14 @@
-#include "App/AsioDomain.h"
 #include "App/Factory.h"
+#include "Asio/AsioDomain.h"
 #include "Boot/Boot.h"
 
-#include <gtest/gtest.h>
 #include <boost/asio.hpp>
 #include <chrono>
+#include <gtest/gtest.h>
 
 namespace asio = boost::asio;
 using namespace App;
+using namespace Asio;
 
 // Test basic Domain creation and destruction
 TEST(DomainTest, CreateAndDestroy)

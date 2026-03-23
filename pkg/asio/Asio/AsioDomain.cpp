@@ -2,7 +2,7 @@
 #include "Log/Log.h"
 #include "RunLoop/Runner.h"
 
-namespace App
+namespace Asio
 {
     AsioDomain::AsioDomain()
     {

@@ -1,5 +1,5 @@
-#include "App/AsioDomain.h"
 #include "App/Factory.h"
+#include "Asio/AsioDomain.h"
 #include "Boot/Boot.h"
 #include "Http/LiteClient.h"
 #include "Log/Log.h"
@@ -9,6 +9,7 @@
 
 namespace asio = boost::asio;
 using namespace App;
+using namespace Asio;
 
 // TODO: handle --url argument passed from stub_integration_test.py
 static constexpr auto Port = 8080;
