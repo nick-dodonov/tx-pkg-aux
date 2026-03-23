@@ -4,7 +4,7 @@ multi_test(
     name = "log",
     srcs = ["log_test.cpp"],
     deps = [
-        "//src/pkg/log",
+        "//pkg/log",
         "@googletest//:gtest_main",
     ],
 )

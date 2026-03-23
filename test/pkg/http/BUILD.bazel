@@ -9,9 +9,9 @@ multi_app(
     srcs = ["client_test.cpp"],
     args = ["--gtest_output=xml:client_test_results.xml"],
     deps = [
-        "//src/pkg/app",
-        "//src/pkg/asio",
-        "//src/pkg/http",
+        "//pkg/app",
+        "//pkg/asio",
+        "//pkg/http",
         "@googletest//:gtest_main",
     ],
 )

@@ -4,8 +4,8 @@ multi_test(
     name = "async",
     srcs = glob(["*.cpp"]),
     deps = [
-        "//src/pkg/app",
-        "//src/pkg/async",
+        "//pkg/app",
+        "//pkg/async",
         "@googletest//:gtest_main",
     ],
 )

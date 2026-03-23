@@ -20,7 +20,7 @@ multi_app(
     name = "hello_loop",
     srcs = ["hello_loop.cpp"],
     deps = [
-        "//src/pkg/log",
+        "//pkg/log",
         "@stdexec",
     ],
 )
@@ -29,7 +29,7 @@ multi_app(
     name = "hello_service",
     srcs = ["hello_service.cpp"],
     deps = [
-        "//src/pkg/log",
+        "//pkg/log",
         "@stdexec",
     ],
 )
@@ -38,7 +38,7 @@ multi_app(
     name = "hello_service_pure",
     srcs = ["hello_service_pure.cpp"],
     deps = [
-        "//src/pkg/log",
+        "//pkg/log",
         "@stdexec",
     ],
 )
@@ -47,7 +47,7 @@ multi_app(
     name = "hello_read",
     srcs = ["hello_read.cpp"],
     deps = [
-        "//src/pkg/log",
+        "//pkg/log",
         "@stdexec",
     ],
 )
@@ -56,7 +56,7 @@ multi_app(
     name = "hello_opstate",
     srcs = ["hello_opstate.cpp"],
     deps = [
-        "//src/pkg/log",
+        "//pkg/log",
         "@stdexec",
     ],
 )

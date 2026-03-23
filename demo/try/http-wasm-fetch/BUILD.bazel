@@ -16,7 +16,7 @@ multi_app(
     ],
     platforms = ["wasm"],
     deps = [
-        "@tx-pkg-aux//src/pkg/boot",
+        "@tx-pkg-aux//pkg/boot",
     ],
 )
 

@@ -4,7 +4,7 @@ multi_app(
     name = "exec",
     srcs = ["main.cpp"],
     deps = [
-        "//src/pkg/app",
-        "//src/pkg/exec",
+        "//pkg/app",
+        "//pkg/exec",
     ],
 )

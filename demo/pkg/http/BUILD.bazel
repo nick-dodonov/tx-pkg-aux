@@ -4,8 +4,8 @@ multi_app(
     name = "http",
     srcs = glob(["**/*.cpp"]),
     deps = [
-        "//src/pkg/app",
-        "//src/pkg/asio",
-        "//src/pkg/http",
+        "//pkg/app",
+        "//pkg/asio",
+        "//pkg/http",
     ],
 )

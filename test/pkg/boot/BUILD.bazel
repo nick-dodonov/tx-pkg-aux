@@ -4,7 +4,7 @@ multi_test(
     name = "boot",
     srcs = ["boot_test.cpp"],
     deps = [
-        "//src/pkg/boot",
+        "//pkg/boot",
         "@googletest//:gtest_main",
     ],
 )
@@ -14,7 +14,7 @@ multi_test(
     srcs = ["fail_boot.cpp"],
     tags = ["manual"],  # Don't run this test automatically, only for manual checks
     deps = [
-        "//src/pkg/boot",
+        "//pkg/boot",
         "@googletest//:gtest_main",
     ],
 )

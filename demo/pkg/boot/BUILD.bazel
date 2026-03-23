@@ -11,7 +11,7 @@ multi_lib(
         "//conditions:default": ["-fexceptions"],  # Default to GCC/Clang
     }),
     deps = [
-        "//src/pkg/log",
+        "//pkg/log",
     ],
 )
 
@@ -21,6 +21,6 @@ multi_app(
     stamp = 1,
     deps = [
         ":sublib",
-        "//src/pkg/boot",
+        "//pkg/boot",
     ],
 )

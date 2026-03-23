@@ -1,15 +1,15 @@
 load("@tx-kit-ext//rules:multi_lib.bzl", "multi_lib")
 
 multi_lib(
-    name = "asio",
+    name = "exec",
     srcs = glob(["**/*.cpp"]),
     hdrs = glob(["**/*.h"]),
     strip_include_prefix = ".",
     visibility = ["//visibility:public"],
     deps = [
-        "//repo/boost_asio_wrapped",  # "@boost.asio",
-        "//src/pkg/async",
-        "//src/pkg/log",
-        "//src/pkg/runloop",
+        "//pkg/app",
+        "//pkg/log",
+        "@concurrentqueue",
+        "@stdexec",
     ],
 )

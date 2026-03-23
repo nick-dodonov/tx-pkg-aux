@@ -13,7 +13,7 @@ multi_lib(
     strip_include_prefix = ".",
     visibility = ["//visibility:public"],
     deps = [
-        "//src/pkg/boot",
-        "//src/pkg/runloop",
+        "//pkg/boot",
+        "//pkg/runloop",
     ],
 )

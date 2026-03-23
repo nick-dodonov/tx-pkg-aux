@@ -4,8 +4,8 @@ multi_test(
     name = "asio",
     srcs = ["app_asio_domain_test.cpp"],
     deps = [
-        "//src/pkg/app",
-        "//src/pkg/asio",
+        "//pkg/app",
+        "//pkg/asio",
         "@googletest//:gtest_main",
     ],
 )

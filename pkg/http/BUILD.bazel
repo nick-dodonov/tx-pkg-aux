@@ -38,7 +38,7 @@ multi_lib(
     visibility = ["//visibility:public"],
     deps = [
         "//repo/boost_asio_wrapped",  # "@boost.asio",
-        "//src/pkg/log",
+        "//pkg/log",
         "@ada-url//:ada",  #TODO: maybe cxxurl?
         "@gsl",
     ] + select({

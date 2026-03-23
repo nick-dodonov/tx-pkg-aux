@@ -15,7 +15,7 @@ multi_app(
     srcs = ["main.cpp"],
     embedded_data = [":data"],
     deps = [
-        "//src/pkg/app",
-        "//src/pkg/fs",
+        "//pkg/app",
+        "//pkg/fs",
     ],
 )
