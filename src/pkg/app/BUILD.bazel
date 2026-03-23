@@ -15,6 +15,5 @@ multi_lib(
     deps = [
         "//src/pkg/boot",
         "//src/pkg/runloop",
-        #"@boost.core",
     ],
 )

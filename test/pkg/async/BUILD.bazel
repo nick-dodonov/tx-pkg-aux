@@ -1,10 +1,11 @@
 load("@tx-kit-ext//rules:multi_app.bzl", "multi_test")
 
 multi_test(
-    name = "app",
+    name = "async",
     srcs = glob(["*.cpp"]),
     deps = [
         "//src/pkg/app",
+        "//src/pkg/async",
         "@googletest//:gtest_main",
     ],
 )

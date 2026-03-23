@@ -4,16 +4,7 @@ multi_test(
     name = "app-asio",
     srcs = ["app_asio_domain_test.cpp"],
     deps = [
-        "//src/pkg/app-asio",
-        "@googletest//:gtest_main",
-    ],
-)
-
-multi_test(
-    name = "fail",
-    srcs = ["fail_app.cpp"],
-    tags = ["manual"],  # Don't run this test automatically, only for manual checks
-    deps = [
+        "//src/pkg/app",
         "//src/pkg/app-asio",
         "@googletest//:gtest_main",
     ],

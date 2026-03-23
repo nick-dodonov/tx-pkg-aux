@@ -8,6 +8,8 @@ multi_lib(
     visibility = ["//visibility:public"],
     deps = [
         "//repo/boost_asio_wrapped",  # "@boost.asio",
-        "//src/pkg/app",
+        "//src/pkg/async",
+        "//src/pkg/log",
+        "//src/pkg/runloop",
     ],
 )
