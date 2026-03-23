@@ -3,6 +3,7 @@ load("@rules_cc//cc/common:cc_info.bzl", "CcInfo")
 # rules/boost_aware_transition.bzl
 def _boost_ssl_transition_impl(settings, attr):
     """Sets boost.asio SSL flag based on target platform."""
+    attr = attr  # Suppress unused variable warning
 
     # Default to implementation for SSL support in boost.asio
     result_ssl = "boringssl"

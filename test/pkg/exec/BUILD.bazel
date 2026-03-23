@@ -1,8 +1,11 @@
 load("@tx-kit-ext//rules:multi_app.bzl", "multi_test")
 
 multi_test(
-    name = "app-exec",
-    srcs = glob(["*.cpp", "*.h"]),
+    name = "exec",
+    srcs = glob([
+        "*.cpp",
+        "*.h",
+    ]),
     deps = [
         "//src/pkg/app",
         "//src/pkg/exec",

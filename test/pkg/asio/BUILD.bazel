@@ -1,11 +1,11 @@
 load("@tx-kit-ext//rules:multi_app.bzl", "multi_test")
 
 multi_test(
-    name = "app-asio",
+    name = "asio",
     srcs = ["app_asio_domain_test.cpp"],
     deps = [
         "//src/pkg/app",
-        "//src/pkg/app-asio",
+        "//src/pkg/asio",
         "@googletest//:gtest_main",
     ],
 )

@@ -1,6 +1,6 @@
-# pkg/app-exec
+# pkg/exec
 
-`Exec::Domain` — an `RunLoop::Handler` that drives a P2300 sender pipeline on a `TimedLoopContext`. See [pkg/exec](../exec/README.md) for the P2300 mental model, available `stdexec::` algorithms, and `exec::` extensions.
+`Exec::Domain` — an `RunLoop::Handler` that drives a P2300 sender pipeline on a `TimedLoopContext`. See [README.md](README.md) for the P2300 mental model, available `stdexec::` algorithms, and `exec::` extensions.
 
 ---
 

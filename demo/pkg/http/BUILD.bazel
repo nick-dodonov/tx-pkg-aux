@@ -5,7 +5,7 @@ multi_app(
     srcs = glob(["**/*.cpp"]),
     deps = [
         "//src/pkg/app",
-        "//src/pkg/app-asio",
+        "//src/pkg/asio",
         "//src/pkg/http",
     ],
 )

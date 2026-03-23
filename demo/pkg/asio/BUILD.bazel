@@ -1,10 +1,10 @@
 load("@tx-kit-ext//rules:multi_app.bzl", "multi_app")
 
 multi_app(
-    name = "app-exec",
+    name = "asio",
     srcs = ["main.cpp"],
     deps = [
         "//src/pkg/app",
-        "//src/pkg/exec",
+        "//src/pkg/asio",
     ],
 )
