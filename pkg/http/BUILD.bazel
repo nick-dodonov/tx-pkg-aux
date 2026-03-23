@@ -1,15 +1,8 @@
-load("@bazel_skylib//rules:common_settings.bzl", "bool_flag")
 load("@tx-kit-ext//rules:multi_lib.bzl", "multi_lib")
-
-bool_flag(
-    name = "disable_ssl",
-    build_setting_default = False,
-    visibility = ["//visibility:public"],
-)
 
 config_setting(
     name = "disable_ssl_setting",
-    flag_values = {":disable_ssl": "true"},
+    flag_values = {"//pkg/asio:disable_ssl": "true"},
     visibility = ["//visibility:public"],
 )
 
@@ -37,7 +30,7 @@ multi_lib(
     strip_include_prefix = ".",
     visibility = ["//visibility:public"],
     deps = [
-        "//repo/boost_asio_wrapped",  # "@boost.asio",
+        "//pkg/asio:boost_asio_wrapped",  # "@boost.asio",
         "//pkg/log",
         "@ada-url//:ada",  #TODO: maybe cxxurl?
         "@gsl",

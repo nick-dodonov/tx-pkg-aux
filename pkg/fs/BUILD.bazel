@@ -16,6 +16,7 @@ multi_lib(
         "@rules_cc//cc/runfiles",
     ] + select({
         "@platforms//os:android": [
+            # Android to get access to AAssetManager_*
             "@tx-kit-ext//pkg/droid:droid_glue",
         ],
         "//conditions:default": [],

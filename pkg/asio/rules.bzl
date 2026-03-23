@@ -9,7 +9,7 @@ def _boost_ssl_transition_impl(settings, attr):
     result_ssl = "boringssl"
 
     # User can explicitly disable SSL support via the disable_ssl flag
-    disable_ssl = settings.get("//pkg/http:disable_ssl", False)
+    disable_ssl = settings.get("//pkg/asio:disable_ssl", False)
     if disable_ssl:
         result_ssl = "no_ssl"
     else:
@@ -30,7 +30,7 @@ _boost_ssl_transition = transition(
     implementation = _boost_ssl_transition_impl,
     inputs = [
         "//command_line_option:platforms",
-        "//pkg/http:disable_ssl",
+        "//pkg/asio:disable_ssl",
         "@boost.asio//:ssl",
     ],
     outputs = [
