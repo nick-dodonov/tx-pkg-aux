@@ -34,14 +34,16 @@ namespace RunLoop
 
         /// Exit code used when the runner is stopped via cancellation before
         /// the coroutine/task had a chance to produce its own exit code.
-        static constexpr int CancelledExitCode = 1;
+        static constexpr int CancelledExitCode = 130;
 
+        // IRunner
         [[nodiscard]] std::optional<int> Exiting() const override { return GetExitCode(); }
 
     protected:
         static constexpr int SuccessExitCode = 0;
         static constexpr int NotStartedExitCode = 101;
         static constexpr int FailureExitCode = 202;
+
         [[nodiscard]] std::optional<int> GetExitCode() const { return _exitCode; }
         void SetExitCode(int exitCode) { _exitCode = exitCode; }
 

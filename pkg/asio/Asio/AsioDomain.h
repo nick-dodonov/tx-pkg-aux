@@ -71,6 +71,8 @@ namespace Asio
         void Stop() override;
         void Update(const RunLoop::UpdateCtx& ctx) override;
 
+        void Completed(const std::exception_ptr& ex, int exitCode);
+
         friend class AsioDomainService;
     };
 

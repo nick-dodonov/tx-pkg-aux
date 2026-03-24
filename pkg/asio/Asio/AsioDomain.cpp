@@ -31,21 +31,26 @@ namespace Asio
             boost::asio::bind_cancellation_slot(
                 _cancelSignal.slot(),
                 [this](const std::exception_ptr& ex, const int exitCode) {
-                    if (ex) {
-                        // Unhandled coroutine exception — not expected in -fno-exceptions builds.
-                        Log::Fatal("coroMain terminated with unhandled exception");
-                        std::terminate();
-                    }
-                    // If Stop() was called before the coroutine finished, use CancelledExitCode
-                    // so the runner can distinguish a normal exit from a forced stop.
-                    const int code = _cancelled ? RunLoop::Runner::CancelledExitCode : exitCode;
-                    Log::Trace("finished: exitCode={} cancelled={}", code, _cancelled);
-                    auto* runner = GetRunner();
-                    if (!runner->Exiting()) {
-                        runner->Exit(code);
-                    }
+                    Completed(ex, exitCode);
                 }));
         return true;
+    }
+
+    void AsioDomain::Completed(const std::exception_ptr& ex, const int exitCode)
+    {
+        if (ex) {
+            // Unhandled coroutine exception — not expected in -fno-exceptions builds.
+            Log::Fatal("coroMain terminated with unhandled exception");
+            std::terminate();
+        }
+        // If Stop() was called before the coroutine finished, use CancelledExitCode
+        // so the runner can distinguish a normal exit from a forced stop.
+        const int code = _cancelled ? RunLoop::Runner::CancelledExitCode : exitCode;
+        Log::Trace("finished: exitCode={} cancelled={}", code, _cancelled);
+        auto* runner = GetRunner();
+        if (!runner->Exiting()) {
+            runner->Exit(code);
+        }
     }
 
     void AsioDomain::Stop()

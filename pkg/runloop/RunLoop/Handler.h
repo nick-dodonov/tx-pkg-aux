@@ -62,16 +62,20 @@ namespace RunLoop
 
     private:
         friend class Runner;
+        friend class CompositeHandler;
         void SetRunner(IRunner* runner) { _runner = runner; }
 
         IRunner* _runner{};
     };
 
     /// Composite handler that forwards calls to multiple handlers
-    struct CompositeHandler: Handler
+    class CompositeHandler: public Handler
     {
+    public:
         void Add(Handler& handler)
         {
+            handler.SetRunner(GetRunner());
+
             _handlers.push_back(handler);
             if (_running) {
                 handler.Start();
@@ -88,6 +92,8 @@ namespace RunLoop
                 handler.Stop();
             }
             _handlers.erase(it);
+
+            handler.SetRunner(nullptr);
         }
 
         bool Start() override
