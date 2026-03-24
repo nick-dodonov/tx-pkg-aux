@@ -10,7 +10,7 @@ namespace Asio
     AsioDomain::AsioDomain(boost::asio::awaitable<int> coroMain)
         : _coroMain(std::move(coroMain))
     {
-        Log::Trace("initialize");
+        Log::Trace("create");
 
         // Register this instance as the Service for our io_context.
         boost::asio::make_service<Service>( // static_cast otherwise need to use obsolete execution_context::id for service registration
@@ -22,57 +22,46 @@ namespace Asio
         Log::Trace("destroy");
     }
 
-    boost::asio::awaitable<boost::system::error_code> AsioDomain::AsyncStopped()
-    {
-        Log::Trace("waiting...");
-        auto executor = co_await boost::asio::this_coro::executor;
-
-        std::shared_ptr<StopChannel> channel;
-        {
-            Async::LockGuard lock(_mutex);
-            if (!_stopChannel) {
-                _stopChannel = std::make_shared<StopChannel>(executor, 1);
-            }
-            channel = _stopChannel;
-        }
-
-        auto [ec] = co_await channel->async_receive(boost::asio::as_tuple(boost::asio::use_awaitable));
-        Log::Trace("complete: {}", ec ? ec.what(): "<success>");
-        co_return ec;
-    }
-
     bool AsioDomain::Start()
     {
         Log::Debug(".");
         boost::asio::co_spawn(
             _io_context,
             std::move(_coroMain),
-            [this](const std::exception_ptr& ex, const int exitCode) {
-                if (!ex) {
-                    Log::Trace("finished: {}", exitCode);
-                    GetRunner()->Exit(exitCode);
-                } else {
-                    Log::Fatal("finished w/ unhandled exception");
-                    std::rethrow_exception(ex);
-                }
-            });
+            boost::asio::bind_cancellation_slot(
+                _cancelSignal.slot(),
+                [this](const std::exception_ptr& ex, const int exitCode) {
+                    if (ex) {
+                        // Unhandled coroutine exception — not expected in -fno-exceptions builds.
+                        Log::Fatal("coroMain terminated with unhandled exception");
+                        std::terminate();
+                    }
+                    // If Stop() was called before the coroutine finished, use CancelledExitCode
+                    // so the runner can distinguish a normal exit from a forced stop.
+                    const int code = _cancelled ? RunLoop::Runner::CancelledExitCode : exitCode;
+                    Log::Trace("finished: exitCode={} cancelled={}", code, _cancelled);
+                    auto* runner = GetRunner();
+                    if (!runner->Exiting()) {
+                        runner->Exit(code);
+                    }
+                }));
         return true;
     }
 
     void AsioDomain::Stop()
     {
-        // Notify waiters if any
-        std::shared_ptr<StopChannel> channel;
-        {
-            Async::LockGuard lock(_mutex);
-            _stopChannel.swap(channel);
-        }
-        if (channel) {
-            Log::Trace("notifying waiters");
-            channel->try_send(boost::system::error_code{});
-        } else {
-            Log::Trace("without waiters");
-        }
+        auto hasHandlers = _cancelSignal.slot().has_handler();
+        Log::Trace("{}", hasHandlers ? "w/ cancel handlers" : "no cancel handler");
+
+        // Record that this shutdown is a forced stop so the completion handler
+        // can use CancelledExitCode when the coroutine eventually finishes.
+        _cancelled = true;
+        // Signal cancellation into the running coroutine.
+        // This causes any co_await point inside coroMain (timer, channel, etc.)
+        // to receive operation_aborted, which unwinds the coroutine and fires the
+        // co_spawn completion handler — where CancelledExitCode is set if no exit
+        // code has been established yet.
+        _cancelSignal.emit(boost::asio::cancellation_type::all);
 
         // Allow io_context to handle remaining tasks
         if (!_io_context.stopped()) {
@@ -95,5 +84,13 @@ namespace Asio
             //TODO: enable verbose logging later and make it configurable (too noisy for now), make summary instead
             //Log::Trace("polled {} tasks on frame={}", count, ctx.frame.index);
         }
+    }
+
+    [[nodiscard]] boost::asio::awaitable<boost::system::error_code> AsyncCancelled()
+    {
+        auto executor = co_await boost::asio::this_coro::executor;
+        auto timer = boost::asio::steady_timer(executor, boost::asio::steady_timer::time_point::max());
+        auto [ec] = co_await timer.async_wait(boost::asio::as_tuple(boost::asio::use_awaitable));
+        co_return ec;
     }
 }

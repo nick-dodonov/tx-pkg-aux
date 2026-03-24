@@ -1,8 +1,6 @@
 #pragma once
-#include "Async/Mutex.h"
 #include "RunLoop/Handler.h"
 #include <boost/asio.hpp>
-#include <boost/asio/experimental/channel.hpp>
 #include <boost/core/noncopyable.hpp>
 #include <cstddef>
 #include <memory>
@@ -17,9 +15,6 @@ namespace Asio
     public:
         AsioDomain(boost::asio::awaitable<int> coroMain);
         ~AsioDomain();
-
-        // TODO: it must be replaced with asio cancellation slot instead!
-        boost::asio::awaitable<boost::system::error_code> AsyncStopped();
 
         /// Retrieve AsioDomain from any executor tied to its io_context.
         /// Safe to call from strands — ex.context() always yields the base io_context.
@@ -68,10 +63,8 @@ namespace Asio
 
         boost::asio::io_context _io_context;
         boost::asio::awaitable<int> _coroMain;
-
-        using StopChannel = boost::asio::experimental::channel<void(boost::system::error_code)>;
-        Async::Mutex _mutex;
-        std::shared_ptr<StopChannel> _stopChannel ASYNC_GUARDED_BY(_mutex);
+        boost::asio::cancellation_signal _cancelSignal;
+        bool _cancelled = false; ///< Set by Stop() before emitting the cancellation signal.
 
         // Loop::Handler
         bool Start() override;
@@ -80,4 +73,6 @@ namespace Asio
 
         friend class AsioDomainService;
     };
+
+    [[nodiscard]] boost::asio::awaitable<boost::system::error_code> AsyncCancelled();
 }

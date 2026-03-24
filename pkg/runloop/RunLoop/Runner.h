@@ -13,6 +13,11 @@ namespace RunLoop
 
         virtual int Run() = 0;
         virtual void Exit(int exitCode) = 0;
+
+        /// Returns the pending exit code if Exit() has already been called, or
+        /// std::nullopt if the runner has not yet been asked to exit.
+        /// Use this to avoid overwriting an already-requested exit code.
+        [[nodiscard]] virtual std::optional<int> Exiting() const = 0;
     };
 
     class Runner: public IRunner
@@ -26,6 +31,12 @@ namespace RunLoop
         Runner& operator=(const Runner&) = delete;
         Runner(Runner&&) = default;
         Runner& operator=(Runner&&) = default;
+
+        /// Exit code used when the runner is stopped via cancellation before
+        /// the coroutine/task had a chance to produce its own exit code.
+        static constexpr int CancelledExitCode = 1;
+
+        [[nodiscard]] std::optional<int> Exiting() const override { return GetExitCode(); }
 
     protected:
         static constexpr int SuccessExitCode = 0;

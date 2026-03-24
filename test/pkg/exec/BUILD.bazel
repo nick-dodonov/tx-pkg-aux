@@ -9,6 +9,7 @@ multi_test(
     deps = [
         "//pkg/app",
         "//pkg/exec",
+        "//test/pkg/runloop:runloop_testlib",
         "@googletest//:gtest_main",
     ],
 )

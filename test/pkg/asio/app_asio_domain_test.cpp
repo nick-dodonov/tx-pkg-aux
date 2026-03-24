@@ -2,6 +2,7 @@
 #include "Asio/AsioDomain.h"
 #include "Boot/Boot.h"
 #include "CoroAsserts.h"
+#include "pkg/asio/Asio/AsioDomain.h"
 
 #include <boost/asio.hpp>
 #include <chrono>
@@ -127,18 +128,15 @@ TEST(DomainTest, FromExecutorInNestedCoro)
     EXPECT_EQ(exitCode, 0);
 }
 
-// Test Domain AsyncStopped functionality
-TEST(DomainTest, AsyncStoppedSignaling)
+// Test Domain AsyncCancelled functionality
+TEST(DomainTest, AsyncCancelledSignaling)
 {
     auto coroMain = []() -> asio::awaitable<int> {
         auto executor = co_await asio::this_coro::executor;
 
         // Retrieve domain from executor — no closure capture needed
         auto stopTask = []() -> asio::awaitable<void> {
-            auto ex = co_await asio::this_coro::executor;
-            auto* domain = AsioDomain::FromExecutor(ex);
-            CO_ASSERT_NE(domain, nullptr);
-            auto ec = co_await domain->AsyncStopped();
+            auto ec = co_await AsyncCancelled();
             EXPECT_FALSE(ec); // Should complete successfully
         };
 
