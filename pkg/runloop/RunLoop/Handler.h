@@ -1,7 +1,6 @@
 #pragma once
 #include "UpdateCtx.h"
 #include <boost/intrusive/list.hpp>
-#include <ranges>
 
 namespace RunLoop
 {
@@ -66,68 +65,5 @@ namespace RunLoop
         void SetRunner(IRunner* runner) { _runner = runner; }
 
         IRunner* _runner{};
-    };
-
-    /// Composite handler that forwards calls to multiple handlers
-    class CompositeHandler: public Handler
-    {
-    public:
-        void Add(Handler& handler)
-        {
-            handler.SetRunner(GetRunner());
-
-            _handlers.push_back(handler);
-            if (_running) {
-                handler.Start();
-            }
-        }
-
-        void Remove(Handler& handler)
-        {
-            auto it = _handlers.iterator_to(handler);
-            if (it == _handlers.end()) {
-                return;
-            }
-            if (_running) {
-                handler.Stop();
-            }
-            _handlers.erase(it);
-
-            handler.SetRunner(nullptr);
-        }
-
-        bool Start() override
-        {
-            for (auto it = _handlers.begin(); it != _handlers.end(); ++it) {
-                if (!it->Start()) {
-                    while (it != _handlers.begin()) {
-                        --it;
-                        it->Stop();
-                    }
-                    return false;
-                }
-            }
-            _running = true;
-            return true;
-        }
-
-        void Stop() override
-        {
-            _running = false;
-            for (auto& handler : std::ranges::reverse_view(_handlers)) {
-                handler.Stop();
-            }
-        }
-
-        void Update(const UpdateCtx& ctx) override
-        {
-            for (auto& handler : _handlers) {
-                handler.Update(ctx);
-            }
-        }
-
-    private:
-        Handler::List _handlers;
-        bool _running{};
     };
 }
