@@ -92,7 +92,7 @@ static boost::asio::awaitable<int> CoroMain(Boot::CliArgs args)
 int main(const int argc, const char* argv[])
 {
     auto args = Boot::DefaultInit(argc, argv);
-    const auto domain = std::make_shared<Asio::AsioDomain>();
+    const auto domain = std::make_shared<Asio::AsioDomain>(CoroMain(std::move(args)));
     auto runner = App::CreateDefaultRunner(domain);
-    return domain->RunCoroMain(runner, CoroMain(std::move(args)));
+    return runner->Run();
 }

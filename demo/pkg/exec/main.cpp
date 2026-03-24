@@ -7,6 +7,13 @@
 
 #include <chrono>
 
+static exec::task<void> SubTask()
+{
+    Log::Info("start");
+    const auto sched = co_await stdexec::read_env(stdexec::get_scheduler);
+    co_return;
+}
+
 /// Demonstrates timed delay via exec::schedule_after inside a RunTask coroutine.
 ///
 /// The scheduler is obtained from the receiver environment via
@@ -15,15 +22,18 @@
 /// works without a scheduler parameter.
 static Exec::RunTask<int> MainTask()
 {
-    Log::Info("[delay-demo] starting");
+    Log::Info("start");
+
+    co_await SubTask();
+
     {
         const auto sched = co_await stdexec::read_env(stdexec::get_scheduler);
 
-        auto _ = Log::Scope{"[delay-demo] waiting 10 ms"};
+        auto _ = Log::Scope{"waiting 10 ms"};
         co_await exec::schedule_after(sched, std::chrono::milliseconds(10));
     }
 
-    Log::Info("[delay-demo] delay elapsed, returning 42");
+    Log::Info("delay elapsed, returning 42");
     co_return 42;
 }
 
@@ -35,7 +45,6 @@ int main(const int argc, const char* argv[])
     // The scheduler is available inside the coroutine body via read_env,
     // without exposing it as a parameter.
     auto domain = std::make_shared<Exec::Domain>(MainTask());
-
     auto runner = App::CreateDefaultRunner(domain);
     return runner->Run();
 }

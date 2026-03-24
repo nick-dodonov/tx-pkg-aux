@@ -25,9 +25,6 @@ static constexpr auto Host = "localhost";
 // Test GET request to a local stub server
 TEST(HttpClientTest, GetRequestToLocalhost)
 {
-    const auto domain = std::make_shared<AsioDomain>();
-    const auto runner = App::CreateTestRunner(domain);
-
     auto coroMain = []() -> asio::awaitable<int> {
         const auto executor = co_await asio::this_coro::executor;
         const auto client = Http::LiteClient::MakeDefault({
@@ -69,16 +66,15 @@ TEST(HttpClientTest, GetRequestToLocalhost)
         co_return requestSucceeded ? 0 : 1;
     };
 
-    auto exitCode = domain->RunCoroMain(runner, coroMain());
+    const auto domain = std::make_shared<AsioDomain>(coroMain());
+    const auto runner = App::CreateTestRunner(domain);
+    auto exitCode = runner->Run();
     EXPECT_EQ(exitCode, 0);
 }
 
 // Test POST request to a local stub server
 TEST(HttpClientTest, PostRequestToLocalhost)
 {
-    const auto domain = std::make_shared<AsioDomain>();
-    const auto runner = App::CreateTestRunner(domain);
-
     auto coroMain = []() -> asio::awaitable<int> {
         const auto executor = co_await asio::this_coro::executor;
 
@@ -117,7 +113,9 @@ TEST(HttpClientTest, PostRequestToLocalhost)
         co_return requestSucceeded ? 0 : 1;
     };
 
-    auto exitCode = domain->RunCoroMain(runner, coroMain());
+    const auto domain = std::make_shared<AsioDomain>(coroMain());
+    const auto runner = App::CreateTestRunner(domain);
+    auto exitCode = runner->Run();
     EXPECT_EQ(exitCode, 0);
 }
 

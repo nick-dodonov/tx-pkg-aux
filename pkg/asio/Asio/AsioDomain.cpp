@@ -4,36 +4,22 @@
 
 namespace Asio
 {
-    AsioDomain::AsioDomain()
+    // TODO: selector for executors strategy, i.e. support system_executor (thread pool)
+    //  auto executor = asio::system_executor();
+    //  auto& io_context = get_io_context();
+    AsioDomain::AsioDomain(boost::asio::awaitable<int> coroMain)
+        : _coroMain(std::move(coroMain))
     {
         Log::Trace("initialize");
-        // TODO: selector for executors strategy, i.e. support system_executor (thread pool)
-        // auto executor = asio::system_executor();
-        // auto& io_context = get_io_context();
+
+        // Register this instance as the Service for our io_context.
+        boost::asio::make_service<Service>( // static_cast otherwise need to use obsolete execution_context::id for service registration
+            static_cast<boost::asio::execution_context&>(_io_context), this);
     }
 
     AsioDomain::~AsioDomain()
     {
         Log::Trace("destroy");
-    }
-
-    int AsioDomain::RunCoroMain(const std::shared_ptr<RunLoop::IRunner>& runner, boost::asio::awaitable<int> coroMain)
-    {
-        Log::Trace("starting");
-        boost::asio::co_spawn(
-            _io_context,
-            std::move(coroMain),
-            [runner](const std::exception_ptr& ex, const int exitCode) {
-                if (!ex) {
-                    Log::Trace("finished: {}", exitCode);
-                    runner->Exit(exitCode);
-                } else {
-                    Log::Fatal("finished w/ unhandled exception");
-                    std::rethrow_exception(ex);
-                }
-            });
-
-        return runner->Run();
     }
 
     boost::asio::awaitable<boost::system::error_code> AsioDomain::AsyncStopped()
@@ -58,6 +44,18 @@ namespace Asio
     bool AsioDomain::Start()
     {
         Log::Debug(".");
+        boost::asio::co_spawn(
+            _io_context,
+            std::move(_coroMain),
+            [this](const std::exception_ptr& ex, const int exitCode) {
+                if (!ex) {
+                    Log::Trace("finished: {}", exitCode);
+                    GetRunner()->Exit(exitCode);
+                } else {
+                    Log::Fatal("finished w/ unhandled exception");
+                    std::rethrow_exception(ex);
+                }
+            });
         return true;
     }
 

@@ -2,7 +2,7 @@ load("@tx-kit-ext//rules:multi_app.bzl", "multi_test")
 
 multi_test(
     name = "asio",
-    srcs = ["app_asio_domain_test.cpp"],
+    srcs = glob(["*.cpp", "*.h"]),
     deps = [
         "//pkg/app",
         "//pkg/asio",
