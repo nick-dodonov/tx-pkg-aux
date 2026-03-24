@@ -6,7 +6,7 @@ load("@tx-kit-ext//rules:multi_app.bzl", "multi_app")
 # Client on target platform with execution platform wrapper
 multi_app(
     name = "client",
-    srcs = ["client_test.cpp"],
+    srcs = glob(["*.cpp"]),
     args = ["--gtest_output=xml:client_test_results.xml"],
     deps = [
         "//pkg/app",
