@@ -21,7 +21,7 @@ namespace RunLoop
         }
 
     private:
-        Handler::List _handlers;
+        HandlerList _handlers;
         bool _running{};
     };
 }

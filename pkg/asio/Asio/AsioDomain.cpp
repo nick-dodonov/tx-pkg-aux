@@ -14,6 +14,7 @@ namespace Asio
 
         // Register this instance as the Service for our io_context.
         boost::asio::make_service<Service>( // static_cast otherwise need to use obsolete execution_context::id for service registration
+            // ReSharper disable once CppRedundantCastExpression - cast must be specified in the current asio version (1.90)
             static_cast<boost::asio::execution_context&>(_io_context), this);
     }
 
@@ -43,19 +44,20 @@ namespace Asio
             Log::Fatal("coroMain terminated with unhandled exception");
             std::terminate();
         }
+
         // If Stop() was called before the coroutine finished, use CancelledExitCode
         // so the runner can distinguish a normal exit from a forced stop.
-        const int code = _cancelled ? RunLoop::Runner::CancelledExitCode : exitCode;
+        const auto code = _cancelled ? RunLoop::Runner::CancelledExitCode : exitCode;
         Log::Trace("finished: exitCode={} cancelled={}", code, _cancelled);
-        auto* runner = GetRunner();
-        if (!runner->Exiting()) {
+
+        if (auto* runner = GetRunner(); !runner->Exiting()) {
             runner->Exit(code);
         }
     }
 
     void AsioDomain::Stop()
     {
-        auto hasHandlers = _cancelSignal.slot().has_handler();
+        const auto hasHandlers = _cancelSignal.slot().has_handler();
         Log::Trace("{}", hasHandlers ? "w/ cancel handlers" : "no cancel handler");
 
         // Record that this shutdown is a forced stop so the completion handler
@@ -93,7 +95,7 @@ namespace Asio
 
     [[nodiscard]] boost::asio::awaitable<boost::system::error_code> AsyncCancelled()
     {
-        auto executor = co_await boost::asio::this_coro::executor;
+        const auto executor = co_await boost::asio::this_coro::executor;
         auto timer = boost::asio::steady_timer(executor, boost::asio::steady_timer::time_point::max());
         auto [ec] = co_await timer.async_wait(boost::asio::as_tuple(boost::asio::use_awaitable));
         co_return ec;

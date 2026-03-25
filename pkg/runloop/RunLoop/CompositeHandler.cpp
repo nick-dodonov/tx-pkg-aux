@@ -5,17 +5,16 @@ namespace RunLoop
 {
     void CompositeHandler::Add(Handler& handler)
     {
-        handler.SetRunner(GetRunner());
-
         _handlers.push_back(handler);
         if (_running) {
+            handler.SetRunner(GetRunner());
             handler.Start();
         }
     }
 
     void CompositeHandler::Remove(Handler& handler)
     {
-        auto it = _handlers.iterator_to(handler);
+        const auto it = _handlers.iterator_to(handler);
         if (it == _handlers.end()) {
             return;
         }
@@ -30,8 +29,12 @@ namespace RunLoop
     // Handler
     bool CompositeHandler::Start()
     {
+        auto* runner = GetRunner();
         for (auto it = _handlers.begin(); it != _handlers.end(); ++it) {
-            if (!it->Start()) {
+            auto& handler = *it;
+            handler.SetRunner(runner);
+            if (!handler.Start()) {
+                // on failure stop in reverse order
                 while (it != _handlers.begin()) {
                     --it;
                     it->Stop();

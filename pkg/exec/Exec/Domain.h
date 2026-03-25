@@ -3,6 +3,7 @@
 #include "RunLoop/Handler.h"
 #include "Exec/Delay/ITimerBackend.h"
 #include "Exec/RunContext.h"
+#include "Log/Log.h"
 
 #include <memory>
 
@@ -22,7 +23,7 @@ namespace Exec
     /// unwind cleanly instead of being destroyed mid-flight.
     class Domain: public RunLoop::Handler
     {
-        using Scheduler = ::Exec::RunContext::Scheduler;
+        using Scheduler = RunContext::Scheduler;
 
     public:
         /// Returns the timed scheduler handle for this domain.
@@ -46,7 +47,7 @@ namespace Exec
         /// Pass a custom backend (e.g. LoopTimerBackend for tests) to override.
         template <stdexec::sender S>
         requires (!std::invocable<S, Scheduler>)
-        explicit Domain(S sender, std::unique_ptr<::Exec::ITimerBackend> backend = nullptr)
+        explicit Domain(S sender, std::unique_ptr<ITimerBackend> backend = nullptr)
             : _timerBackend(backend ? std::move(backend) : MakeDefaultBackend())
             , _scheduler(_timerBackend.get())
         {
@@ -66,14 +67,14 @@ namespace Exec
         ///   });
         template <class F>
         requires std::invocable<F, Scheduler>
-        explicit Domain(F factory, std::unique_ptr<::Exec::ITimerBackend> backend = nullptr)
+        explicit Domain(F factory, std::unique_ptr<ITimerBackend> backend = nullptr)
             : _timerBackend(backend ? std::move(backend) : MakeDefaultBackend())
             , _scheduler(_timerBackend.get())
         {
             Store(std::move(factory)(GetScheduler()));
         }
 
-        ~Domain();
+        ~Domain() override;
 
         // RunLoop::Handler
         bool Start() override;
@@ -81,8 +82,8 @@ namespace Exec
         void Update(const RunLoop::UpdateCtx& ctx) override;
 
     private:
-        void OnComplete(int exitCode);
-        void OnStopped();
+        void Completed(int exitCode);
+        void Stopped();
 
         friend struct DomainReceiver;
 
@@ -90,7 +91,7 @@ namespace Exec
         // Type erasure for the operation state
         //
         // stdexec::connect() returns a distinct, non-movable concrete type for
-        // every sender S. Because Domain is a non-template class it cannot store
+        // every sender S. Because Domain is a non-template class, it cannot store
         // the op state inline. The virtual pair IOpState / OpStateBox<S> is the
         // minimal mechanism: one heap allocation per construction, zero overhead at
         // Start() and Stop().
@@ -115,13 +116,13 @@ namespace Exec
 
         /// Returns the platform-default timer backend.
         /// Defined in Domain.cpp to avoid including ThreadTimerBackend.h here.
-        static std::unique_ptr<::Exec::ITimerBackend> MakeDefaultBackend();
+        static std::unique_ptr<ITimerBackend> MakeDefaultBackend();
 
         // _timerBackend must be declared before _scheduler — it is initialized first
         // (member init order follows declaration order), and the TimedLoopContext
         // constructor takes the raw backend pointer which must already be valid.
-        std::unique_ptr<::Exec::ITimerBackend> _timerBackend;
-        ::Exec::TimedLoopContext _scheduler;
+        std::unique_ptr<ITimerBackend> _timerBackend;
+        TimedLoopContext _scheduler;
         std::unique_ptr<IOpState> _opState;
 
         // Stop-token source propagated to the running sender via DomainReceiver::get_env().
@@ -139,7 +140,7 @@ namespace Exec
     //
     // get_env() returns a composed environment that exposes:
     //   get_scheduler  → the Domain's PureLoopContext handle, so that nested
-    //                    senders (e.g. stdexec::read_env(get_scheduler) inside
+    //                    senders (e.g., stdexec::read_env(get_scheduler) inside
     //                    a coroutine) can discover and reschedule onto it.
     //   get_stop_token → the Domain's inplace_stop_source token, so that
     //                    cancellation-aware senders observe stop requests.
@@ -158,9 +159,14 @@ namespace Exec
             };
         }
 
-        void set_value(int exitCode) const noexcept { domain->OnComplete(exitCode); }
-        void set_stopped() const noexcept { domain->OnStopped(); }
-        [[noreturn]] void set_error(auto&& _) noexcept { std::terminate(); }
+        void set_value(int exitCode) const noexcept { domain->Completed(exitCode); }
+        void set_stopped() const noexcept { domain->Stopped(); }
+        [[noreturn]] void set_error(auto&& _) noexcept
+        { 
+            //TODO: handle errors properly instead of treating them as fatal — e.g. set a distinct exit code, or propagate via a separate callback mechanism (since the runner expects an int exit code, not an exception_ptr)
+            Log::Fatal("terminated with unhandled exception");
+            std::terminate();
+        }
     };
 
     // Verify DomainReceiver satisfies the P2300 receiver concept:
@@ -170,7 +176,7 @@ namespace Exec
     // OpStateBox<S> holds the concrete, non-movable operation state returned by
     // stdexec::connect(). Defined here so DomainReceiver is already complete.
     template <class Sender>
-    struct Domain::OpStateBox: Domain::IOpState
+    struct Domain::OpStateBox: IOpState
     {
         stdexec::connect_result_t<Sender, DomainReceiver> op;
 

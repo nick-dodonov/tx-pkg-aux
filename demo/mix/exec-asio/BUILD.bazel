@@ -1,0 +1,12 @@
+load("@tx-kit-ext//rules:multi_app.bzl", "multi_app")
+
+multi_app(
+    name = "exec-asio",
+    srcs = glob(["*.cpp"]),
+    deps = [
+        "//pkg/app",
+        "//pkg/asio",
+        "//pkg/exec",
+        "//pkg/runloop",
+    ],
+)

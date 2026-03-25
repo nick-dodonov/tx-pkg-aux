@@ -5,9 +5,9 @@
 
 namespace Exec
 {
-    std::unique_ptr<::Exec::ITimerBackend> Domain::MakeDefaultBackend()
+    std::unique_ptr<ITimerBackend> Domain::MakeDefaultBackend()
     {
-        return std::make_unique<::Exec::ThreadTimerBackend>();
+        return std::make_unique<ThreadTimerBackend>();
     }
 
     Domain::~Domain()
@@ -17,39 +17,45 @@ namespace Exec
 
     bool Domain::Start()
     {
-        Log::Trace("running");
+        Log::Trace("starting operation");
         _opState->start();
         return true;
     }
 
     void Domain::Stop()
     {
-        Log::Trace("stopping");
+        Log::Trace("stopping operation");
         _stopSource.request_stop();
+
         // Fire any timers that were pending at shutdown so their shared states
         // observe stop_requested() correctly, then drain the frame queue so that
         // queued operations call set_stopped() before the op state is destroyed.
-        _scheduler.DrainQueue();
+        if (const auto count = _scheduler.DrainQueue(); count > 0) {
+            Log::Trace("drained {} tasks", count);
+        }
         _opState.reset();
     }
 
     void Domain::Update(const RunLoop::UpdateCtx& ctx)
     {
-        const auto count = _scheduler.DrainQueue();
-        if (count > 0) {
+        if (const auto count = _scheduler.DrainQueue(); count > 0) {
             Log::Trace("drained {} tasks on frame={}", count, ctx.frame.index);
         }
     }
 
-    void Domain::OnComplete(int exitCode)
+    void Domain::Completed(int exitCode)
     {
-        Log::Trace("completed: {}", exitCode);
+        Log::Trace("{}", exitCode);
         GetRunner()->Exit(exitCode);
     }
 
-    void Domain::OnStopped()
+    void Domain::Stopped()
     {
-        Log::Trace("stopped");
-        GetRunner()->Exit(0);
+        Log::Trace("");
+
+        // distinguish between cooperative stop (exit code from coroutine) and forced cancellation (CancelledExitCode) if Stop() is called before completion
+        if (auto* runner = GetRunner(); !runner->Exiting()) {
+            runner->Exit(RunLoop::Runner::CancelledExitCode);
+        }
     }
 }

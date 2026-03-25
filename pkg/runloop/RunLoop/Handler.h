@@ -54,7 +54,7 @@ namespace RunLoop
         , public boost::intrusive::list_base_hook<boost::intrusive::link_mode<boost::intrusive::auto_unlink>>
     {
     public:
-        using List = boost::intrusive::list<Handler, boost::intrusive::constant_time_size<false>>;
+        using HandlerList = boost::intrusive::list<Handler, boost::intrusive::constant_time_size<false>>;
 
         [[nodiscard]] const IRunner* GetRunner() const { return _runner; }
         [[nodiscard]] IRunner* GetRunner() { return _runner; }

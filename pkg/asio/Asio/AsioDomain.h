@@ -2,7 +2,6 @@
 #include "RunLoop/Handler.h"
 #include <boost/asio.hpp>
 #include <boost/core/noncopyable.hpp>
-#include <cstddef>
 #include <memory>
 
 namespace Asio
@@ -13,8 +12,8 @@ namespace Asio
         , boost::noncopyable
     {
     public:
-        AsioDomain(boost::asio::awaitable<int> coroMain);
-        ~AsioDomain();
+        explicit AsioDomain(boost::asio::awaitable<int> coroMain);
+        ~AsioDomain() override;
 
         /// Retrieve AsioDomain from any executor tied to its io_context.
         /// Safe to call from strands — ex.context() always yields the base io_context.
@@ -33,7 +32,7 @@ namespace Asio
         ///
         /// Usage inside a coroutine running on AsioDomain's executor:
         ///   auto& domain = AsioDomain::FromExecutor(co_await asio::this_coro::executor);
-        class Service : public boost::asio::execution_context::service
+        class Service: public boost::asio::execution_context::service
         {
         public:
             using key_type = Service;
@@ -57,7 +56,7 @@ namespace Asio
         private:
             void shutdown() override {}
 
-            AsioDomain* _domain {};
+            AsioDomain* _domain{};
             friend class AsioDomain;
         };
 

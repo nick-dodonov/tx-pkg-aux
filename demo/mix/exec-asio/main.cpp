@@ -1,0 +1,103 @@
+#include "App/Factory.h"
+#include "Boot/Boot.h"
+#include "Exec/Domain.h"
+#include "Exec/RunTask.h"
+#include "Log/Log.h"
+#include "Log/Scope.h"
+#include "RunLoop/CompositeHandler.h"
+#include "pkg/boot/Boot/Boot.h"
+
+#include <boost/asio/awaitable.hpp>
+#include <boost/asio/co_spawn.hpp>
+#include <boost/asio/executor_work_guard.hpp>
+#include <boost/asio/io_context.hpp>
+#include <boost/asio/steady_timer.hpp>
+#include <boost/asio/use_awaitable.hpp>
+
+#include <exec/asio/completion_token.hpp>
+#include <exec/asio/use_sender.hpp>
+
+namespace asio = boost::asio;
+
+namespace
+{
+    struct AsioPoller: RunLoop::Handler
+    {
+        explicit AsioPoller(asio::io_context& io)
+            : _io{io}
+            , _workGuard{asio::make_work_guard(io)}
+        {}
+
+        void Update(const RunLoop::UpdateCtx& updateCtx) override
+        {
+            const auto n = _io.poll();
+            if (n > 0) {
+                Log::Debug("AsioPoller: update #{} poll returned {} handlers", updateCtx.frame.index, n);
+            }
+        }
+
+    private:
+        asio::io_context& _io;
+        asio::executor_work_guard<asio::io_context::executor_type> _workGuard;
+    };
+}
+
+static asio::awaitable<std::string> AsioSub(int input)
+{
+    auto _ = Log::Scope{"({})", input};
+    auto timer = asio::steady_timer(co_await asio::this_coro::executor);
+    timer.expires_after(std::chrono::milliseconds(50));
+    co_await timer.async_wait(asio::use_awaitable);
+    co_return "sync result " + std::to_string(input);
+}
+
+static exec::task<void> ExecSub()
+{
+    auto _ = Log::Scope{};
+    const auto sched = co_await stdexec::read_env(stdexec::get_scheduler);
+    co_return;
+}
+
+static Exec::RunTask<int> ExecMain(asio::io_context::executor_type asioExec)
+{
+    auto _ = Log::Scope{};
+    co_await ExecSub();
+
+    Log::Debug("ExecMain: before timer co_await");
+
+    asio::steady_timer timer{asioExec};
+    timer.expires_after(std::chrono::milliseconds(50));
+    const auto ec = co_await timer.async_wait(exec::asio::completion_token);
+    Log::Info("Timer fired, ec={}", ec.what());
+
+    Log::Debug("ExecMain: before co_spawn co_await");
+
+    // co_spawn completion signature is void(exception_ptr, string), so completion_token
+    // delivers both args as set_value -> co_await yields tuple<exception_ptr, string>.
+    auto [exc, result] = co_await asio::co_spawn(asioExec, AsioSub(22), exec::asio::completion_token);
+    if (exc) {
+        std::rethrow_exception(exc);
+    }
+    Log::Info("AsioSub result: {}", result);
+
+    co_return 33;
+}
+
+int main(const int argc, const char* argv[])
+{
+    Boot::LogHeader({argc, argv});
+
+    // CompositeHandler drives both the asio poller and the exec domain in a single runner loop — no extra threads needed.
+    auto composite = std::make_shared<RunLoop::CompositeHandler>();
+    asio::io_context io;
+    AsioPoller asioPoller{io};
+    auto execDomain = std::make_shared<Exec::Domain>(ExecMain(io.get_executor()));
+
+    // Sanity check: a plain post should be picked up by AsioPoller on frame 1
+    asio::post(io, [] { Log::Info("io_context sanity post fired"); });
+
+    composite->Add(asioPoller);
+    composite->Add(*execDomain);
+
+    return App::CreateDefaultRunner(composite)->Run();
+}
