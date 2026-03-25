@@ -1,4 +1,4 @@
-#include "Http/Impl/BaseLiteClient.h"
+#include "Http/Impl/AsioLiteClient.h"
 #include "Asio/AsioDomain.h"
 #include "App/Factory.h"
 
@@ -19,10 +19,10 @@ namespace
 
     /// Test double: GetAsync waits on a timer that can be cancelled via Asio's
     /// cancellation slot, making the stop_token→cancellation bridge observable.
-    class StubLiteClient : public BaseLiteClient
+    class StubLiteClient : public AsioLiteClient
     {
     public:
-        using BaseLiteClient::BaseLiteClient;
+        using AsioLiteClient::AsioLiteClient;
 
         // Populated after coroutine inspects its cancellation state
         std::atomic<bool> slotConnected{false};
@@ -68,7 +68,7 @@ namespace
 
     // -------------------------------------------------------------------------
 
-    TEST(BaseLiteClientTest, CancellationSlotConnectedWithStopToken)
+    TEST(AsioLiteClientTest, CancellationSlotConnectedWithStopToken)
     {
         // Verify that when a stop_token is provided, the Asio cancellation slot
         // is connected inside GetAsync.
@@ -98,7 +98,7 @@ namespace
         EXPECT_EQ(exitCode, 0);
     }
 
-    TEST(BaseLiteClientTest, CancellationSlotDisconnectedWithoutStopToken)
+    TEST(AsioLiteClientTest, CancellationSlotDisconnectedWithoutStopToken)
     {
         // Without a stop_token (default {}), stop is not possible so no
         // stop_callback is created — but the cancellation signal is still allocated
@@ -131,7 +131,7 @@ namespace
         EXPECT_EQ(exitCode, 0);
     }
 
-    TEST(BaseLiteClientTest, StopTokenCancelsInFlightCoroutine)
+    TEST(AsioLiteClientTest, StopTokenCancelsInFlightCoroutine)
     {
         // Trigger stop after Get() is called — the in-flight timer inside
         // GetAsync should be aborted via the cancellation bridge.
@@ -173,7 +173,7 @@ namespace
         EXPECT_EQ(exitCode, 0);
     }
 
-    TEST(BaseLiteClientTest, AlreadyStoppedShortCircuits)
+    TEST(AsioLiteClientTest, AlreadyStoppedShortCircuits)
     {
         // When stop is already requested before Get(), the handler should be
         // called synchronously with operation_canceled — no coroutine spawned.
@@ -205,7 +205,7 @@ namespace
         EXPECT_EQ(exitCode, 0);
     }
 
-    TEST(BaseLiteClientTest, NormalCompletionWithStopToken)
+    TEST(AsioLiteClientTest, NormalCompletionWithStopToken)
     {
         // Stop token provided but never triggered — request completes normally.
         auto exitCode = RunCoro([]() -> asio::awaitable<int> {
@@ -239,7 +239,7 @@ namespace
         EXPECT_EQ(exitCode, 0);
     }
 
-    TEST(BaseLiteClientTest, ErrorResultPropagated)
+    TEST(AsioLiteClientTest, ErrorResultPropagated)
     {
         // GetAsync returns an error result — verify it passes through to handler.
         auto exitCode = RunCoro([]() -> asio::awaitable<int> {

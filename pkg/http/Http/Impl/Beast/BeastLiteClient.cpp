@@ -1,5 +1,5 @@
 #if !__EMSCRIPTEN__
-#include "AsioLiteClient.h"
+#include "BeastLiteClient.h"
 #include "Log/Log.h"
 #include "TcpConnection.h"
 
@@ -365,7 +365,7 @@ namespace Http
         }
     };
 
-    boost::asio::awaitable<ILiteClient::Result> AsioLiteClient::GetAsync(std::string url)
+    boost::asio::awaitable<ILiteClient::Result> BeastLiteClient::GetAsync(std::string url)
     {
         Log::Trace("http: async: {}", url);
         BeastRequestContext ctx{std::move(url)};

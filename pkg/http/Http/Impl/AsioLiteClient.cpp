@@ -1,4 +1,4 @@
-#include "BaseLiteClient.h"
+#include "AsioLiteClient.h"
 #include "Log/Log.h"
 #include <boost/asio/bind_cancellation_slot.hpp>
 #include <boost/asio/cancellation_signal.hpp>
@@ -6,11 +6,11 @@
 
 namespace Http
 {
-    BaseLiteClient::BaseLiteClient(boost::asio::any_io_executor executor)
+    AsioLiteClient::AsioLiteClient(boost::asio::any_io_executor executor)
         : _executor(std::move(executor))
     {}
 
-    void BaseLiteClient::Get(std::string_view url, Callback&& handler, std::stop_token stopToken)
+    void AsioLiteClient::Get(std::string_view url, Callback&& handler, std::stop_token stopToken)
     {
         Log::Debug("http: query: {}", url);
 

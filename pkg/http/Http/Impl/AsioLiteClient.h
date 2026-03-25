@@ -5,10 +5,10 @@
 
 namespace Http
 {
-    class BaseLiteClient : public ILiteClient
+    class AsioLiteClient : public ILiteClient
     {
     public:
-        explicit BaseLiteClient(boost::asio::any_io_executor executor);
+        explicit AsioLiteClient(boost::asio::any_io_executor executor);
 
         void Get(std::string_view url, Callback&& handler, std::stop_token stopToken) override;
         virtual boost::asio::awaitable<ILiteClient::Result> GetAsync(std::string url) = 0;

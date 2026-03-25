@@ -3,7 +3,7 @@
     #include "Impl/Wasm/EmFetchLiteClient.h"
     #include "Impl/Wasm/JsFetchLiteClient.h"
 #else
-    #include "Impl/Beast/AsioLiteClient.h"
+    #include "Impl/Beast/BeastLiteClient.h"
 #endif
 
 namespace Http
@@ -17,7 +17,7 @@ namespace Http
         }
         return std::make_shared<EmFetchLiteClient>(std::move(executor));
 #else
-        return std::make_shared<AsioLiteClient>(std::move(executor));
+        return std::make_shared<BeastLiteClient>(std::move(executor));
 #endif
     }
 }

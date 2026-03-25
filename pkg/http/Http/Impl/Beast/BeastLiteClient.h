@@ -1,13 +1,13 @@
 #pragma once
 #if !__EMSCRIPTEN__
-#include "../BaseLiteClient.h"
+#include "../AsioLiteClient.h"
 
 namespace Http
 {
-    class AsioLiteClient : public BaseLiteClient
+    class BeastLiteClient : public AsioLiteClient
     {
     public:
-        using BaseLiteClient::BaseLiteClient;
+        using AsioLiteClient::AsioLiteClient;
         boost::asio::awaitable<Result> GetAsync(std::string url) override;
     };
 }
