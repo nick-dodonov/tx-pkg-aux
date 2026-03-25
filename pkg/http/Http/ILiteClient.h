@@ -3,6 +3,7 @@
 #include <expected>
 #include <string>
 #include <functional>
+#include <stop_token>
 #include <system_error>
 
 namespace Http
@@ -19,6 +20,6 @@ namespace Http
         using Result = std::expected<Response, std::system_error>;
         using Callback = std::function<void(Result result)>;
 
-        virtual void Get(std::string_view url, Callback&& handler) = 0;
+        virtual void Get(std::string_view url, Callback&& handler, std::stop_token stopToken = {}) = 0;
     };
 }
