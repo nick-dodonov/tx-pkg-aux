@@ -1,6 +1,7 @@
 #include "AsioDomain.h"
 #include "Log/Log.h"
 #include "RunLoop/Runner.h"
+#include <boost/asio/execution_context.hpp>
 
 namespace Asio
 {
@@ -15,7 +16,7 @@ namespace Asio
         // Register this instance as the Service for our io_context.
         boost::asio::make_service<Service>( // static_cast otherwise need to use obsolete execution_context::id for service registration
             // ReSharper disable once CppRedundantCastExpression - cast must be specified in the current asio version (1.90)
-            static_cast<boost::asio::execution_context&>(_io_context), this);
+            static_cast<boost::asio::execution_context&>(GetIoContext()), this);
     }
 
     AsioDomain::~AsioDomain()
@@ -27,7 +28,7 @@ namespace Asio
     {
         Log::Debug(".");
         boost::asio::co_spawn(
-            _io_context,
+            GetIoContext(),
             std::move(_coroMain),
             boost::asio::bind_cancellation_slot(
                 _cancelSignal.slot(),
@@ -71,25 +72,12 @@ namespace Asio
         _cancelSignal.emit(boost::asio::cancellation_type::all);
 
         // Allow io_context to handle remaining tasks
-        if (!_io_context.stopped()) {
-            //auto count = _io_context.run_for(std::chrono::milliseconds(500));
-            auto count = _io_context.poll();
+        if (!GetIoContext().stopped()) {
+            //auto count = GetIoContext().run_for(std::chrono::milliseconds(500));
+            auto count = GetIoContext().poll();
             if (count > 0) {
                 Log::Trace("polled {} tasks on stop", count);
             }
-        }
-    }
-
-    void AsioDomain::Update(const RunLoop::UpdateCtx& ctx)
-    {
-        //Log::Trace("frame={} delta={} µs", ctx.frame.index, ctx.frame.delta.count());
-        if (_io_context.stopped()) {
-            Log::Debug("stopped on frame={}", ctx.frame.index);
-            return;
-        }
-        if (const auto count = _io_context.poll(); count > 0) {
-            //TODO: enable verbose logging later and make it configurable (too noisy for now), make summary instead
-            //Log::Trace("polled {} tasks on frame={}", count, ctx.frame.index);
         }
     }
 

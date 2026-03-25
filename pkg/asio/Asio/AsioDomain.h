@@ -1,15 +1,13 @@
 #pragma once
-#include "RunLoop/Handler.h"
+#include "Asio/AsioPoller.h"
 #include <boost/asio.hpp>
-#include <boost/core/noncopyable.hpp>
 #include <memory>
 
 namespace Asio
 {
     class AsioDomain
-        : public RunLoop::Handler
+        : public AsioPoller
         , public std::enable_shared_from_this<AsioDomain>
-        , boost::noncopyable
     {
     public:
         explicit AsioDomain(boost::asio::awaitable<int> coroMain);
@@ -60,15 +58,13 @@ namespace Asio
             friend class AsioDomain;
         };
 
-        boost::asio::io_context _io_context;
         boost::asio::awaitable<int> _coroMain;
         boost::asio::cancellation_signal _cancelSignal;
         bool _cancelled = false; ///< Set by Stop() before emitting the cancellation signal.
 
-        // Loop::Handler
+        // RunLoop::Handler (Update() is inherited from AsioPoller)
         bool Start() override;
         void Stop() override;
-        void Update(const RunLoop::UpdateCtx& ctx) override;
 
         void Completed(const std::exception_ptr& ex, int exitCode);
 

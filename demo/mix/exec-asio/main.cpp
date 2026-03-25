@@ -1,4 +1,5 @@
 #include "App/Factory.h"
+#include "Asio/AsioPoller.h"
 #include "Boot/Boot.h"
 #include "Exec/Domain.h"
 #include "Exec/RunTask.h"
@@ -8,37 +9,12 @@
 
 #include <boost/asio/awaitable.hpp>
 #include <boost/asio/co_spawn.hpp>
-#include <boost/asio/executor_work_guard.hpp>
-#include <boost/asio/io_context.hpp>
 #include <boost/asio/steady_timer.hpp>
 #include <boost/asio/use_awaitable.hpp>
 
 #include <exec/asio/completion_token.hpp>
 
 namespace asio = boost::asio;
-
-namespace
-{
-    struct AsioPoller: RunLoop::Handler
-    {
-        explicit AsioPoller(asio::io_context& io)
-            : _io{io}
-            , _workGuard{asio::make_work_guard(io)}
-        {}
-
-        void Update(const RunLoop::UpdateCtx& updateCtx) override
-        {
-            const auto n = _io.poll();
-            if (n > 0) {
-                Log::Debug("AsioPoller: update #{} poll returned {} handlers", updateCtx.frame.index, n);
-            }
-        }
-
-    private:
-        asio::io_context& _io;
-        asio::executor_work_guard<asio::io_context::executor_type> _workGuard;
-    };
-}
 
 static asio::awaitable<std::string> AsioSub(int input)
 {
@@ -82,11 +58,10 @@ int main(const int argc, const char* argv[])
     Boot::LogHeader({argc, argv});
 
     // CompositeHandler drives both the asio poller and the exec domain in a single runner loop — no extra threads needed.
-    auto composite = std::make_shared<RunLoop::CompositeHandler>();
-    asio::io_context io;
-    AsioPoller asioPoller{io};
-    auto execDomain = std::make_shared<Exec::Domain>(ExecMain(io.get_executor()));
+    Asio::AsioPoller asioPoller;
+    auto execDomain = std::make_shared<Exec::Domain>(ExecMain(asioPoller.GetExecutor()));
 
+    auto composite = std::make_shared<RunLoop::CompositeHandler>();
     composite->Add(asioPoller);
     composite->Add(*execDomain);
 
