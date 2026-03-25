@@ -5,7 +5,6 @@
 #include "Log/Log.h"
 #include "Log/Scope.h"
 #include "RunLoop/CompositeHandler.h"
-#include "pkg/boot/Boot/Boot.h"
 
 #include <boost/asio/awaitable.hpp>
 #include <boost/asio/co_spawn.hpp>
@@ -15,7 +14,6 @@
 #include <boost/asio/use_awaitable.hpp>
 
 #include <exec/asio/completion_token.hpp>
-#include <exec/asio/use_sender.hpp>
 
 namespace asio = boost::asio;
 
@@ -63,14 +61,10 @@ static Exec::RunTask<int> ExecMain(asio::io_context::executor_type asioExec)
     auto _ = Log::Scope{};
     co_await ExecSub();
 
-    Log::Debug("ExecMain: before timer co_await");
-
     asio::steady_timer timer{asioExec};
     timer.expires_after(std::chrono::milliseconds(50));
     const auto ec = co_await timer.async_wait(exec::asio::completion_token);
     Log::Info("Timer fired, ec={}", ec.what());
-
-    Log::Debug("ExecMain: before co_spawn co_await");
 
     // co_spawn completion signature is void(exception_ptr, string), so completion_token
     // delivers both args as set_value -> co_await yields tuple<exception_ptr, string>.
@@ -92,9 +86,6 @@ int main(const int argc, const char* argv[])
     asio::io_context io;
     AsioPoller asioPoller{io};
     auto execDomain = std::make_shared<Exec::Domain>(ExecMain(io.get_executor()));
-
-    // Sanity check: a plain post should be picked up by AsioPoller on frame 1
-    asio::post(io, [] { Log::Info("io_context sanity post fired"); });
 
     composite->Add(asioPoller);
     composite->Add(*execDomain);

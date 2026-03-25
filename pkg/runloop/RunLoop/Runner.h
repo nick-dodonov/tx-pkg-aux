@@ -2,9 +2,21 @@
 #include "Handler.h"
 #include <memory>
 #include <optional>
+#include <sys/types.h>
 
 namespace RunLoop
 {
+    namespace ExitCode
+    {
+        constexpr int Success = 0;
+        constexpr int Failure = 1;
+        constexpr int NotStarted = 126; // Similar to shell's "Command Cannot Execute"
+
+        /// Exit code used when the runner is stopped via cancellation before
+        /// the coroutine/task had a chance to produce its own exit code.
+        constexpr int Cancelled = 130; // Commonly used exit code for processes terminated via SIGINT (Ctrl+C) as 128+signal
+    }
+
     /// Base runner that runs the update action
     class IRunner: public std::enable_shared_from_this<IRunner>
     {
@@ -32,18 +44,10 @@ namespace RunLoop
         Runner(Runner&&) = default;
         Runner& operator=(Runner&&) = default;
 
-        /// Exit code used when the runner is stopped via cancellation before
-        /// the coroutine/task had a chance to produce its own exit code.
-        static constexpr auto CancelledExitCode = 130;
-
         // IRunner
         [[nodiscard]] std::optional<int> Exiting() const override { return GetExitCode(); }
 
     protected:
-        static constexpr auto SuccessExitCode = 0;
-        static constexpr auto NotStartedExitCode = 101;
-        static constexpr auto FailureExitCode = 202;
-
         [[nodiscard]] std::optional<int> GetExitCode() const { return _exitCode; }
         void SetExitCode(int exitCode) { _exitCode = exitCode; }
 

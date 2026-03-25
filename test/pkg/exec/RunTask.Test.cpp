@@ -86,7 +86,7 @@ TEST(RunTaskTest, StopCancellationBeforeDelay)
     TestRunner runner{domain};
     domain->Start();
     domain->Stop();
-    EXPECT_EQ(runner.exitCode, 0);
+    EXPECT_EQ(runner.exitCode, RunLoop::ExitCode::Cancelled);
 }
 
 // Nested RunTask: outer RunTask co_awaits inner RunTask. Both retrieve the

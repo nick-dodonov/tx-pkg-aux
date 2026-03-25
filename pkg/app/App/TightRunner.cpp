@@ -56,7 +56,7 @@ namespace App
 
         if (!InvokeStart()) {
             Log::Error("Started handler failed");
-            return NotStartedExitCode;
+            return RunLoop::ExitCode::NotStarted;
         }
 
         _running = true;
@@ -75,7 +75,7 @@ namespace App
 
         InvokeStop();
 
-        auto exitCode = GetExitCode().value_or(SuccessExitCode);
+        auto exitCode = GetExitCode().value_or(RunLoop::ExitCode::Success);
 #ifdef __EMSCRIPTEN__
         _lastExitCode = exitCode;
 #endif

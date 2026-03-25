@@ -50,7 +50,7 @@ TEST(DomainTest, StopBeforeDrainCancelsTask)
     domain->Start();  // enqueues the starts_on bridge task
     domain->Stop();   // request_stop → DrainQueue → set_stopped → Exit(0)
 
-    EXPECT_EQ(runner.exitCode, 0);
+    EXPECT_EQ(runner.exitCode, RunLoop::ExitCode::Cancelled);
 }
 
 // An exec::task coroutine that reads get_scheduler from the environment and

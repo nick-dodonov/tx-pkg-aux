@@ -53,9 +53,9 @@ namespace Exec
     {
         Log::Trace("");
 
-        // distinguish between cooperative stop (exit code from coroutine) and forced cancellation (CancelledExitCode) if Stop() is called before completion
+        // distinguish between cooperative stop (exit code from coroutine) and forced cancellation
         if (auto* runner = GetRunner(); !runner->Exiting()) {
-            runner->Exit(RunLoop::Runner::CancelledExitCode);
+            runner->Exit(RunLoop::ExitCode::Cancelled);
         }
     }
 }

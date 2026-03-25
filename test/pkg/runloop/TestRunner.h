@@ -17,7 +17,7 @@ namespace
     ///   runner.DriveStart();
     ///   runner.DriveUpdate();   // repeat as needed
     ///   runner.DriveStop();
-    ///   EXPECT_EQ(runner.exitCode, RunLoop::Runner::CancelledExitCode);
+    ///   EXPECT_EQ(runner.exitCode, RunLoop::ExitCode::Cancelled);
     struct TestRunner: RunLoop::Runner
     {
         explicit TestRunner(std::shared_ptr<RunLoop::Handler> handler)

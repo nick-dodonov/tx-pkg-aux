@@ -45,9 +45,9 @@ namespace Asio
             std::terminate();
         }
 
-        // If Stop() was called before the coroutine finished, use CancelledExitCode
+        // If Stop() was called before the coroutine finished, use Cancelled exit code
         // so the runner can distinguish a normal exit from a forced stop.
-        const auto code = _cancelled ? RunLoop::Runner::CancelledExitCode : exitCode;
+        const auto code = _cancelled ? RunLoop::ExitCode::Cancelled : exitCode;
         Log::Trace("finished: exitCode={} cancelled={}", code, _cancelled);
 
         if (auto* runner = GetRunner(); !runner->Exiting()) {
@@ -61,12 +61,12 @@ namespace Asio
         Log::Trace("{}", hasHandlers ? "w/ cancel handlers" : "no cancel handler");
 
         // Record that this shutdown is a forced stop so the completion handler
-        // can use CancelledExitCode when the coroutine eventually finishes.
+        // can use Cancelled exit code when the coroutine eventually finishes.
         _cancelled = true;
         // Signal cancellation into the running coroutine.
         // This causes any co_await point inside coroMain (timer, channel, etc.)
         // to receive operation_aborted, which unwinds the coroutine and fires the
-        // co_spawn completion handler — where CancelledExitCode is set if no exit
+        // co_spawn completion handler — where Cancelled exit code is set if no exit
         // code has been established yet.
         _cancelSignal.emit(boost::asio::cancellation_type::all);
 

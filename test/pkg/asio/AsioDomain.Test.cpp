@@ -1,7 +1,6 @@
 #include "Asio/AsioDomain.h"
 #include "Log/Log.h"
 #include "TestRunner.h"
-#include "pkg/asio/Asio/AsioDomain.h"
 
 #include <boost/asio.hpp>
 #include <chrono>
@@ -36,7 +35,7 @@ TEST(AsioDomainUnit, ManualDrive_SimpleCompletion)
 // The coroutine is waiting on a 1-hour timer — it will never complete on its
 // own. Stop() emits the cancellation signal so that co_await timer.async_wait
 // gets operation_aborted, the coroutine unwinds, and the completion handler
-// sets CancelledExitCode (because no exit code was established yet).
+// sets Cancelled exit code (because no exit code was established yet).
 // ---------------------------------------------------------------------------
 TEST(AsioDomainUnit, ManualDrive_StopCancelsPendingOp)
 {
@@ -59,7 +58,7 @@ TEST(AsioDomainUnit, ManualDrive_StopCancelsPendingOp)
     runner.DriveUpdate();   // drains: coroutine unwinds, completion handler fires
 
     ASSERT_TRUE(runner.exitCode.has_value());
-    EXPECT_EQ(*runner.exitCode, RunLoop::Runner::CancelledExitCode);
+    EXPECT_EQ(*runner.exitCode, RunLoop::ExitCode::Cancelled);
 }
 
 // ---------------------------------------------------------------------------
@@ -146,7 +145,7 @@ TEST(AsioDomainUnit, ManualDrive_CancelDirectly)
 
             // Reaching this line confirms cancellation was delivered and
             // the coroutine resumed cleanly. _cancelled flag in AsioDomain
-            // ensures CancelledExitCode is used regardless of co_return value.
+            // ensures Cancelled exit code is used regardless of co_return value.
             cancelReached->store(true);
             co_return 0;
         }());
@@ -162,5 +161,5 @@ TEST(AsioDomainUnit, ManualDrive_CancelDirectly)
 
     EXPECT_TRUE(cancelReached->load());
     ASSERT_TRUE(runner.exitCode.has_value());
-    EXPECT_EQ(*runner.exitCode, RunLoop::Runner::CancelledExitCode);
+    EXPECT_EQ(*runner.exitCode, RunLoop::ExitCode::Cancelled);
 }

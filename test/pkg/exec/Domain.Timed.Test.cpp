@@ -70,7 +70,7 @@ TEST(DelayTest, StopBeforeDelayFiresCancelsCorrectly)
     // DrainQueue() → shared state executes → set_stopped → OnStopped → Exit(0).
     domain->Stop();
 
-    EXPECT_EQ(runner.exitCode, 0);
+    EXPECT_EQ(runner.exitCode, RunLoop::ExitCode::Cancelled);
 }
 
 // exec::now(sched) returns a steady_clock time_point within [before, after].
