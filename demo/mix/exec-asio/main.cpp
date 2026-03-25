@@ -57,10 +57,10 @@ int main(const int argc, const char* argv[])
 {
     Boot::LogHeader({argc, argv});
 
-    // CompositeHandler drives both the asio poller and the exec domain in a single runner loop — no extra threads needed.
     Asio::AsioPoller asioPoller;
     auto execDomain = std::make_shared<Exec::Domain>(ExecMain(asioPoller.GetExecutor()));
 
+    // CompositeHandler drives both the asio poller and the exec domain in a single runner loop — no extra threads needed.
     auto composite = std::make_shared<RunLoop::CompositeHandler>();
     composite->Add(asioPoller);
     composite->Add(*execDomain);

@@ -18,7 +18,7 @@ namespace App
 
         if (!InvokeStart()) {
             Log::Error("Started handler failed");
-            return NotStartedExitCode;
+            return RunLoop::ExitCode::NotStarted;
         }
 
         emscripten_set_main_loop_arg(
@@ -33,7 +33,7 @@ namespace App
 
         // emscripten_set_main_loop_arg never returns control
         __builtin_unreachable();
-        return NotStartedExitCode;
+        return RunLoop::ExitCode::NotStarted;
     }
 
     void WasmRunner::Update()
