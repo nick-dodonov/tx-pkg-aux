@@ -1,0 +1,29 @@
+load("@bazel_skylib//rules:common_settings.bzl", "bool_flag")
+load("@tx-kit-ext//rules:multi_lib.bzl", "multi_lib")
+load("rules.bzl", "boost_asio_wrapped")
+
+bool_flag(
+    name = "disable_ssl",
+    build_setting_default = False,
+    visibility = ["//visibility:public"],
+)
+
+boost_asio_wrapped(
+    name = "boost_asio_wrapped",
+    actual = "@boost.asio",
+    visibility = ["//visibility:public"],
+)
+
+multi_lib(
+    name = "asio",
+    srcs = glob(["**/*.cpp"]),
+    hdrs = glob(["**/*.h"]),
+    strip_include_prefix = ".",
+    visibility = ["//visibility:public"],
+    deps = [
+        ":boost_asio_wrapped",  # "@boost.asio",
+        "//pkg/async",
+        "//pkg/log",
+        "//pkg/runloop",
+    ],
+)

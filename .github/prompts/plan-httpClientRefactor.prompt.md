@@ -4,7 +4,7 @@ Refactoring the current Beast-based HTTP client to separate concerns, eliminate 
 
 ## Steps
 
-1. **Extract connection layer** - Create Http/Connection abstraction separating TCP/SSL establishment from HTTP protocol, eliminating duplication in AsioLiteClient.cpp between TCP and SSL code paths.
+1. **Extract connection layer** - Create Http/Connection abstraction separating TCP/SSL establishment from HTTP protocol, eliminating duplication in BeastLiteClient.cpp between TCP and SSL code paths.
 
 2. **Implement connection pooling** - Add `ConnectionPool` class managing reusable connections per-host with keep-alive support, replacing the current per-request `BeastRequestContext` throwaway pattern.
 

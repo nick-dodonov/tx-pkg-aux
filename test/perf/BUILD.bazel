@@ -4,7 +4,7 @@ multi_test(
     name = "call",
     srcs = ["call_test.cpp"],
     deps = [
-        "//src/pkg-boot",
+        "//pkg/boot",
         "@google_benchmark//:benchmark",
     ],
 )

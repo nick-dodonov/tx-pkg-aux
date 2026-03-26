@@ -1,0 +1,19 @@
+load("@tx-kit-ext//rules:multi_lib.bzl", "multi_lib")
+
+multi_lib(
+    name = "app",
+    srcs = glob(["**/*.cpp"]),
+    hdrs = glob(["**/*.h"]),
+    linkopts = select({
+        "@platforms//cpu:wasm32": [
+            "-sASYNCIFY",  # required for emscripten_sleep (also allows EM_ASYNC_JS https://emscripten.org/docs/porting/asyncify.html)
+        ],
+        "//conditions:default": [],
+    }),
+    strip_include_prefix = ".",
+    visibility = ["//visibility:public"],
+    deps = [
+        "//pkg/boot",
+        "//pkg/runloop",
+    ],
+)

@@ -1,0 +1,49 @@
+load("@tx-kit-ext//rules:multi_lib.bzl", "multi_lib")
+
+config_setting(
+    name = "disable_ssl_setting",
+    flag_values = {"//pkg/asio:disable_ssl": "true"},
+    visibility = ["//visibility:public"],
+)
+
+multi_lib(
+    name = "http",
+    srcs = glob(["**/*.cpp"]),
+    hdrs = glob(["**/*.h"]),
+    defines = select({
+        ":disable_ssl_setting": [],
+        "//conditions:default": ["HTTP_CLIENT_WITH_SSL"],
+    }),
+    linkopts = select({
+        "@platforms//cpu:wasm32": [
+            "-sFETCH=1",  # Emscripten Fetch API for EmFetchLiteClient
+            # https://emscripten.org/docs/porting/connecting_cpp_and_javascript/Interacting-with-code.html#calling-compiled-c-functions-from-javascript-using-ccall-cwrap
+            # "-sDEFAULT_LIBRARY_FUNCS_TO_INCLUDE='$dynCall,$ccall,$cwrap,$UTF8ToString'", # Enable for calling C++ from EM_JS
+            # "-sEXPORTED_FUNCTIONS='_main,_c_test'", # Export c_test function for calling from JS
+            # Enable Embind for emscripten::val https://emscripten.org/docs/porting/connecting_cpp_and_javascript/embind.html#using-val-to-transliterate-javascript-to-c
+            # "-lembind", #TODO: maybe w/ "-sEMBIND_AOT=1"
+            # "-sASYNCIFY", # Asyncify for EM_ASYNC_JS https://emscripten.org/docs/porting/asyncify.html
+            # "-sALLOW_TABLE_GROWTH", # Calling JavaScript functions as function pointers from C https://emscripten.org/docs/porting/connecting_cpp_and_javascript/Interacting-with-code.html#calling-javascript-functions-as-function-pointers-from-c
+        ],
+        "//conditions:default": [],
+    }),
+    strip_include_prefix = ".",
+    visibility = ["//visibility:public"],
+    deps = [
+        "//pkg/asio:boost_asio_wrapped",  # "@boost.asio",
+        "//pkg/log",
+        "@ada-url//:ada",  #TODO: maybe cxxurl?
+        "@gsl",
+    ] + select({
+        "@platforms//cpu:wasm32": [],
+        "//conditions:default": [
+            "@boost.beast//:boost.beast",
+        ],
+    }) + select({
+        "@platforms//cpu:wasm32": [],
+        ":disable_ssl_setting": [],
+        "//conditions:default": [
+            "@boringssl//:ssl",
+        ],
+    }),
+)

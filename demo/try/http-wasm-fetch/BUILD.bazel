@@ -3,8 +3,8 @@ load("@tx-kit-ext//rules:multi_app.bzl", "multi_app")
 multi_app(
     name = "http-wasm-fetch",
     srcs = glob(["*.cpp"]),
-    deps = [
-        "@tx-pkg-aux//src/pkg-boot",
+    data = [
+        ":try_wasm_fetch_post_js",
     ],
     linkopts = [
         "-sFETCH=1",
@@ -14,10 +14,10 @@ multi_app(
         # "-sEXIT_RUNTIME=1",
         # "-sENVIRONMENT=web,node",
     ],
-    data = [
-        ":try_wasm_fetch_post_js",
-    ],
     platforms = ["wasm"],
+    deps = [
+        "@tx-pkg-aux//pkg/boot",
+    ],
 )
 
 # Post-JS file to polyfill fetch/XMLHttpRequest for Node.js and detect runtime

@@ -1,0 +1,15 @@
+load("@tx-kit-ext//rules:multi_app.bzl", "multi_test")
+
+multi_test(
+    name = "asio",
+    srcs = glob([
+        "*.h",
+        "*.cpp",
+    ]),
+    deps = [
+        "//pkg/app",
+        "//pkg/asio",
+        "//test/pkg/runloop:runloop_testlib",
+        "@googletest//:gtest_main",
+    ],
+)

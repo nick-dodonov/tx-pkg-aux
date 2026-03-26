@@ -1,0 +1,16 @@
+load("@tx-kit-ext//rules:multi_lib.bzl", "multi_lib")
+
+multi_lib(
+    name = "log",
+    srcs = glob(["**/*.cpp"]),
+    hdrs = glob(["**/*.h"]),
+    defines = [
+        "SPDLOG_USE_STD_FORMAT",
+        "SPDLOG_NO_EXCEPTIONS",
+    ],
+    strip_include_prefix = ".",
+    visibility = ["//visibility:public"],
+    deps = [
+        "@spdlog",
+    ],
+)

@@ -1,0 +1,21 @@
+load("@rules_cc//cc:cc_library.bzl", "cc_library")
+load("@bazel_skylib//rules:expand_template.bzl", "expand_template")
+
+# Generate asio_config.hpp from the CMake template.
+# Pkg uses boost::asio, so STDEXEC_ASIO_USES_BOOST=1, STDEXEC_ASIO_USES_STANDALONE=0.
+expand_template(
+    name = "asio_config_hpp",
+    template = "include/exec/asio/asio_config.hpp.in",
+    out = "include/exec/asio/asio_config.hpp",
+    substitutions = {
+        "#cmakedefine01 STDEXEC_ASIO_USES_STANDALONE": "#define STDEXEC_ASIO_USES_STANDALONE 0",
+        "#cmakedefine01 STDEXEC_ASIO_USES_BOOST": "#define STDEXEC_ASIO_USES_BOOST 1",
+    },
+)
+
+cc_library(
+    name = "stdexec",
+    hdrs = glob(["include/**"], exclude = ["**/*.in"]) + [":asio_config_hpp"],
+    includes = ["include"],
+    visibility = ["//visibility:public"],
+)

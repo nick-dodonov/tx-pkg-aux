@@ -1,0 +1,87 @@
+--- BUILD.bazel	2026-03-15 12:51:28.625444920 +0100
++++ BUILD.bazel	2026-03-15 13:12:59.274746131 +0100
+@@ -28,6 +28,20 @@
+     flag_values = {":ssl": "boringssl"},
+ )
+ 
++####**{ Android build support
++config_setting(
++    name = "disable_boost_context",
++    # Disable Boost.Context on Windows ARM64 due to build issues in boost.context
++    #   bazel query --output=build "@platforms//host"
++    constraint_values = ["@platforms//cpu:aarch64", "@platforms//os:windows"],
++)
++
++config_setting(
++    name = "android_platform",
++    constraint_values = ["@platforms//os:android"],
++)
++####**}
++
+ write_file(
+     name = "src_win",
+     out = "boost.asio.src.win.cpp",
+@@ -84,12 +98,25 @@
+             "include/boost/asio/ssl/impl/src.hpp",
+         ],
+     ),
++    ####**{ WASM build support
++    cxxopts = ["-std=c++23"] + select({
++        "@platforms//cpu:wasm32": ["-pthread"],
++        "//conditions:default": [],
++    }),
++    ####**}
+     defines = ["BOOST_ASIO_SEPARATE_COMPILATION"] + select({
+         "@platforms//os:windows": [
+             "WIN32_LEAN_AND_MEAN",  # Prevent windows.h from auto-including winsock.h - must propagate
+             "NOMINMAX",  # Prevent Windows min/max macros
+         ],
+         "//conditions:default": [],
++    ####**{ Workaround for Emscripten on Windows ARM64 (w/o boost.context)
++    }) + select({
++        "//conditions:default": [],
++        "@platforms//cpu:wasm32": ["BOOST_ASIO_DISABLE_BOOST_CONTEXT_FIBER"],
++        ":disable_boost_context": ["BOOST_ASIO_DISABLE_BOOST_CONTEXT_FIBER"],
++        ":android_platform": ["BOOST_ASIO_DISABLE_BOOST_CONTEXT_FIBER"],
++    ####**}
+     }),
+     includes = ["include"],
+     linkopts = select({
+@@ -97,6 +124,10 @@
+             "-DEFAULTLIB:ws2_32",
+             "-DEFAULTLIB:mswsock",
+         ],
++        ####**{ https://developer.android.com/ndk/guides/stable_apis#c_library
++        # Note that on Android, unlike Linux, there are no separate libpthread or librt libraries. That functionality is included directly in libc, which does not need to be explicitly linked against.
++        "@platforms//os:android": [],
++        ####**}
+         "//conditions:default": [
+             "-lpthread",
+         ],
+@@ -106,7 +137,10 @@
+         "@boost.align",
+         "@boost.assert",
+         "@boost.config",
+-        "@boost.context",
++        ####**{ Workaround for Emscripten on Windows ARM64 (w/o boost.context)
++        #   moved to select() below
++        #"@boost.context",
++        ####**}
+         "@boost.date_time",
+         "@boost.system",
+         "@boost.throw_exception",
+@@ -114,5 +148,14 @@
+         ":boringssl": ["@boringssl//:ssl"],
+         ":no_ssl": [],
+         ":openssl": ["@openssl//:ssl"],
++    ####**{ Workaround for Emscripten on Windows ARM64 (w/o boost.context)
++    }) + select({
++        "//conditions:default": [
++            "@boost.context",
++        ],
++        "@platforms//cpu:wasm32": [],
++        ":disable_boost_context": [],
++        ":android_platform": [],
++    ####**}
+     }),
+ )

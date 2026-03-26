@@ -1,0 +1,15 @@
+load("@tx-kit-ext//rules:multi_app.bzl", "multi_test")
+
+multi_test(
+    name = "exec",
+    srcs = glob([
+        "*.cpp",
+        "*.h",
+    ]),
+    deps = [
+        "//pkg/app",
+        "//pkg/exec",
+        "//test/pkg/runloop:runloop_testlib",
+        "@googletest//:gtest_main",
+    ],
+)

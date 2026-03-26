@@ -1,7 +1,0 @@
-load("rules.bzl", "boost_asio_wrapped")
-
-boost_asio_wrapped(
-    name = "boost_asio_wrapped",
-    actual = "@boost.asio//:boost.asio",
-    visibility = ["//visibility:public"],
-)

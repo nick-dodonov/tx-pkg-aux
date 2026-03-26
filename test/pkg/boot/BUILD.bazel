@@ -2,19 +2,9 @@ load("@tx-kit-ext//rules:multi_app.bzl", "multi_test")
 
 multi_test(
     name = "boot",
-    srcs = ["boot_test.cpp"],
+    srcs = glob(["*.cpp"]),
     deps = [
-        "//src/pkg-boot",
+        "//pkg/boot",
         "@googletest//:gtest_main",
     ],
-)
-
-multi_test(
-    name = "fail",
-    srcs = ["fail_boot.cpp"],
-    deps = [
-        "//src/pkg-boot",
-        "@googletest//:gtest_main",
-    ],
-    tags = ["manual"],  # Don't run this test automatically, only for manual checks
 )

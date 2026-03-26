@@ -1,0 +1,24 @@
+load("@tx-kit-ext//rules:multi_lib.bzl", "multi_lib")
+
+multi_lib(
+    name = "fs",
+    srcs = glob(["**/*.cpp"]),
+    hdrs = glob(["**/*.h"]),
+    strip_include_prefix = ".",
+    visibility = ["//visibility:public"],
+    deps = [
+        "//pkg/boot",
+
+        # https://fuchsia.googlesource.com/fuchsia/+/HEAD/build/bazel/BAZEL_RUNFILES.md
+        # Obsolete:
+        #   "@bazel_tools//tools/cpp/runfiles",
+        #   as refers to rules_cc: https://github.com/bazelbuild/bazel/blob/master/tools/cpp/runfiles/runfiles.h
+        "@rules_cc//cc/runfiles",
+    ] + select({
+        "@platforms//os:android": [
+            # Android to get access to AAssetManager_*
+            "@tx-kit-ext//pkg/droid:droid_glue",
+        ],
+        "//conditions:default": [],
+    }),
+)

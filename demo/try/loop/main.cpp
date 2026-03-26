@@ -7,12 +7,11 @@
 #include <memory>
 #include <cassert>
 
-#include "App/Loop/TightRunner.h"
-#include "src/pkg-boot/Boot/Boot.h"
+#include "App/TightRunner.h"
 
-using IRunner = App::Loop::IRunner;
-using UpdateCtx = App::Loop::UpdateCtx;
-using TightRunner = App::Loop::TightRunner;
+using IRunner = RunLoop::IRunner;
+using UpdateCtx = RunLoop::UpdateCtx;
+using TightRunner = App::TightRunner;
 
 /// Action interface
 template <class T>

@@ -4,5 +4,5 @@ multi_app(
     name = "log",
     srcs = ["main.cpp"],
     data = [".env"],
-    deps = ["//src/pkg-log"],
+    deps = ["//pkg/log"],
 )

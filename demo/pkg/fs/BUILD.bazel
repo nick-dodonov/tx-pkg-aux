@@ -1,0 +1,21 @@
+load("@tx-kit-ext//rules:embedded.bzl", "embedded_files")
+load("@tx-kit-ext//rules:multi_app.bzl", "multi_app")
+
+exports_files(["test.txt"])
+
+embedded_files(
+    name = "data",
+    files_to_dir = {
+        "test.txt": "test_data",
+    },
+)
+
+multi_app(
+    name = "fs",
+    srcs = ["main.cpp"],
+    embedded_data = [":data"],
+    deps = [
+        "//pkg/app",
+        "//pkg/fs",
+    ],
+)

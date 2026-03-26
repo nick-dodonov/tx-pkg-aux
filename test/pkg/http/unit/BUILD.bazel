@@ -1,0 +1,13 @@
+load("@tx-kit-ext//rules:multi_app.bzl", "multi_test")
+
+multi_test(
+    name = "unit",
+    srcs = glob(["*.cpp"]),
+    platforms = ["host"],
+    deps = [
+        "//pkg/app",
+        "//pkg/asio",
+        "//pkg/http",
+        "@googletest//:gtest_main",
+    ],
+)
