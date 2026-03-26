@@ -1,15 +1,14 @@
 #pragma once
 #if __EMSCRIPTEN__
-#include "../AsioLiteClient.h"
+#include "../../ILiteClient.h"
 
 namespace Http
 {
     /// Lite HTTP client implementation using JS raw fetch API that will work both in browser and Node.js (WASI).
-    class JsFetchLiteClient : public AsioLiteClient
+    class JsFetchLiteClient : public ILiteClient
     {
     public:
-        using AsioLiteClient::AsioLiteClient;
-        boost::asio::awaitable<ILiteClient::Result> GetAsync(std::string url) override;
+        void Get(std::string_view url, Callback&& handler, std::stop_token stopToken) override;
     };
 }
 #endif

@@ -1,8 +1,6 @@
 #if __EMSCRIPTEN__
 #include "JsFetchLiteClient.h"
 #include "Log/Log.h"
-#include <boost/asio/use_awaitable.hpp>
-#include <boost/asio/any_completion_handler.hpp>
 #include <emscripten/em_js.h>
 
 namespace Http
@@ -39,57 +37,32 @@ namespace Http
 
     struct JsFetchContext {
         std::string url;
-        boost::asio::executor_work_guard<boost::asio::any_io_executor> work; // don't let executor stop while fetch in progress
-        boost::asio::any_completion_handler<void(ILiteClient::Result)> handler;
+        ILiteClient::Callback handler;
 
-        explicit JsFetchContext(std::string url_, const boost::asio::any_io_executor& executor)
+        JsFetchContext(std::string url_, ILiteClient::Callback handler_)
             : url(std::move(url_))
-            , work(boost::asio::make_work_guard(executor))
+            , handler(std::move(handler_))
         {}
-
-        template <typename CompletionToken>
-        auto FetchAsync(CompletionToken&& token)
-        {
-            //Log::Debug("http: async initiate: {}", url);
-            return boost::asio::async_initiate<CompletionToken, void(ILiteClient::Result)>(
-                [this](auto handler) {
-                    //Log::Debug("http: async initiator: {}", url);
-                    this->handler = std::move(handler);
-                    JsFetchContext_Fetch(
-                        this,
-                        url.c_str()
-                    );
-                },
-                std::forward<CompletionToken>(token)
-            );
-        }
 
         void OnFetchResult(int status, const char* body)
         {
-            //std::unique_ptr<char, decltype(&free)> result(resultPtr, &free); // when stringToUTF8 is used with _malloc
-            //Log::Trace("http: fetch result: status={} '{}'", status, body);
-
             auto bodyStr = body ? std::string(body) : std::string{};
             Log::Trace("http: fetch result: status={} body.size={}", status, bodyStr.size());
-            CompleteHandler(ILiteClient::Response{
+            std::move(handler)(ILiteClient::Response{
                 .statusCode = status,
                 .body = std::move(bodyStr),
             });
+            delete this;
         }
 
         void OnFetchError(const char* error)
         {
             Log::Trace("http: fetch error: {}", error);
-            CompleteHandler(std::unexpected(std::system_error{
+            std::move(handler)(std::unexpected(std::system_error{
                 std::make_error_code(std::errc::not_connected),
                 error
             }));
-        }
-
-        void CompleteHandler(ILiteClient::Result&& result)
-        {
-            //Log::Debug("(debug) skip completion w/ {}", std::move(result).has_value() ? "success" : "error");
-            std::move(handler)(std::move(result));
+            delete this;
         }
     };
 
@@ -104,12 +77,19 @@ namespace Http
         }
     }
 
-    boost::asio::awaitable<ILiteClient::Result> JsFetchLiteClient::GetAsync(std::string url)
+    void JsFetchLiteClient::Get(std::string_view url, Callback&& handler, std::stop_token stopToken)
     {
-        Log::Debug("http: async: {}", url);
-        JsFetchContext ctx{std::move(url), co_await boost::asio::this_coro::executor};
-        auto result = co_await ctx.FetchAsync(boost::asio::use_awaitable);
-        co_return result;
+        if (stopToken.stop_requested()) {
+            handler(std::unexpected(std::system_error{
+                std::make_error_code(std::errc::operation_canceled),
+                "stop requested before request"
+            }));
+            return;
+        }
+
+        Log::Debug("http: js_fetch: {}", url);
+        auto* ctx = new JsFetchContext{std::string{url}, std::move(handler)};
+        JsFetchContext_Fetch(ctx, ctx->url.c_str());
     }
 }
 #endif

@@ -39,7 +39,7 @@ static boost::asio::awaitable<int> CoroMain(Boot::CliArgs args)
 {
     auto executor = co_await boost::asio::this_coro::executor;
 
-    auto useJsFetchClient = !args.Contains("--em");
+    auto useJsFetchClient = !args.Contains("--nojs");
     const auto client = Http::LiteClient::MakeDefault({
         .executor = executor,
         .wasm = {.useJsFetchClient = useJsFetchClient}

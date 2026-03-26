@@ -1,6 +1,6 @@
 #pragma once
 #if __EMSCRIPTEN__
-#include "../AsioLiteClient.h"
+#include "../../ILiteClient.h"
 
 namespace Http
 {
@@ -8,11 +8,10 @@ namespace Http
     /// It's based on XMLHttpRequest in browser, so doesn't work in WASI environment (i.e. Node.js),
     ///   so requires Polyfill for XMLHttpRequest to work there (can be linked w/ --post-js <polyfill.js>).
     /// See https://emscripten.org/docs/api_reference/fetch.html
-    class EmFetchLiteClient : public AsioLiteClient
+    class EmFetchLiteClient : public ILiteClient
     {
     public:
-        using AsioLiteClient::AsioLiteClient;
-        boost::asio::awaitable<ILiteClient::Result> GetAsync(std::string url) override;
+        void Get(std::string_view url, Callback&& handler, std::stop_token stopToken) override;
     };
 }
 #endif
