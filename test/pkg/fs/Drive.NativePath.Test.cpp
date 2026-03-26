@@ -51,62 +51,63 @@ protected:
 
 TEST_F(FsTestFixture, DriveOverlay)
 {
-    Fs::NativeDrive drive({testDir1});
+    auto drive = Fs::NativeDrive::Make(testDir1);
 
-    const auto result = drive.GetNativePath("file.txt");
+    const auto result = drive->GetNativePath("file.txt");
+    Log::Debug("Native path result: {}", result ? result.value().string() : result.error().message());
     ASSERT_TRUE(result.has_value());
     EXPECT_EQ(result.value(), testFile1);
 }
 
 TEST_F(FsTestFixture, GetSizeExistingFile)
 {
-    Fs::NativeDrive drive({testDir1});
+    auto drive = Fs::NativeDrive::Make(testDir1);
 
-    auto result = drive.GetSize("file.txt");
+    auto result = drive->GetSize("file.txt");
     ASSERT_TRUE(result.has_value());
     EXPECT_EQ(result.value(), 5u); // "test1"
 }
 
 TEST_F(FsTestFixture, GetSizeFileNotFound)
 {
-    Fs::NativeDrive drive({testDir1});
+    auto drive = Fs::NativeDrive::Make(testDir1);
 
-    auto result = drive.GetSize("nonexistent.txt");
+    auto result = drive->GetSize("nonexistent.txt");
     EXPECT_FALSE(result.has_value());
     EXPECT_EQ(result.error(), std::make_error_code(std::errc::no_such_file_or_directory));
 }
 
 TEST_F(FsTestFixture, ReadAllToExistingFile)
 {
-    Fs::NativeDrive drive({testDir1});
+    auto drive = Fs::NativeDrive::Make(testDir1);
 
-    auto sizeResult = drive.GetSize("file.txt");
+    auto sizeResult = drive->GetSize("file.txt");
     ASSERT_TRUE(sizeResult.has_value());
 
     std::vector<uint8_t> buf(*sizeResult);
-    auto readResult = drive.ReadAllTo("file.txt", buf);
+    auto readResult = drive->ReadAllTo("file.txt", buf);
     ASSERT_TRUE(readResult.has_value());
     EXPECT_EQ(*readResult, 5u);
 
-    std::string_view content(reinterpret_cast<const char*>(buf.data()), *readResult);
+    std::string_view content(reinterpret_cast<const char*>(buf.data()), *readResult); // NOLINT(cppcoreguidelines-pro-type-reinterpret-cast)
     EXPECT_EQ(content, "test1");
 }
 
 TEST_F(FsTestFixture, ReadAllToFileNotFound)
 {
-    Fs::NativeDrive drive({testDir1});
+    auto drive = Fs::NativeDrive::Make(testDir1);
 
     std::vector<uint8_t> buf(64);
-    auto result = drive.ReadAllTo("nonexistent.txt", buf);
+    auto result = drive->ReadAllTo("nonexistent.txt", buf);
     EXPECT_FALSE(result.has_value());
     EXPECT_EQ(result.error(), std::make_error_code(std::errc::no_such_file_or_directory));
 }
 
 TEST_F(FsTestFixture, OverlayGetSize)
 {
-    Fs::NativeDrive drive1({testDir1});
-    Fs::NativeDrive drive2({testDir2});
-    Fs::OverlayDrive overlay({&drive1, &drive2});
+    auto drive1 = Fs::NativeDrive::Make(testDir1);
+    auto drive2 = Fs::NativeDrive::Make(testDir2);
+    Fs::OverlayDrive overlay(drive1, drive2);
 
     auto result = overlay.GetSize("file.txt");
     ASSERT_TRUE(result.has_value());
@@ -115,24 +116,24 @@ TEST_F(FsTestFixture, OverlayGetSize)
 
 TEST_F(FsTestFixture, OverlayReadAllTo)
 {
-    Fs::NativeDrive drive1({testDir1});
-    Fs::NativeDrive drive2({testDir2});
-    Fs::OverlayDrive overlay({&drive1, &drive2});
+    auto drive1 = Fs::NativeDrive::Make(testDir1);
+    auto drive2 = Fs::NativeDrive::Make(testDir2);
+    Fs::OverlayDrive overlay(drive1, drive2);
 
     std::vector<uint8_t> buf(5);
     auto result = overlay.ReadAllTo("file.txt", buf);
     ASSERT_TRUE(result.has_value());
 
-    std::string_view content(reinterpret_cast<const char*>(buf.data()), *result);
+    std::string_view content(reinterpret_cast<const char*>(buf.data()), *result); //NOLINT(cppcoreguidelines-pro-type-reinterpret-cast)
     EXPECT_EQ(content, "test1");
 }
 
 TEST_F(FsTestFixture, SystemDefaultDrive)
 {
-    auto& drive = Fs::System::GetDefaultDrive();
+    auto drive = Fs::System::MakeDefaultDrive();
 
     // Test with absolute path that we know exists (created in test setup)
-    const auto result = drive.GetNativePath(testFile1);
+    const auto result = drive->GetNativePath(testFile1);
     ASSERT_TRUE(result.has_value());
     EXPECT_EQ(result.value(), testFile1);
 }
@@ -161,11 +162,11 @@ TEST(FsTest, RunfilesDrive)
 
 TEST_F(FsTestFixture, OverlayDrive)
 {
-    Fs::NativeDrive drive1({testDir1});
-    Fs::NativeDrive drive2({testDir2});
-    Fs::NativeDrive drive3({testDir3});
+    auto drive1 = Fs::NativeDrive::Make(testDir1);
+    auto drive2 = Fs::NativeDrive::Make(testDir2);
+    auto drive3 = Fs::NativeDrive::Make(testDir3);
 
-    Fs::OverlayDrive overlay({&drive1, &drive2, &drive3});
+    Fs::OverlayDrive overlay(drive1, drive2, drive3);
 
     const auto result = overlay.GetNativePath("file.txt");
     ASSERT_TRUE(result.has_value());
@@ -175,10 +176,10 @@ TEST_F(FsTestFixture, OverlayDrive)
 
 TEST_F(FsTestFixture, OverlayDriveWithRunfiles)
 {
-    Fs::RunfilesDrive runfiles("tx-pkg-aux");
-    Fs::NativeDrive fallback({testDir1});
+    auto runfiles = std::make_shared<Fs::RunfilesDrive>("tx-pkg-aux");
+    auto fallback = Fs::NativeDrive::Make(testDir1);
 
-    Fs::OverlayDrive overlay({&runfiles, &fallback});
+    Fs::OverlayDrive overlay(runfiles, fallback);
 
 #if defined(__EMSCRIPTEN__) || defined(__ANDROID__)
     // On WASM and Android, runfiles not supported, should fall back to native drive
@@ -187,7 +188,7 @@ TEST_F(FsTestFixture, OverlayDriveWithRunfiles)
     EXPECT_EQ(result.value(), testFile1);
 #else
     // On desktop, should use runfiles if available
-    if (runfiles.IsSupported())
+    if (runfiles->IsSupported())
     {
         auto result = overlay.GetNativePath("test/pkg/fs/data/test.txt");
         ASSERT_TRUE(result.has_value());
@@ -199,15 +200,15 @@ TEST_F(FsTestFixture, OverlayDriveWithRunfiles)
 
 TEST_F(FsTestFixture, NativeDriveMultiplePrefixes)
 {
-    Fs::NativeDrive drive({testDir1, testDir2, testDir3});
+    auto drive = Fs::NativeDrive::Make(testDir1, testDir2, testDir3);
 
     // Should search through all prefixes and return first match
-    const auto result = drive.GetNativePath("file.txt");
+    const auto result = drive->GetNativePath("file.txt");
     ASSERT_TRUE(result.has_value());
     EXPECT_EQ(result.value(), testFile1);
 
     // Test file that exists only in first directory
-    const auto result2 = drive.GetNativePath("only_in_first.txt");
+    const auto result2 = drive->GetNativePath("only_in_first.txt");
     ASSERT_TRUE(result2.has_value());
     EXPECT_EQ(result2.value(), testFile1Only);
 }

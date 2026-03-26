@@ -1,4 +1,6 @@
 #include "RunfilesDrive.h"
+
+#include <utility>
 #include "System.h"
 #include "Boot/Boot.h"
 #include "Log/Log.h"
@@ -29,13 +31,13 @@ namespace Fs
         }
     };
 
-    RunfilesDrive::RunfilesDrive(std::string_view workspaceName, Drive* nativeDrive)
+    RunfilesDrive::RunfilesDrive(std::string_view workspaceName, std::shared_ptr<Drive> nativeDrive)
         : _impl(std::make_unique<Impl>(workspaceName))
-        , _nativeDrive(nativeDrive)
+        , _nativeDrive(std::move(nativeDrive))
     {
         Log::Trace("{}", workspaceName);
         if (_nativeDrive == nullptr) {
-            _nativeDrive = &Fs::System::GetDefaultDrive();
+            _nativeDrive = Fs::System::MakeDefaultDrive();
         }
     }
 

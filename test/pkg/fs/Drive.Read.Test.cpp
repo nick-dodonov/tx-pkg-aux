@@ -32,7 +32,7 @@ protected:
 
 TEST_F(FsReadFixture, ReadAllToBytes)
 {
-    Fs::NativeDrive drive({testDir1});
+    Fs::NativeDrive drive(testDir1);
 
     auto sizeResult = drive.GetSize("file.txt");
     ASSERT_TRUE(sizeResult.has_value());
@@ -47,7 +47,7 @@ TEST_F(FsReadFixture, ReadAllToBytes)
 
 TEST_F(FsReadFixture, ReadAllToString)
 {
-    Fs::NativeDrive drive({testDir1});
+    Fs::NativeDrive drive(testDir1);
 
     auto sizeResult = drive.GetSize("file.txt");
     ASSERT_TRUE(sizeResult.has_value());
@@ -63,7 +63,7 @@ TEST_F(FsReadFixture, ReadAllToString)
 
 TEST_F(FsReadFixture, ReadAllToFileNotFound)
 {
-    Fs::NativeDrive drive({testDir1});
+    Fs::NativeDrive drive(testDir1);
 
     auto sizeResult = drive.GetSize("nonexistent.txt");
     EXPECT_FALSE(sizeResult.has_value());
@@ -72,9 +72,9 @@ TEST_F(FsReadFixture, ReadAllToFileNotFound)
 
 TEST_F(FsReadFixture, OverlayDriveReadAllTo)
 {
-    Fs::NativeDrive drive1({testDir1});
-    Fs::NativeDrive drive2({testDir2});
-    Fs::OverlayDrive overlay({&drive1, &drive2});
+    auto drive1 = Fs::NativeDrive::Make(testDir1);
+    auto drive2 = Fs::NativeDrive::Make(testDir2);
+    Fs::OverlayDrive overlay(drive1, drive2);
 
     auto sizeResult = overlay.GetSize("file.txt");
     ASSERT_TRUE(sizeResult.has_value());

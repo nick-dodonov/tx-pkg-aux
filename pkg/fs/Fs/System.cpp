@@ -13,38 +13,27 @@ namespace Fs
 {
     Drive& System::GetDefaultDrive()
     {
+        static auto drive = MakeDefaultDrive();
+        return *drive;
+    }
+
+    std::shared_ptr<Drive> System::MakeDefaultDrive()
+    {
+        std::vector<Path> prefixes;
+        prefixes.emplace_back(std::filesystem::current_path());
+        const auto& args = Boot::GetDefaultArgs();
+        if (!args.empty()) {
+            const auto exePath = Path(args[0]);
+            prefixes.emplace_back(exePath.parent_path());
+        }
 #ifdef __ANDROID__
-        static OverlayDrive drive = []() {
-            std::vector<Path> prefixes;
-            prefixes.push_back(std::filesystem::current_path());
+        auto nativeDrive = std::make_shared<NativeDrive>(std::move(prefixes));
+        auto androidDrive = std::make_shared<AndroidDrive>(Droid::Glue::Instance().GetAssetManager());
 
-            const auto& args = Boot::GetDefaultArgs();
-            if (args.size() >= 1) {
-                auto exePath = Path(args[0]);
-                prefixes.push_back(exePath.parent_path());
-            }
-
-            static NativeDrive nativeDrive(std::move(prefixes));
-            static AndroidDrive androidDrive(Droid::Glue::Instance().GetAssetManager());
-
-            // Try Android assets first, then fall back to native filesystem
-            return OverlayDrive({&androidDrive, &nativeDrive});
-        }();
+        // Try Android assets first, then fall back to native filesystem
+        return std::make_shared<OverlayDrive>(androidDrive, nativeDrive);
 #else
-        static auto drive = []() {
-            std::vector<Path> prefixes;
-            prefixes.push_back(std::filesystem::current_path());
-
-            const auto& args = Boot::GetDefaultArgs();
-            if (args.size() >= 1) {
-                auto exePath = Path(args[0]);
-                prefixes.push_back(exePath.parent_path());
-            }
-
-            return NativeDrive(std::move(prefixes));
-        }();
+        return NativeDrive::Make(std::move(prefixes));
 #endif
-
-        return drive;
     }
 }

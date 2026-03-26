@@ -6,8 +6,7 @@
 
 namespace Fs
 {
-    NativeDrive::NativeDrive(std::vector<Path> prefixPaths)
-        : _prefixPaths(std::move(prefixPaths))
+    void NativeDrive::InitTrace() const
     {
         if (Log::Enabled(Log::Level::Trace)) {
             std::ostringstream oss;
@@ -75,7 +74,7 @@ namespace Fs
             return std::unexpected(std::make_error_code(std::errc::no_such_file_or_directory));
         }
 
-        file.read(reinterpret_cast<char*>(buf.data()), static_cast<std::streamsize>(buf.size()));
+        file.read(reinterpret_cast<char*>(buf.data()), static_cast<std::streamsize>(buf.size())); //NOLINT(cppcoreguidelines-pro-type-reinterpret-cast)
         return static_cast<size_t>(file.gcount());
     }
 }

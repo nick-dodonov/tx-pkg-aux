@@ -2,15 +2,11 @@
 
 namespace Fs
 {
-    OverlayDrive::OverlayDrive(std::vector<Drive*> drives)
-        : _drives(std::move(drives))
-    {}
-
     Drive::PathResult OverlayDrive::GetNativePath(const Path& path)
     {
         std::error_code lastError = std::make_error_code(std::errc::no_such_file_or_directory);
 
-        for (auto* drive : _drives) {
+        for (const auto& drive : _drives) {
             if (!drive) {
                 continue;
             }
@@ -30,7 +26,7 @@ namespace Fs
     {
         std::error_code lastError = std::make_error_code(std::errc::no_such_file_or_directory);
 
-        for (auto* drive : _drives) {
+        for (const auto& drive : _drives) {
             if (!drive) {
                 continue;
             }
@@ -50,7 +46,7 @@ namespace Fs
     {
         std::error_code lastError = std::make_error_code(std::errc::no_such_file_or_directory);
 
-        for (auto* drive : _drives) {
+        for (const auto& drive : _drives) {
             if (!drive) {
                 continue;
             }
