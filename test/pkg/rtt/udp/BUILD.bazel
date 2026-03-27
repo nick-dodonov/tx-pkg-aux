@@ -3,7 +3,10 @@ load("@tx-kit-ext//rules:multi_app.bzl", "multi_test")
 multi_test(
     name = "udp",
     srcs = glob(["*.cpp"]),
-    platforms = ["host"],
+    platforms = [
+        "host",
+        "droid",
+    ],
     deps = [
         "//pkg/boot",
         "//pkg/rtt/udp",

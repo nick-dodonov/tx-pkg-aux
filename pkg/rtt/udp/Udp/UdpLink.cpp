@@ -1,5 +1,6 @@
 #include "UdpLink.h"
 
+#include "Log/Log.h"
 #include <boost/asio/buffer.hpp>
 #include <cstring>
 #include <utility>
@@ -61,6 +62,8 @@ namespace Rtt::Udp
 
         buf.resize(bytesWritten);
 
+        Log::Trace("send {} bytes {} -> {}", bytesWritten, _localId.value, _remoteId.value);
+
         if (_ownedSocket) {
             // Connected mode: async_send on dedicated socket
             auto self = ILink::shared_from_this();
@@ -88,6 +91,8 @@ namespace Rtt::Udp
             return;
         }
         _closed = true;
+
+        Log::Trace("disconnect {} -> {}", _localId.value, _remoteId.value);
 
         if (_ownedSocket && _ownedSocket->is_open()) {
             boost::system::error_code ec;
@@ -138,6 +143,8 @@ namespace Rtt::Udp
             boost::asio::buffer(_recvBuf.data(), _recvBuf.size()),
             [self](boost::system::error_code ec, std::size_t bytesReceived) {
                 if (ec) {
+                    Log::Trace("receive error {} -> {} — {}",
+                               self->_localId.value, self->_remoteId.value, ec.message());
                     if (!self->_closed) {
                         self->Disconnect();
                     }

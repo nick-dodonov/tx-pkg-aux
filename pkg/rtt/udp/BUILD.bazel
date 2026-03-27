@@ -12,6 +12,7 @@ multi_lib(
     visibility = ["//visibility:public"],
     deps = [
         "//pkg/asio:boost_asio_wrapped",
+        "//pkg/log",
         "//pkg/rtt",
     ],
 )

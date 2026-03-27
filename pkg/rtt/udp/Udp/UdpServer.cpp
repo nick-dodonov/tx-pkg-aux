@@ -2,6 +2,7 @@
 #include "UdpLink.h"
 #include "UdpServer.h"
 
+#include "Log/Log.h"
 #include <boost/asio/ip/udp.hpp>
 #include <map>
 #include <memory>
@@ -58,6 +59,8 @@ namespace Rtt::Udp
             auto remoteId = EndpointToPeerId(senderEndpoint);
             auto remoteEp = senderEndpoint;
 
+            Log::Trace("new peer {} on {}", remoteId.value, localId.value);
+
             auto link = std::make_shared<UdpLink>(
                 socket, remoteEp, localId, remoteId,
                 maxDatagramSize,
@@ -83,6 +86,7 @@ namespace Rtt::Udp
     UdpServer::~UdpServer()
     {
         if (_listenState) {
+            Log::Trace("closing on port {}", _localPort);
             _listenState->stopped = true;
             if (_listenState->socket && _listenState->socket->is_open()) {
                 boost::system::error_code ec;
@@ -102,6 +106,7 @@ namespace Rtt::Udp
 
         auto _ = socket->open(udp::v4(), ec);
         if (ec) {
+            Log::Trace("socket open failed — {}", ec.message());
             acceptor->OnLink(std::unexpected(MapAsioError(ec)));
             return;
         }
@@ -109,11 +114,14 @@ namespace Rtt::Udp
         _ = socket->set_option(asio::socket_base::reuse_address(true), ec);
         _ = socket->bind(udp::endpoint(udp::v4(), port), ec);
         if (ec) {
+            Log::Trace("bind failed on port {} — {}", port, ec.message());
             acceptor->OnLink(std::unexpected(MapAsioError(ec)));
             return;
         }
 
         _localPort = socket->local_endpoint().port();
+
+        Log::Trace("listening on port {}", _localPort);
 
         _listenState = std::make_shared<ListenState>();
         _listenState->socket = std::move(socket);
