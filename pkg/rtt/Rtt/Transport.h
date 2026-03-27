@@ -7,33 +7,28 @@ namespace Rtt
     /// Compile-time contract for transport-like types.
     template <typename T>
     concept TransportLike = requires(T& t, std::shared_ptr<ILinkAcceptor> acceptor) {
-        { t.Connect(acceptor) };
-        { t.Listen(acceptor) };
+        { t.Open(acceptor) };
     };
 
     /// Runtime-polymorphic transport interface.
     ///
-    /// Entry point for establishing and accepting real-time connections.
-    /// Implementations may wrap WebRTC, raw UDP, overlay networks, etc.
-    /// Addressing and configuration are implementation-specific (URLs for
-    /// WebSocket, host/port for UDP, complex structs for WebRTC, etc.)
-    /// and should be provided through concrete constructors or setters.
+    /// A single-role entry point for obtaining real-time links.
+    /// Each concrete transport represents exactly one role (client or
+    /// server) and exactly one technology (UDP, WebRTC, overlay, …).
+    /// Addressing and configuration are implementation-specific and
+    /// should be provided through concrete constructors or setters.
     class ITransport
     {
     public:
         virtual ~ITransport() = default;
 
-        /// Initiate an asynchronous outbound connection.
+        /// Activate this transport.
         ///
-        /// The acceptor's OnLink() will be called when the attempt
-        /// completes (with a live link on success, or an Error on failure).
-        virtual void Connect(std::shared_ptr<ILinkAcceptor> acceptor) = 0;
-
-        /// Start listening for inbound connections.
-        ///
-        /// The acceptor's OnLink() will be called for each incoming
-        /// connection (or once with an Error if listening fails).
-        virtual void Listen(std::shared_ptr<ILinkAcceptor> acceptor) = 0;
+        /// The acceptor's OnLink() will be called when a link is
+        /// established (with a live link on success, or an Error on
+        /// failure). For client transports this fires once; for server
+        /// transports it may fire for each incoming connection.
+        virtual void Open(std::shared_ptr<ILinkAcceptor> acceptor) = 0;
     };
 
     static_assert(TransportLike<ITransport>);

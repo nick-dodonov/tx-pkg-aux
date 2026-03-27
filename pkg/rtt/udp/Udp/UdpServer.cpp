@@ -1,7 +1,7 @@
+#include "UdpCommon.h"
 #include "UdpLink.h"
-#include "UdpTransport.h"
+#include "UdpServer.h"
 #include <boost/asio/ip/udp.hpp>
-#include <format>
 #include <map>
 #include <memory>
 #include <utility>
@@ -12,39 +12,10 @@ namespace Rtt::Udp
     using udp = asio::ip::udp;
 
     // -----------------------------------------------------------------------
-    // Helpers
+    // ListenState — shared state for the receive loop
     // -----------------------------------------------------------------------
 
-    namespace
-    {
-        PeerId EndpointToPeerId(const udp::endpoint& ep)
-        {
-            return PeerId{
-                .value = std::format("{}:{}", ep.address().to_string(), ep.port())
-            };
-        }
-
-        Error MapAsioError(const boost::system::error_code& ec)
-        {
-            if (ec == asio::error::connection_refused) {
-                return Error::ConnectionRefused;
-            }
-            if (ec == asio::error::timed_out) {
-                return Error::Timeout;
-            }
-            if (ec == asio::error::host_not_found ||
-                ec == asio::error::host_not_found_try_again) {
-                return Error::AddressInvalid;
-            }
-            return Error::Unknown;
-        }
-    }
-
-    // -----------------------------------------------------------------------
-    // ListenState — shared state for the listener receive loop
-    // -----------------------------------------------------------------------
-
-    struct UdpTransport::ListenState
+    struct UdpServer::ListenState
     {
         std::shared_ptr<udp::socket> socket;
         std::shared_ptr<ILinkAcceptor> acceptor;
@@ -57,7 +28,7 @@ namespace Rtt::Udp
 
         void StartReceive()
         {
-            if (stopped) { 
+            if (stopped) {
                 return;
             }
 
@@ -77,12 +48,10 @@ namespace Rtt::Udp
             auto it = links.find(senderEndpoint);
 
             if (it != links.end()) {
-                // Known peer — dispatch to existing link
                 it->second->DeliverReceived(data);
                 return;
             }
 
-            // New peer — create link and notify acceptor
             auto remoteId = EndpointToPeerId(senderEndpoint);
             auto remoteEp = senderEndpoint;
 
@@ -96,20 +65,19 @@ namespace Rtt::Udp
             auto handler = acceptor->OnLink(link);
             link->SetHandler(std::move(handler));
 
-            // Deliver the first datagram that triggered link creation
             link->DeliverReceived(data);
         }
     };
 
     // -----------------------------------------------------------------------
-    // UdpTransport
+    // UdpServer
     // -----------------------------------------------------------------------
 
-    UdpTransport::UdpTransport(Options options)
+    UdpServer::UdpServer(Options options)
         : _options(std::move(options))
     {}
 
-    UdpTransport::~UdpTransport()
+    UdpServer::~UdpServer()
     {
         if (_listenState) {
             _listenState->stopped = true;
@@ -120,54 +88,7 @@ namespace Rtt::Udp
         }
     }
 
-    // -----------------------------------------------------------------------
-    // Connect
-    // -----------------------------------------------------------------------
-
-    void UdpTransport::Connect(std::shared_ptr<ILinkAcceptor> acceptor)
-    {
-        auto executor = _options.executor;
-        auto host = _options.remoteHost;
-        auto port = std::to_string(_options.remotePort);
-        auto maxDgSize = _options.maxDatagramSize;
-
-        auto resolver = std::make_shared<udp::resolver>(executor);
-        resolver->async_resolve(
-            host, port,
-            [resolver, executor, maxDgSize, acceptor = std::move(acceptor)]
-            (boost::system::error_code ec, udp::resolver::results_type results) mutable {
-                if (ec) {
-                    acceptor->OnLink(std::unexpected(MapAsioError(ec)));
-                    return;
-                }
-
-                auto remoteEp = *results.begin();
-                udp::socket socket(executor, udp::v4());
-
-                boost::system::error_code connectEc;
-                auto _ = socket.connect(remoteEp, connectEc);
-                if (connectEc) {
-                    acceptor->OnLink(std::unexpected(MapAsioError(connectEc)));
-                    return;
-                }
-
-                auto localEp = socket.local_endpoint();
-                auto localId = EndpointToPeerId(localEp);
-                auto remoteId = EndpointToPeerId(remoteEp);
-
-                auto link = std::make_shared<UdpLink>(
-                    std::move(socket), std::move(localId), std::move(remoteId), maxDgSize);
-
-                auto handler = acceptor->OnLink(link);
-                link->StartReceive(std::move(handler));
-            });
-    }
-
-    // -----------------------------------------------------------------------
-    // Listen
-    // -----------------------------------------------------------------------
-
-    void UdpTransport::Listen(std::shared_ptr<ILinkAcceptor> acceptor)
+    void UdpServer::Open(std::shared_ptr<ILinkAcceptor> acceptor)
     {
         auto executor = _options.executor;
         auto port = _options.localPort;

@@ -9,8 +9,8 @@ namespace Rtt::Testing
 {
     /// Minimal mock transport for unit tests.
     ///
-    /// Stores pending Connect/Listen requests and exposes Simulate*()
-    /// helpers so tests can trigger callbacks deterministically.
+    /// Stores pending Open() requests and exposes Simulate*() helpers
+    /// so tests can trigger callbacks deterministically.
     class MockTransport : public ITransport
     {
     public:
@@ -19,71 +19,44 @@ namespace Rtt::Testing
             std::shared_ptr<ILinkAcceptor> acceptor;
         };
 
-        void Connect(std::shared_ptr<ILinkAcceptor> acceptor) override
+        void Open(std::shared_ptr<ILinkAcceptor> acceptor) override
         {
-            _pendingConnects.push_back({std::move(acceptor)});
-        }
-
-        void Listen(std::shared_ptr<ILinkAcceptor> acceptor) override
-        {
-            _pendingListens.push_back({std::move(acceptor)});
+            _pendingRequests.push_back({std::move(acceptor)});
         }
 
         // --- Simulation helpers ---
 
-        struct SimulatedConnection
+        struct SimulatedLink
         {
             std::shared_ptr<MockLink> link;
             LinkHandler handler;
         };
 
-        /// Simulate a successful outbound connection for the i-th pending
-        /// Connect request.
-        SimulatedConnection SimulateConnect(std::size_t index,
-                                            PeerId localId,
-                                            PeerId remoteId)
+        /// Simulate a successful link for the i-th pending Open() request.
+        SimulatedLink SimulateLink(std::size_t index,
+                                   PeerId localId,
+                                   PeerId remoteId)
         {
             auto link = std::make_shared<MockLink>(std::move(localId), std::move(remoteId));
-            auto handler = _pendingConnects[index].acceptor->OnLink(link);
+            auto handler = _pendingRequests[index].acceptor->OnLink(link);
             return {
-                .link=link, 
-                .handler=std::move(handler),
+                .link = link,
+                .handler = std::move(handler),
             };
         }
 
-        /// Simulate a connection error for the i-th pending Connect request.
-        LinkHandler SimulateConnectError(std::size_t index, Error error)
+        /// Simulate a link error for the i-th pending Open() request.
+        LinkHandler SimulateLinkError(std::size_t index, Error error)
         {
-            return _pendingConnects[index].acceptor->OnLink(std::unexpected(error));
-        }
-
-        /// Simulate an incoming connection for the i-th pending Listen request.
-        SimulatedConnection SimulateAccept(std::size_t index,
-                                           PeerId localId,
-                                           PeerId remoteId)
-        {
-            auto link = std::make_shared<MockLink>(std::move(localId), std::move(remoteId));
-            auto handler = _pendingListens[index].acceptor->OnLink(link);
-            return {
-                .link=link, 
-                .handler=std::move(handler),
-            };
-        }
-
-        /// Simulate a listen error for the i-th pending Listen request.
-        LinkHandler SimulateAcceptError(std::size_t index, Error error)
-        {
-            return _pendingListens[index].acceptor->OnLink(std::unexpected(error));
+            return _pendingRequests[index].acceptor->OnLink(std::unexpected(error));
         }
 
         // --- Test accessors ---
 
-        [[nodiscard]] const std::vector<PendingRequest>& PendingConnects() const { return _pendingConnects; }
-        [[nodiscard]] const std::vector<PendingRequest>& PendingListens() const { return _pendingListens; }
+        [[nodiscard]] const std::vector<PendingRequest>& PendingRequests() const { return _pendingRequests; }
 
     private:
-        std::vector<PendingRequest> _pendingConnects;
-        std::vector<PendingRequest> _pendingListens;
+        std::vector<PendingRequest> _pendingRequests;
     };
 
     static_assert(TransportLike<MockTransport>);

@@ -77,18 +77,18 @@ TEST(Error, ErrorToStringCoversAll)
 }
 
 // ---------------------------------------------------------------------------
-// Connect — success flow
+// Open — success flow
 // ---------------------------------------------------------------------------
 
-TEST(Transport, ConnectSuccess)
+TEST(Transport, OpenSuccess)
 {
     MockTransport transport;
     auto acceptor = std::make_shared<TestAcceptor>();
 
-    transport.Connect(acceptor);
-    ASSERT_EQ(transport.PendingConnects().size(), 1u);
+    transport.Open(acceptor);
+    ASSERT_EQ(transport.PendingRequests().size(), 1u);
 
-    auto [link, handler] = transport.SimulateConnect(
+    auto [link, handler] = transport.SimulateLink(
         0, PeerId{.value = "local-1"}, PeerId{.value = "remote-1"});
 
     ASSERT_EQ(acceptor->links.size(), 1u);
@@ -99,34 +99,34 @@ TEST(Transport, ConnectSuccess)
 }
 
 // ---------------------------------------------------------------------------
-// Connect — error flow
+// Open — error flow
 // ---------------------------------------------------------------------------
 
-TEST(Transport, ConnectError)
+TEST(Transport, OpenError)
 {
     MockTransport transport;
     auto acceptor = std::make_shared<TestAcceptor>();
 
-    transport.Connect(acceptor);
-    transport.SimulateConnectError(0, Error::AddressInvalid);
+    transport.Open(acceptor);
+    transport.SimulateLinkError(0, Error::AddressInvalid);
 
     EXPECT_TRUE(acceptor->links.empty());
     EXPECT_EQ(acceptor->lastError, Error::AddressInvalid);
 }
 
 // ---------------------------------------------------------------------------
-// Listen — accept flow
+// Open — multiple links (server-like)
 // ---------------------------------------------------------------------------
 
-TEST(Transport, ListenAccept)
+TEST(Transport, OpenMultipleLinks)
 {
     MockTransport transport;
     auto acceptor = std::make_shared<TestAcceptor>();
 
-    transport.Listen(acceptor);
-    ASSERT_EQ(transport.PendingListens().size(), 1u);
+    transport.Open(acceptor);
+    ASSERT_EQ(transport.PendingRequests().size(), 1u);
 
-    auto [link, handler] = transport.SimulateAccept(
+    auto [link, handler] = transport.SimulateLink(
         0, PeerId{.value = "server"}, PeerId{.value = "client-1"});
 
     ASSERT_EQ(acceptor->links.size(), 1u);
@@ -136,16 +136,16 @@ TEST(Transport, ListenAccept)
 }
 
 // ---------------------------------------------------------------------------
-// Listen — error flow
+// Open — transport-level error
 // ---------------------------------------------------------------------------
 
-TEST(Transport, ListenError)
+TEST(Transport, OpenTransportError)
 {
     MockTransport transport;
     auto acceptor = std::make_shared<TestAcceptor>();
 
-    transport.Listen(acceptor);
-    transport.SimulateAcceptError(0, Error::TransportClosed);
+    transport.Open(acceptor);
+    transport.SimulateLinkError(0, Error::TransportClosed);
 
     EXPECT_TRUE(acceptor->links.empty());
     EXPECT_EQ(acceptor->lastError, Error::TransportClosed);
@@ -201,8 +201,8 @@ TEST(Link, ReceiveFlow)
     MockTransport transport;
     auto acceptor = std::make_shared<TestAcceptor>();
 
-    transport.Connect(acceptor);
-    auto [link, handler] = transport.SimulateConnect(
+    transport.Open(acceptor);
+    auto [link, handler] = transport.SimulateLink(
         0, PeerId{.value = "L"}, PeerId{.value = "R"});
 
     // Simulate incoming data via the handler
@@ -222,8 +222,8 @@ TEST(Link, DisconnectNotification)
     MockTransport transport;
     auto acceptor = std::make_shared<TestAcceptor>();
 
-    transport.Connect(acceptor);
-    auto [link, handler] = transport.SimulateConnect(
+    transport.Open(acceptor);
+    auto [link, handler] = transport.SimulateLink(
         0, PeerId{.value = "L"}, PeerId{.value = "R"});
 
     EXPECT_FALSE(acceptor->disconnected);

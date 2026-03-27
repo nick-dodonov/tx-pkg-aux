@@ -20,9 +20,10 @@ namespace Rtt
 
     /// Runtime-polymorphic link acceptor interface.
     ///
-    /// Handles the arrival of new links — whether from an outbound Connect()
-    /// or inbound Listen(). Returns a LinkHandler that the transport binds
-    /// to the link for subsequent data delivery and disconnect notification.
+    /// Handles the arrival of new links — whether from an outbound
+    /// client or inbound server transport. Returns a LinkHandler that
+    /// the transport binds to the link for subsequent data delivery
+    /// and disconnect notification.
     class ILinkAcceptor
     {
     public:

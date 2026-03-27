@@ -1,5 +1,6 @@
 #include "TestAcceptor.h"
-#include "Udp/UdpTransport.h"
+#include "Udp/UdpClient.h"
+#include "Udp/UdpServer.h"
 #include <boost/asio.hpp>
 #include <cstddef>
 #include <cstring>
@@ -64,19 +65,19 @@ TEST(UdpTransport, ConnectAndSendReceive)
 
     // Server: listen on OS-assigned port
     auto serverAcceptor = std::make_shared<TestAcceptor>();
-    UdpTransport server{{.executor = io.get_executor(), .localPort = 0}};
-    server.Listen(serverAcceptor);
+    UdpServer server{{.executor = io.get_executor(), .localPort = 0}};
+    server.Open(serverAcceptor);
     auto serverPort = server.LocalPort();
     ASSERT_NE(serverPort, 0);
 
     // Client: connect to the server
     auto clientAcceptor = std::make_shared<TestAcceptor>();
-    UdpTransport client{{
+    UdpClient client{{
         .executor = io.get_executor(),
         .remoteHost = "127.0.0.1",
         .remotePort = serverPort,
     }};
-    client.Connect(clientAcceptor);
+    client.Open(clientAcceptor);
 
     // Drive until client link is established
     RunUntil(io, [&] { return clientAcceptor->links.size() == 1; });
@@ -104,16 +105,16 @@ TEST(UdpTransport, BidirectionalCommunication)
     asio::io_context io;
 
     auto serverAcceptor = std::make_shared<TestAcceptor>();
-    UdpTransport server{{.executor = io.get_executor(), .localPort = 0}};
-    server.Listen(serverAcceptor);
+    UdpServer server{{.executor = io.get_executor(), .localPort = 0}};
+    server.Open(serverAcceptor);
 
     auto clientAcceptor = std::make_shared<TestAcceptor>();
-    UdpTransport client{{
+    UdpClient client{{
         .executor = io.get_executor(),
         .remoteHost = "127.0.0.1",
         .remotePort = server.LocalPort(),
     }};
-    client.Connect(clientAcceptor);
+    client.Open(clientAcceptor);
 
     // Client -> Server
     RunUntil(io, [&] { return clientAcceptor->links.size() == 1; });
@@ -147,25 +148,25 @@ TEST(UdpTransport, ListenMultipleClients)
     asio::io_context io;
 
     auto serverAcceptor = std::make_shared<TestAcceptor>();
-    UdpTransport server{{.executor = io.get_executor(), .localPort = 0}};
-    server.Listen(serverAcceptor);
+    UdpServer server{{.executor = io.get_executor(), .localPort = 0}};
+    server.Open(serverAcceptor);
 
     // Two clients connect to the same server
     auto acceptorA = std::make_shared<TestAcceptor>();
-    UdpTransport clientA{{
+    UdpClient clientA{{
         .executor = io.get_executor(),
         .remoteHost = "127.0.0.1",
         .remotePort = server.LocalPort(),
     }};
-    clientA.Connect(acceptorA);
+    clientA.Open(acceptorA);
 
     auto acceptorB = std::make_shared<TestAcceptor>();
-    UdpTransport clientB{{
+    UdpClient clientB{{
         .executor = io.get_executor(),
         .remoteHost = "127.0.0.1",
         .remotePort = server.LocalPort(),
     }};
-    clientB.Connect(acceptorB);
+    clientB.Open(acceptorB);
 
     RunUntil(io, [&] {
         return acceptorA->links.size() == 1 && acceptorB->links.size() == 1;
@@ -205,16 +206,16 @@ TEST(UdpTransport, PeerIdsArePopulated)
     asio::io_context io;
 
     auto serverAcceptor = std::make_shared<TestAcceptor>();
-    UdpTransport server{{.executor = io.get_executor(), .localPort = 0}};
-    server.Listen(serverAcceptor);
+    UdpServer server{{.executor = io.get_executor(), .localPort = 0}};
+    server.Open(serverAcceptor);
 
     auto clientAcceptor = std::make_shared<TestAcceptor>();
-    UdpTransport client{{
+    UdpClient client{{
         .executor = io.get_executor(),
         .remoteHost = "127.0.0.1",
         .remotePort = server.LocalPort(),
     }};
-    client.Connect(clientAcceptor);
+    client.Open(clientAcceptor);
 
     RunUntil(io, [&] { return clientAcceptor->links.size() == 1; });
     auto& clientLink = clientAcceptor->links[0];
@@ -247,16 +248,16 @@ TEST(UdpTransport, ClientDisconnect)
     asio::io_context io;
 
     auto serverAcceptor = std::make_shared<TestAcceptor>();
-    UdpTransport server{{.executor = io.get_executor(), .localPort = 0}};
-    server.Listen(serverAcceptor);
+    UdpServer server{{.executor = io.get_executor(), .localPort = 0}};
+    server.Open(serverAcceptor);
 
     auto clientAcceptor = std::make_shared<TestAcceptor>();
-    UdpTransport client{{
+    UdpClient client{{
         .executor = io.get_executor(),
         .remoteHost = "127.0.0.1",
         .remotePort = server.LocalPort(),
     }};
-    client.Connect(clientAcceptor);
+    client.Open(clientAcceptor);
 
     RunUntil(io, [&] { return clientAcceptor->links.size() == 1; });
     auto& clientLink = clientAcceptor->links[0];
