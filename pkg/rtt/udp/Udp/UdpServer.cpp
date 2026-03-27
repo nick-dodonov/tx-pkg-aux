@@ -1,6 +1,7 @@
 #include "UdpCommon.h"
 #include "UdpLink.h"
 #include "UdpServer.h"
+
 #include <boost/asio/ip/udp.hpp>
 #include <map>
 #include <memory>
@@ -36,7 +37,9 @@ namespace Rtt::Udp
                 asio::buffer(recvBuf.data(), recvBuf.size()),
                 senderEndpoint,
                 [this, self = socket](boost::system::error_code ec, std::size_t bytesReceived) {
-                    if (ec || stopped) return;
+                    if (ec || stopped) {
+                        return;
+                    }
                     OnReceived(bytesReceived);
                     StartReceive();
                 });

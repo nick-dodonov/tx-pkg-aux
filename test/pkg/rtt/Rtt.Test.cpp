@@ -1,17 +1,17 @@
 #include "MockLink.h"
 #include "MockTransport.h"
-#include "TestAcceptor.h"
 #include "Rtt/Error.h"
 #include "Rtt/Handler.h"
 #include "Rtt/Link.h"
 #include "Rtt/PeerId.h"
 #include "Rtt/Transport.h"
+#include "TestAcceptor.h"
+
 #include <cstddef>
 #include <cstring>
 #include <gtest/gtest.h>
 #include <memory>
 #include <span>
-#include <string>
 #include <vector>
 
 using namespace Rtt;
