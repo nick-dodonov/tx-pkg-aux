@@ -1,0 +1,23 @@
+load("@tx-kit-ext//rules:multi_app.bzl", "multi_app")
+
+multi_app(
+    name = "server",
+    srcs = ["Server.cpp", "RttBridge.h"],
+    deps = [
+        "//pkg/app",
+        "//pkg/asio",
+        "//pkg/exec",
+        "//pkg/rtt/udp",
+    ],
+)
+
+multi_app(
+    name = "client",
+    srcs = ["Client.cpp", "RttBridge.h"],
+    deps = [
+        "//pkg/app",
+        "//pkg/asio",
+        "//pkg/exec",
+        "//pkg/rtt/udp",
+    ],
+)
