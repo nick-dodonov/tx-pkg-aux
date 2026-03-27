@@ -1,6 +1,7 @@
 #pragma once
 #include "RunLoop/Handler.h"
 #include "RunLoop/Runner.h"
+#include <chrono>
 
 namespace App
 {
@@ -10,13 +11,22 @@ namespace App
     class TightRunner final: public RunLoop::Runner
     {
     public:
-        TightRunner(HandlerPtr handler, bool wasmExitWorkaround = true);
+        struct Options
+        {
+            /// Enable workaround for emscripten exit code handling (see TightRunner.cpp)
+            bool wasmExitWorkaround{};
+            /// Sleep duration per iteration outside emscripten (0 = no sleep)
+            std::chrono::milliseconds sleepDuration{};
+        };
+
+        TightRunner(HandlerPtr handler, Options options);
         ~TightRunner();
 
         int Run() override;
         void Exit(int exitCode) override;
 
     private:
+        Options _options;
         bool _running{};
     };
 }

@@ -3,6 +3,8 @@
 
 #ifdef __EMSCRIPTEN__
 #include <emscripten.h>
+#else
+#include <thread>
 #endif
 
 namespace App
@@ -27,20 +29,23 @@ namespace App
     }
 #endif
 
-    TightRunner::TightRunner(HandlerPtr handler, bool wasmExitWorkaround)
+    TightRunner::TightRunner(HandlerPtr handler, Options options)
         : Runner(std::move(handler))
+        , _options(options)
     {
 #ifdef __EMSCRIPTEN__
         _asyncifyEnabled = (emscripten_has_asyncify() != 0);
-        Log::Trace("created (asyncify={})", _asyncifyEnabled ? "ON" : "OFF");
-        if (!_handlerRegistered && _asyncifyEnabled && wasmExitWorkaround) {
+        Log::Trace("asyncify={} exitWorkaround={}",
+            _asyncifyEnabled ? "ON" : "OFF",
+            _options.wasmExitWorkaround ? "ON" : "OFF");
+        if (!_handlerRegistered && _asyncifyEnabled && _options.wasmExitWorkaround) {
             _handlerRegistered = true;
             if (std::atexit(OnExitHandler) != 0) {
                 Log::Error("Failed to register exit handler");
             }
         }
 #else
-        Log::Trace("created");
+        Log::Trace("timeout={}ms", _options.sleepDuration.count());
 #endif
     }
 
@@ -69,6 +74,10 @@ namespace App
                 // Yield control to the event loop
                 //  https://emscripten.org/docs/api_reference/emscripten.h.html#sleeping
                 emscripten_sleep(0);
+            }
+#else
+            if (_options.sleepDuration.count() > 0) {
+                std::this_thread::sleep_for(_options.sleepDuration);
             }
 #endif
         }
