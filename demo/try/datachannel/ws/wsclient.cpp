@@ -63,7 +63,8 @@ static shared_ptr<rtc::PeerConnection> createPeerConnection(
 
 static std::string randomId(size_t length);
 
-int main(int argc, char** argv) try { //NOLINT(readability-function-cognitive-complexity)
+int main(int argc, char** argv) try //NOLINT(readability-function-cognitive-complexity)
+{
     Cmdline params(argc, argv);
 
     rtc::InitLogger(rtc::LogLevel::Info);
