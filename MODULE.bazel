@@ -91,3 +91,13 @@ git_repository(
     commit = "46ca0458a9806f63cde1c3bba76a2ec720974c00",
     remote = "https://github.com/NVIDIA/stdexec.git",
 )
+
+bazel_dep(name = "openssl", version = "3.5.5.bcr.1")
+git_repository(
+    name = "datachannel",
+    build_file = "//repo:datachannel.BUILD.bazel",
+    commit = "cda01abdb914138b3e9226a90940c0aad01fd62f",  # origin/v0.24
+    remote = "https://github.com/paullouisageneau/libdatachannel.git",
+    init_submodules = True,
+    verbose = True,
+)
