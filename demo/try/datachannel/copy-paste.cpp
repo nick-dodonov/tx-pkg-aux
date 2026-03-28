@@ -8,7 +8,7 @@ using namespace std::chrono_literals;
 int main(int argc, char** argv)
 {
     std::cout << "================================================================" << '\n';
-    std::cout << "libdatachannel version: " << RTC_VERSION << '\n';
+    std::cout << "[#### libdatachannel] version: " << RTC_VERSION << '\n';
 
     rtc::Configuration config;
 
@@ -48,15 +48,21 @@ int main(int argc, char** argv)
         }
     });
 
-    std::this_thread::sleep_for(1s);
-
     //TODO: include local processing
+    std::cout << "[#### Emulate processing]" << '\n';
+    std::this_thread::sleep_for(500ms);
 
+    std::cout << "[#### Start closing]" << '\n';
     if (dc) {
         dc->close();
     }
     if (pc) {
         pc->close();
     }
+
+    //TODO: wait closed
+    std::cout << "[#### Waiting closed]" << '\n';
+    std::this_thread::sleep_for(500ms);
+    std::cout << std::flush;
     return 0;
 }

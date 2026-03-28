@@ -6,18 +6,71 @@ filegroup(
     visibility = ["//visibility:private"],
 )
 
+# target for supporting boringssl as dependency instead of openssl
+genrule(
+    name = "FindOpenSSL",
+    outs = ["cmake/FindOpenSSL.cmake"],
+    cmd = """cat > $@ << 'EOF'
+message(STATUS "======== [BoringSSL-Wrapper] ========")
+message(STATUS "CMAKE_VERSION: $${CMAKE_VERSION}")
+message(STATUS "CMAKE_COMMAND: $${CMAKE_COMMAND}")
+message(STATUS "CMAKE_ROOT: $${CMAKE_ROOT}")
+
+# 1. Сохраняем запрашиваемую версию (на всякий случай)
+set(_req_ver $${OpenSSL_FIND_VERSION})
+
+# 2. СБРАСЫВАЕМ версию, чтобы оригинальный FindOpenSSL не упал при проверке
+unset(OpenSSL_FIND_VERSION)
+unset(OpenSSL_FIND_VERSION_MAJOR)
+unset(OpenSSL_FIND_VERSION_MINOR)
+
+# 3. Ищем и подключаем оригинальный модуль
+foreach(_path $${CMAKE_ROOT}/Modules)
+    if(EXISTS "$${_path}/FindOpenSSL.cmake")
+        message(STATUS "Calling original FindOpenSSL: $${_path}/FindOpenSSL.cmake")
+        include("$${_path}/FindOpenSSL.cmake")
+        break()
+    endif()
+endforeach()
+
+# 4. Принудительно ставим BoringSSL-совместимую версию
+# ЭТО ОСНОВНАЯ ТОЧКА, ИСПРАВЛЯЮЩАЯ ПРОСТО deps = ["@boringssl//:ssl"], т.к. иначе find_package(OpenSSL 1.1.1 REQUIRED) валится
+set(OPENSSL_VERSION "1.1.1" CACHE STRING "" FORCE)
+set(OpenSSL_VERSION "1.1.1" CACHE STRING "" FORCE)
+
+# 5. Вручную подтверждаем, что всё найдено (если оригинальный скрипт нашел либы)
+if(OPENSSL_INCLUDE_DIR AND OPENSSL_LIBRARIES)
+    set(OPENSSL_FOUND TRUE)
+    set(OpenSSL_FOUND TRUE)
+endif()
+
+message(STATUS "[BoringSSL-Wrapper] Forced version 1.1.1 (was requested: $${_req_ver})")
+# message(FATAL_ERROR "======== DEBUG BREAK ========")
+EOF
+""",
+    visibility = ["//visibility:private"],
+)
+
 # https://github.com/bazel-contrib/rules_foreign_cc/blob/main/docs/README.md#cmake
 cmake(
     name = "datachannel",
-    lib_source = ":all_srcs",
+    cache_entries = {
+        # boringssl support
+        "CMAKE_MODULE_PATH": "$$(dirname $(execpath :FindOpenSSL))",
+    },
+    data = [
+        # boringssl support
+        ":FindOpenSSL",
+    ],
     env = {
         #TODO: determine optimal value for parallel build
-        "CMAKE_BUILD_PARALLEL_LEVEL": "12",  # because default generator is -G 'Unix Makefiles' #TODO: try Ninja generator instead
+        # Because default generator is -G 'Unix Makefiles' #TODO: try Ninja generator instead (it auto-detects nproc)
+        "CMAKE_BUILD_PARALLEL_LEVEL": "12",
     },
-    targets = ["datachannel"],
     generate_args = [
         "-DBUILD_SHARED_LIBS=OFF",
     ],
+    lib_source = ":all_srcs",
     out_include_dir = "include",
     out_static_libs = select({
         "//conditions:default": [
@@ -27,5 +80,10 @@ cmake(
             "libusrsctp.a",
         ],
     }),
+    targets = ["datachannel"],
     visibility = ["//visibility:public"],
+    deps = [
+        # boringssl support
+        "@boringssl//:ssl",
+    ],
 )
