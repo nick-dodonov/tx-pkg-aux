@@ -7,6 +7,7 @@
 #include <cstddef>
 #include <functional>
 #include <memory>
+#include <optional>
 #include <queue>
 #include <stdexec/execution.hpp>
 #include <vector>
@@ -23,8 +24,10 @@ namespace Demo
     struct RttBridge
     {
         std::function<void(std::shared_ptr<Rtt::ILink>)> onLink;
-        std::function<void(std::vector<std::byte>)> onMessage;
-        std::queue<std::vector<std::byte>> pending;
+
+        using Msg = std::optional<std::vector<std::byte>>;
+        std::function<void(Msg)> onMessage;
+        std::queue<Msg> pending;
 
         /// Returns a LinkHandler that delivers received data to onMessage or
         /// accumulates it in the pending queue if no waiter is registered yet.
@@ -32,13 +35,22 @@ namespace Demo
         {
             return {
                 .onReceived = [this](std::span<const std::byte> data) {
-                    if (onMessage) {
-                        onMessage({data.begin(), data.end()});
-                    } else {
-                        pending.emplace(data.begin(), data.end());
-                    }
+                    Deliver(std::vector<std::byte>{data.begin(), data.end()});
+                },
+                .onDisconnected = [this]() {
+                    Deliver(std::nullopt);
                 },
             };
+        }
+
+    private:
+        void Deliver(Msg payload)
+        {
+            if (onMessage) {
+                onMessage(std::move(payload));
+            } else {
+                pending.push(std::move(payload));
+            }
         }
     };
 
@@ -88,19 +100,19 @@ namespace Demo
     /// AsioPoller::Update() → io_context::poll(). No polling loop needed.
     inline auto AwaitMessage(std::shared_ptr<RttBridge> bridge)
     {
-        return exec::create<stdexec::set_value_t(std::vector<std::byte>)>(
+        return exec::create<stdexec::set_value_t(RttBridge::Msg)>(
             [](auto& ctx) noexcept {
                 auto& [bridge] = ctx.args;
-                // Deliver immediately if a message arrived before AwaitMessage was called.
+                // Deliver immediately if a message or disconnect arrived before AwaitMessage was called.
                 if (!bridge->pending.empty()) {
-                    auto data = std::move(bridge->pending.front());
+                    auto payload = std::move(bridge->pending.front());
                     bridge->pending.pop();
-                    stdexec::set_value(std::move(ctx.receiver), std::move(data));
+                    stdexec::set_value(std::move(ctx.receiver), std::move(payload));
                     return;
                 }
-                bridge->onMessage = [&ctx, &bridge](std::vector<std::byte> data) {
+                bridge->onMessage = [&ctx, &bridge](RttBridge::Msg payload) {
                     bridge->onMessage = nullptr;
-                    stdexec::set_value(std::move(ctx.receiver), std::move(data));
+                    stdexec::set_value(std::move(ctx.receiver), std::move(payload));
                 };
             },
             std::move(bridge));

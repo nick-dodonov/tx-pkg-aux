@@ -50,17 +50,25 @@ static Exec::RunTask<int> ServerTask(
         });
 
         Log::Info("awaiting message");
-        auto data = co_await Demo::AwaitMessage(bridge);
-        std::string_view msg{reinterpret_cast<const char*>(data.data()), data.size()}; //NOLINT(cppcoreguidelines-pro-type-reinterpret-cast)
+        auto payload = co_await Demo::AwaitMessage(bridge);
+        if (!payload) {
+            Log::Warn("peer disconnected before sending a message");
+            if (!keepAlive) {
+                co_return 0;
+            }
+            bridge->onLink = nullptr;
+            continue;
+        }
+        std::string_view msg{reinterpret_cast<const char*>(payload->data()), payload->size()}; //NOLINT(cppcoreguidelines-pro-type-reinterpret-cast)
         Log::Info("received message: '{}'", msg);
 
-        //TODO: await sent feature
-        constexpr auto SentDelay = std::chrono::milliseconds(1000);
-        Log::Info("awaiting {}ms to ensure sent", SentDelay.count());
-        {
-            const auto sched = co_await stdexec::read_env(stdexec::get_scheduler);
-            co_await exec::schedule_after(sched, SentDelay);
-        }
+        // //TODO: await sent happened
+        // constexpr auto SentDelay = std::chrono::milliseconds(1000);
+        // Log::Info("awaiting {}ms to ensure sent", SentDelay.count());
+        // {
+        //     const auto sched = co_await stdexec::read_env(stdexec::get_scheduler);
+        //     co_await exec::schedule_after(sched, SentDelay);
+        // }
 
         Log::Info("disconnecting");
         link->Disconnect();
