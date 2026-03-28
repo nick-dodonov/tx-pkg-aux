@@ -95,6 +95,7 @@ git_repository(
 )
 
 # bazel_dep(name = "openssl", version = "3.5.5.bcr.1")
+bazel_dep(name = "nlohmann_json", version = "3.12.0.bcr.1")
 git_repository(
     name = "datachannel",
     build_file = "//repo:datachannel.BUILD.bazel",

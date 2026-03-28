@@ -1,0 +1,12 @@
+{
+  "name": "signaling-node",
+  "version": "0.2.0",
+  "description": "WS signaling server example",
+  "main": "signaling-server.js",
+  "scripts": {
+    "start": "node signaling-server.js"
+  },
+  "dependencies": {
+    "websocket": "^1.0.35"
+  }
+}
