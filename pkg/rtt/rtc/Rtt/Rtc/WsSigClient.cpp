@@ -10,14 +10,12 @@
 
 namespace Rtt::Rtc
 {
-
-std::shared_ptr<ISigClient> WsSigClient::MakeDefault(Options options)
-{
+    std::shared_ptr<ISigClient> WsSigClient::MakeDefault(Options options)
+    {
 #ifdef __EMSCRIPTEN__
-    return std::make_shared<JsWsSigClient>(std::move(options));
+        return std::make_shared<JsWsSigClient>(std::move(options));
 #else
-    return std::make_shared<DcWsSigClient>(std::move(options));
+        return std::make_shared<DcWsSigClient>(std::move(options));
 #endif
+    }
 }
-
-} // namespace Rtt::Rtc

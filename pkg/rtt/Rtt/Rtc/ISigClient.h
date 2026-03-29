@@ -140,14 +140,4 @@ concept SigClientLike = requires(T& t,
 
 static_assert(SigClientLike<ISigClient>);
 
-// ---------------------------------------------------------------------------
-// ISigServer concept — any type with Start() and Port()
-// ---------------------------------------------------------------------------
-
-template <typename T>
-concept SigServerLike = requires(const T& ct, T& t) {
-    { t.Start() };
-    { ct.Port() } -> std::convertible_to<std::uint16_t>;
-};
-
-} // namespace Rtt::Rtc
+}

@@ -5,28 +5,26 @@
 
 namespace Rtt::Rtc
 {
+    /// ISigClient implementation using the native browser/Node.js WebSocket API
+    /// via Emscripten EM_JS.  Only available on the wasm platform.
+    ///
+    /// Use WsSigClient::MakeDefault() for platform-independent code.
+    class JsWsSigClient: public ISigClient
+    {
+    public:
+        using Options = WsSigOptions;
 
-/// ISigClient implementation using the native browser/Node.js WebSocket API
-/// via Emscripten EM_JS.  Only available on the wasm platform.
-///
-/// Use WsSigClient::MakeDefault() for platform-independent code.
-class JsWsSigClient : public ISigClient
-{
-public:
-    using Options = WsSigOptions;
+        JsWsSigClient();
+        explicit JsWsSigClient(Options options);
+        ~JsWsSigClient() override;
 
-    JsWsSigClient();
-    explicit JsWsSigClient(Options options);
-    ~JsWsSigClient() override;
+        // ISigClient
+        void Join(PeerId id, SigJoinHandler onJoined) override;
 
-    // ISigClient
-    void Join(PeerId id, SigJoinHandler onJoined) override;
+    private:
+        Options _options;
+    };
 
-private:
-    Options _options;
-};
-
-static_assert(SigClientLike<JsWsSigClient>);
-
-} // namespace Rtt::Rtc
+    static_assert(SigClientLike<JsWsSigClient>);
+}
 #endif

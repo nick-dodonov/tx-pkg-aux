@@ -116,13 +116,6 @@ std::shared_ptr<SigHub> DcWsSigInProcessTest::sHub;
 std::unique_ptr<DcWsSigServer> DcWsSigInProcessTest::server;
 
 // ---------------------------------------------------------------------------
-// Static interface checks
-// ---------------------------------------------------------------------------
-
-static_assert(SigClientLike<DcWsSigClient>);
-static_assert(SigServerLike<DcWsSigServer>);
-
-// ---------------------------------------------------------------------------
 // Tests
 // ---------------------------------------------------------------------------
 

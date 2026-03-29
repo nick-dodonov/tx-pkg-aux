@@ -5,28 +5,26 @@
 
 namespace Rtt::Rtc
 {
+    /// ISigClient implementation backed by a libdatachannel WebSocket connection.
+    ///
+    /// Only available on host and droid platforms (not WASM).
+    /// Use WsSigClient::MakeDefault() for platform-independent code.
+    class DcWsSigClient: public ISigClient
+    {
+    public:
+        using Options = WsSigOptions;
 
-/// ISigClient implementation backed by a libdatachannel WebSocket connection.
-///
-/// Only available on host and droid platforms (not WASM).
-/// Use WsSigClient::MakeDefault() for platform-independent code.
-class DcWsSigClient : public ISigClient
-{
-public:
-    using Options = WsSigOptions;
+        DcWsSigClient();
+        explicit DcWsSigClient(Options options);
+        ~DcWsSigClient() override;
 
-    DcWsSigClient();
-    explicit DcWsSigClient(Options options);
-    ~DcWsSigClient() override;
+        // ISigClient
+        void Join(PeerId id, SigJoinHandler onJoined) override;
 
-    // ISigClient
-    void Join(PeerId id, SigJoinHandler onJoined) override;
+    private:
+        Options _options;
+    };
 
-private:
-    Options _options;
-};
-
-static_assert(SigClientLike<DcWsSigClient>);
-
-} // namespace Rtt::Rtc
+    static_assert(SigClientLike<DcWsSigClient>);
+}
 #endif

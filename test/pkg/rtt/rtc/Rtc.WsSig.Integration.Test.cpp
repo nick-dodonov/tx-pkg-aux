@@ -1,6 +1,6 @@
 // WebRTC transport integration tests using WsSigClient (external signaling server).
 //
-// Tests any platform-appropriate ITransport implementation via WrtcClient/WrtcServer
+// Tests any platform-appropriate ITransport implementation via RtcClient/RtcServer
 // factory with a real WebSocket signaling server.
 //
 // Requires a signaling server running at 127.0.0.1:8000.

@@ -2,7 +2,7 @@
 //
 // Uses LocalSigClient backed by a shared SigHub so the entire test — including
 // WebRTC signaling — runs inside a single process without any network access.
-// Tests any platform-appropriate ITransport implementation via WrtcClient/WrtcServer
+// Tests any platform-appropriate ITransport implementation via RtcClient/RtcServer
 // factory (DcRtcClient/DcRtcServer on host/droid).
 //
 // Note: even in-process WebRTC negotiation is asynchronous (libdatachannel

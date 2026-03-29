@@ -11,8 +11,8 @@
 
 #include "Log/Log.h"
 #include "Rtt/Rtc/ISigClient.h"
-#include "Rtt/Rtc/WrtcClient.h"
-#include "Rtt/Rtc/WrtcServer.h"
+#include "Rtt/Rtc/RtcClient.h"
+#include "Rtt/Rtc/RtcServer.h"
 #include "Rtt/Acceptor.h"
 #include "Rtt/Link.h"
 #include "Rtt/Transport.h"
@@ -160,12 +160,12 @@ protected:
         _clientId = PeerId{"c-" + std::to_string(sProcToken) + "-" + std::to_string(n)};
         _serverId = PeerId{"s-" + std::to_string(sProcToken) + "-" + std::to_string(n)};
 
-        server = WrtcServer::MakeDefault(WrtcServer::Options{
+        server = RtcServer::MakeDefault(RtcServer::Options{
             .sigClient = makeSigClient(),
             .localId = _serverId,
             .iceServers = iceServers(),
         });
-        client = WrtcClient::MakeDefault(WrtcClient::Options{
+        client = RtcClient::MakeDefault(RtcClient::Options{
             .sigClient = makeSigClient(),
             .localId = _clientId,
             .remoteId = _serverId,
