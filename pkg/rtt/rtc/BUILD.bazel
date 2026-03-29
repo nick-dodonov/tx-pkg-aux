@@ -9,14 +9,14 @@ multi_lib(
     cxxopts = [
         "-fexceptions",  # libdatachannel requires exceptions
     ],
-    platforms = [
-        "host",
-        "droid",
-    ],
     deps = [
         "//pkg/log",
         "//pkg/rtt",
-        "@datachannel",
-        "@nlohmann_json//:json",
-    ],
+    ] + select({
+        "@platforms//cpu:wasm32": [],
+        "//conditions:default": [
+            "@datachannel",
+            "@nlohmann_json//:json",
+        ],
+    }),
 )

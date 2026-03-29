@@ -5,8 +5,8 @@
 // (Options::port = 0) and torn down afterwards.
 
 #include "Rtt/Rtc/SigHub.h"
-#include "Rtt/Rtc/WsSigClient.h"
-#include "Rtt/Rtc/WsSigServer.h"
+#include "Rtt/Rtc/Dc/DcWsSigClient.h"
+#include "Rtt/Rtc/Dc/DcWsSigServer.h"
 
 #include <gtest/gtest.h>
 
@@ -46,7 +46,7 @@ protected:
     static void SetUpTestSuite()
     {
         sHub = std::make_shared<SigHub>();
-        server = std::make_unique<WsSigServer>(sHub, WsSigServer::Options{.port = 0});
+        server = std::make_unique<DcWsSigServer>(sHub, DcWsSigServer::Options{.port = 0});
         server->Start();
         // Give the server a moment to bind its port.
         std::this_thread::sleep_for(50ms);
@@ -59,24 +59,24 @@ protected:
     }
 
     // Make a WsSigClient pointed at the shared server.
-    static WsSigClient makeClient()
+    static DcWsSigClient makeClient()
     {
-        return WsSigClient{WsSigClient::Options{.host = "127.0.0.1", .port = server->Port()}};
+        return DcWsSigClient{DcWsSigClient::Options{.host = "127.0.0.1", .port = server->Port()}};
     }
 
     static std::shared_ptr<SigHub> sHub;
-    static std::unique_ptr<WsSigServer> server;
+    static std::unique_ptr<DcWsSigServer> server;
 };
 
 std::shared_ptr<SigHub> WsSigClientTest::sHub;
-std::unique_ptr<WsSigServer> WsSigClientTest::server;
+std::unique_ptr<DcWsSigServer> WsSigClientTest::server;
 
 // ---------------------------------------------------------------------------
 // Static interface checks
 // ---------------------------------------------------------------------------
 
-static_assert(SigClientLike<WsSigClient>);
-static_assert(SigServerLike<WsSigServer>);
+static_assert(SigClientLike<DcWsSigClient>);
+static_assert(SigServerLike<DcWsSigServer>);
 
 // ---------------------------------------------------------------------------
 // Tests
@@ -107,7 +107,7 @@ TEST_F(WsSigClientTest, Join_ConnectsToServer)
 TEST_F(WsSigClientTest, Join_ServerUnavailable_ReportsError)
 {
     // Connect to a port where nobody is listening.
-    WsSigClient badClient{WsSigClient::Options{.host = "127.0.0.1", .port = 1}};
+    DcWsSigClient badClient{DcWsSigClient::Options{.host = "127.0.0.1", .port = 1}};
 
     bool errorReported = false;
     std::latch done{1};

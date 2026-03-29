@@ -1,44 +1,26 @@
 #pragma once
 #include "Rtt/Rtc/ISigClient.h"
-#include <string>
+#include "Rtt/Rtc/WsSigOptions.h"
+
+#include <memory>
 
 namespace Rtt::Rtc
 {
 
-// ---------------------------------------------------------------------------
-// WsSigClient — ISigClient backed by a live WebSocket connection
-//
-// Usage:
-//   WsSigClient client;
-//   client.Join("alice", onMsg, [](SigJoinResult r) {
-//       auto user = *r;         // ISigUser — send via user->Send(...)
-//       user->Send("bob", sdp); // routed through the server
-//   });
-//
-// The returned ISigUser keeps the WebSocket alive.  Dropping the user
-// closes the connection and unregisters from the server.
-// ---------------------------------------------------------------------------
-
-class WsSigClient : public ISigClient
+/// Factory for creating a platform-appropriate ISigClient backed by a WebSocket.
+///
+/// On host/droid: uses DcWsSigClient (libdatachannel WebSocket).
+/// On wasm:       uses JsWsSigClient (native browser/Node.js WebSocket via JS).
+///
+/// User code calls WsSigClient::MakeDefault() and holds the returned
+/// std::shared_ptr<ISigClient>.  No #ifdefs are needed in user code.
+class WsSigClient
 {
 public:
-    struct Options
-    {
-        std::string host = "localhost";
-        std::uint16_t port = 8000;
-    };
+    using Options = WsSigOptions;
 
-    WsSigClient();
-    explicit WsSigClient(Options options);
-    ~WsSigClient() override;
-
-    // ISigClient
-    void Join(PeerId id, SigMessageHandler onMessage, SigJoinHandler onJoined) override;
-
-private:
-    Options _options;
+    /// Create the platform-default ISigClient implementation.
+    static std::shared_ptr<ISigClient> MakeDefault(Options options);
 };
-
-static_assert(SigClientLike<WsSigClient>);
 
 } // namespace Rtt::Rtc

@@ -1,4 +1,5 @@
-#include "WsSigServer.h"
+#if !defined(__EMSCRIPTEN__)
+#include "DcWsSigServer.h"
 
 #include "Log/Log.h"
 
@@ -16,10 +17,10 @@ namespace Rtt::Rtc
 using json = nlohmann::json;
 
 // ---------------------------------------------------------------------------
-// WsServer::Impl — owns the libdatachannel resources
+// DcWsSigServer::Impl — owns the libdatachannel resources
 // ---------------------------------------------------------------------------
 
-struct WsSigServer::Impl
+struct DcWsSigServer::Impl
 {
     std::shared_ptr<rtc::WebSocketServer> server;
     std::atomic<std::uint16_t> port{0};
@@ -32,17 +33,17 @@ struct WsSigServer::Impl
 };
 
 // ---------------------------------------------------------------------------
-// WsSigServer
+// DcWsSigServer
 // ---------------------------------------------------------------------------
 
-WsSigServer::WsSigServer(std::shared_ptr<SigHub> hub, Options options)
+DcWsSigServer::DcWsSigServer(std::shared_ptr<SigHub> hub, Options options)
     : _hub(std::move(hub))
     , _options(options)
 {}
 
-WsSigServer::~WsSigServer() = default;
+DcWsSigServer::~DcWsSigServer() = default;
 
-void WsSigServer::Start()
+void DcWsSigServer::Start()
 {
     _impl = std::make_shared<Impl>();
 
@@ -131,9 +132,10 @@ void WsSigServer::Start()
     Log::Info("signaling server listening on port {}", _impl->port.load());
 }
 
-std::uint16_t WsSigServer::Port() const noexcept
+std::uint16_t DcWsSigServer::Port() const noexcept
 {
     return _impl ? _impl->port.load() : 0;
 }
 
 } // namespace Rtt::Rtc
+#endif

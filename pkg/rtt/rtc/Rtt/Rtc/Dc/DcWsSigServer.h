@@ -1,4 +1,5 @@
 #pragma once
+#if !defined(__EMSCRIPTEN__)
 #include "Rtt/Rtc/ISigServer.h"
 #include "Rtt/Rtc/SigHub.h"
 
@@ -8,7 +9,9 @@
 namespace Rtt::Rtc
 {
 
-/// WebSocket-based signaling server (ISigServer implementation).
+/// WebSocket-based signaling server backed by libdatachannel.
+///
+/// Only available on host and droid platforms (not WASM).
 ///
 /// Accepts WebSocket connections from signaling clients.  Each client
 /// registers under a peer ID derived from the URL path it connects on:
@@ -19,11 +22,8 @@ namespace Rtt::Rtc
 ///   Send:    {"id": "<targetPeerId>", "payload": "<text>"}
 ///   Receive: {"id": "<senderPeerId>", "payload": "<text>"}
 ///
-/// The server delegates message routing to a shared SigHub so that multiple
-/// clients and server instances can share the same routing domain.
-///
-/// @note WsSigServer is NOT copyable or movable after Start() has been called.
-class WsSigServer : public ISigServer
+/// @note DcWsSigServer is NOT copyable or movable after Start() has been called.
+class DcWsSigServer : public ISigServer
 {
 public:
     struct Options
@@ -35,13 +35,13 @@ public:
     /// Construct the server.  Does not start listening yet.
     /// @param hub     Shared routing hub; must outlive this server.
     /// @param options Server configuration.
-    WsSigServer(std::shared_ptr<SigHub> hub, Options options);
-    ~WsSigServer() override;
+    DcWsSigServer(std::shared_ptr<SigHub> hub, Options options);
+    ~DcWsSigServer() override;
 
-    WsSigServer(const WsSigServer&) = delete;
-    WsSigServer& operator=(const WsSigServer&) = delete;
-    WsSigServer(WsSigServer&&) = delete;
-    WsSigServer& operator=(WsSigServer&&) = delete;
+    DcWsSigServer(const DcWsSigServer&) = delete;
+    DcWsSigServer& operator=(const DcWsSigServer&) = delete;
+    DcWsSigServer(DcWsSigServer&&) = delete;
+    DcWsSigServer& operator=(DcWsSigServer&&) = delete;
 
     /// Start accepting connections.  May be called at most once.
     void Start();
@@ -58,6 +58,7 @@ private:
     std::shared_ptr<Impl> _impl; // shared_ptr so callbacks can safely weak_ptr to it
 };
 
-static_assert(SigServerLike<WsSigServer>);
+static_assert(SigServerLike<DcWsSigServer>);
 
 } // namespace Rtt::Rtc
+#endif
