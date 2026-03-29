@@ -129,7 +129,10 @@ void DcWsSigClient::Join(PeerId id, SigMessageHandler onMessage, SigJoinHandler 
             return;
         }
 
-        (*onMsgCap)(SigMessage{PeerId{fromIt->template get<std::string>()}, plIt->template get<std::string>()});
+        (*onMsgCap)(SigMessage{
+            .from = PeerId{fromIt->template get<std::string>()},
+            .payload = plIt->template get<std::string>(),
+        });
     });
 
     ws->open(url);

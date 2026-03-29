@@ -29,3 +29,40 @@ multi_test(
         "@googletest//:gtest_main",
     ],
 )
+
+multi_test(
+    name = "rtc-local-sig",
+    srcs = [
+        "Rtc.LocalSig.Test.cpp",
+        "RtcTransportTests.h",
+    ],
+    cxxopts = ["-fexceptions"],
+    platforms = [
+        "host",
+        "droid",
+    ],
+    deps = [
+        "//pkg/rtt",
+        "//pkg/rtt/rtc",
+        "@googletest//:gtest_main",
+    ],
+)
+
+multi_test(
+    name = "rtc-ws-sig-integration",
+    srcs = [
+        "Rtc.WsSig.Integration.Test.cpp",
+        "RtcTransportTests.h",
+    ],
+    cxxopts = ["-fexceptions"],
+    platforms = [
+        "host",
+        "droid",
+    ],
+    tags = ["manual"],  # requires a running WS signaling server
+    deps = [
+        "//pkg/rtt",
+        "//pkg/rtt/rtc",
+        "@googletest//:gtest_main",
+    ],
+)
