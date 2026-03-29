@@ -330,8 +330,9 @@ shared_ptr<rtc::PeerConnection> createPeerConnection(
 
         dc->onOpen([wdc = make_weak_ptr(dc)]() {
             // Greet the offerer once the P2P channel is established.
-            if (auto dc = wdc.lock())
+            if (auto dc = wdc.lock()) {
                 dc->send("Hello from " + localId);
+            }
         });
 
         dc->onClosed([id]() { std::cout << "DataChannel from " << id << " closed" << '\n'; });

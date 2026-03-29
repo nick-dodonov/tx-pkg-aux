@@ -1,0 +1,22 @@
+load("@tx-kit-ext//rules:multi_app.bzl", "multi_test")
+
+multi_test(
+    name = "rtc",
+    srcs = glob(
+        [
+            "*.cpp",
+            "*.h",
+        ],
+        allow_empty = True,
+    ),
+    cxxopts = ["-fexceptions"],
+    platforms = [
+        "host",
+        "droid",
+    ],
+    deps = [
+        "//pkg/rtt",
+        "//pkg/rtt/rtc",
+        "@googletest//:gtest_main",
+    ],
+)

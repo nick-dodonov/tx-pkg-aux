@@ -11,19 +11,3 @@ multi_app(
         "@datachannel",
     ],
 )
-
-multi_app(
-    name = "wsclient",
-    srcs = ["wsclient.cpp"],
-    cxxopts = [
-        "-fexceptions",
-    ],
-    platforms = [
-        "host",
-        "droid",
-    ],
-    deps = [
-        "@datachannel",
-        "@nlohmann_json//:json",
-    ],
-)

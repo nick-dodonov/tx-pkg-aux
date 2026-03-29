@@ -1,12 +1,22 @@
 load("@tx-kit-ext//rules:multi_lib.bzl", "multi_lib")
 
 multi_lib(
-    name = "rtt",
+    name = "rtc",
     srcs = glob(["**/*.cpp"]),
     hdrs = glob(["**/*.h"]),
     strip_include_prefix = ".",
     visibility = ["//visibility:public"],
+    cxxopts = [
+        "-fexceptions",  # libdatachannel requires exceptions
+    ],
+    platforms = [
+        "host",
+        "droid",
+    ],
     deps = [
         "//pkg/log",
+        "//pkg/rtt",
+        "@datachannel",
+        "@nlohmann_json//:json",
     ],
 )
