@@ -6,6 +6,7 @@
 #include <rtc/rtc.hpp>
 
 #include <cstring>
+#include <functional>
 #include <memory>
 #include <vector>
 
@@ -36,7 +37,9 @@ std::shared_ptr<DcRtcLink> DcRtcLink::Create(PeerId localId,
                                               PeerId remoteId,
                                               std::shared_ptr<rtc::PeerConnection> pc,
                                               std::shared_ptr<rtc::DataChannel> dc,
-                                              std::size_t maxMessageSize)
+                                              std::size_t maxMessageSize,
+                                              std::function<void()> onClosed,
+                                              std::function<void()> onFailed)
 {
     auto link = std::shared_ptr<DcRtcLink>(
         new DcRtcLink(std::move(localId), std::move(remoteId),
@@ -46,7 +49,7 @@ std::shared_ptr<DcRtcLink> DcRtcLink::Create(PeerId localId,
 
     link->_dc->onMessage([wlink](rtc::message_variant data) {
         auto self = wlink.lock();
-        if (!self || self->_closed) {
+        if (!self || self->_disconnectRequested) {
             return;
         }
         if (!std::holds_alternative<rtc::binary>(data)) {
@@ -60,15 +63,42 @@ std::shared_ptr<DcRtcLink> DcRtcLink::Create(PeerId localId,
     });
 
     link->_dc->onClosed([wlink]() {
+        // Log the DC-level close. onDisconnected fires later from PC state change
+        // to guarantee all libdatachannel internal threads (SCTP/DTLS/ICE) are done.
         auto self = wlink.lock();
-        if (!self || self->_closed.exchange(true)) {
-            return;
-        }
-        Log::Debug("data channel closed {} -> {}", self->_localId.value, self->_remoteId.value);
-        if (self->_handler.onDisconnected) {
-            self->_handler.onDisconnected();
+        if (self) {
+            Log::Debug("data channel closed {} -> {}",
+                       self->_localId.value, self->_remoteId.value);
         }
     });
+
+    // Fire onDisconnected when the PeerConnection itself reaches a terminal
+    // state. This is later than DC close and ensures ICE/DTLS teardown is
+    // complete — safe to create new PeerConnections for the next test.
+    link->_pc->onStateChange(
+        [wlink, onClosed = std::move(onClosed), onFailed = std::move(onFailed)]
+        (rtc::PeerConnection::State st)
+        {
+            if (st == rtc::PeerConnection::State::Closed ||
+                st == rtc::PeerConnection::State::Disconnected) {
+                if (onClosed) { onClosed(); }
+            } else if (st == rtc::PeerConnection::State::Failed) {
+                if (onFailed) { onFailed(); }
+            }
+            if (st == rtc::PeerConnection::State::Closed ||
+                st == rtc::PeerConnection::State::Disconnected ||
+                st == rtc::PeerConnection::State::Failed) {
+                auto self = wlink.lock();
+                if (!self || self->_closedFired.exchange(true)) {
+                    return;
+                }
+                Log::Debug("peer connection closed {} -> {}",
+                           self->_localId.value, self->_remoteId.value);
+                if (self->_handler.onDisconnected) {
+                    self->_handler.onDisconnected();
+                }
+            }
+        });
 
     return link;
 }
@@ -87,7 +117,7 @@ void DcRtcLink::SetHandler(LinkHandler handler)
 
 void DcRtcLink::Send(WriteCallback writer)
 {
-    if (_closed || !_dc || !_dc->isOpen()) {
+    if (_disconnectRequested || !_dc || !_dc->isOpen()) {
         return;
     }
 
@@ -105,20 +135,19 @@ void DcRtcLink::Send(WriteCallback writer)
 
 void DcRtcLink::Disconnect()
 {
-    if (_closed.exchange(true)) {
+    if (_disconnectRequested.exchange(true)) {
         return;
     }
 
     Log::Trace("disconnect {} -> {}", _localId.value, _remoteId.value);
 
-    if (_dc && _dc->isOpen()) {
+    // Close the DataChannel and PeerConnection asynchronously.
+    // onDisconnected will fire from _dc->onClosed() on both sides uniformly.
+    if (_dc) {
         _dc->close();
     }
     if (_pc) {
         _pc->close();
-    }
-    if (_handler.onDisconnected) {
-        _handler.onDisconnected();
     }
 }
 

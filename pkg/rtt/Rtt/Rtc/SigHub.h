@@ -1,6 +1,5 @@
 #pragma once
-#include "ISigUser.h"
-#include "SigMessage.h"
+#include "ISigClient.h"
 
 #include <memory>
 #include <mutex>
@@ -10,16 +9,16 @@
 namespace Rtt::Rtc
 {
 
-/// Message routing hub for in-process and WebSocket signaling.
+/// Message routing hub for in-process signaling.
 ///
 /// SigHub manages a registry of active peers (identified by PeerId) and
 /// routes messages between them by dispatching to their registered handlers.
 ///
 /// Ownership model:
 ///   - SigHub is shared via shared_ptr among all clients/servers that use it.
-///   - Each registered peer is represented as an ISigUser whose shared_ptr the
-///     caller must keep alive. When the caller drops the shared_ptr the peer is
-///     automatically removed from the hub on the next Dispatch to that peer.
+///   - Each registered peer is stored internally. The ISigUser returned to the
+///     caller keeps the registration alive; dropping it without calling Leave()
+///     is fire-and-forget (no OnLeft notification).
 ///
 /// Thread-safety:
 ///   - Register() and Dispatch() may be called concurrently from any thread.
@@ -30,16 +29,22 @@ class SigHub : public std::enable_shared_from_this<SigHub>
 public:
     SigHub() = default;
 
-    /// Register a peer on this hub and return its user handle.
+    /// Register a peer on this hub.
+    ///
+    /// Calls onJoined with the new ISigUser to obtain the ISigHandler for
+    /// message and disconnect routing. The returned ISigUser keeps the
+    /// registration alive.
     ///
     /// If a peer with the same ID already exists, the old registration is
-    /// replaced (the previous user handle becomes a stale alias).
+    /// replaced; the previous ISigUser becomes a disconnected alias.
     ///
-    /// @param localId   The peer ID to register under.
-    /// @param onMessage Called whenever a message is dispatched to this peer.
-    [[nodiscard]] std::shared_ptr<ISigUser> Register(
-        PeerId localId,
-        SigMessageHandler onMessage);
+    /// @param localId  The peer ID to register under.
+    /// @param onJoined Factory called synchronously with SigJoinResult to obtain
+    ///                 a weak_ptr<ISigHandler> for message delivery.
+    void Register(PeerId localId, SigJoinHandler onJoined);
+
+    /// Remove a peer registration. Called by ISigUser::Leave().
+    void Unregister(const PeerId& localId);
 
     /// Route a message from one peer to another.
     ///

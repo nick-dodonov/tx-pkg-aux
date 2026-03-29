@@ -1,8 +1,9 @@
 load("@tx-kit-ext//rules:multi_app.bzl", "multi_test")
 
+# Tests for libdatachannel websocket signalling client and server implementations (only host and droid, since wasm uses a different client implementation)
 multi_test(
-    name = "ws-sig-in-process",
-    srcs = ["DcWsSig.InProcess.Test.cpp"],
+    name = "sig-dc-ws-in-process",
+    srcs = ["Sig.DcWs.InProcess.Test.cpp"],
     cxxopts = ["-fexceptions"],
     platforms = [
         "host",
@@ -15,26 +16,31 @@ multi_test(
     ],
 )
 
+# Tests for websocket signalling client implementations (different depending on platform)
 multi_test(
-    name = "ws-sig-client",
-    srcs = ["WsSigClient.Integration.Test.cpp"],
+    name = "sig-ws-client",
+    srcs = ["Sig.Ws.Client.Integration.Test.cpp"],
     cxxopts = ["-fexceptions"],
     linkopts = select({
         "@platforms//cpu:wasm32": ["-sASYNCIFY=1"],
         "//conditions:default": [],
     }),
-    tags = ["manual"],  # requires the server to be running
+    # "exclusive" forces serial execution so concurrent --runs_per_test instances
+    # don't race on the shared external WS signaling server.
+    tags = ["exclusive"],
+    # tags = ["manual"],  # requires the server to be running
     deps = [
         "//pkg/rtt/rtc",
         "@googletest//:gtest_main",
     ],
 )
 
+# Tests for webrtc client implementations via local signalling client (only host and droid, since wasm is not implemented yet)
 multi_test(
     name = "rtc-local-sig",
     srcs = [
         "Rtc.LocalSig.Test.cpp",
-        "RtcTransportTests.h",
+        "Rtc.Client.Tests.h",
     ],
     cxxopts = ["-fexceptions"],
     platforms = [
@@ -48,18 +54,22 @@ multi_test(
     ],
 )
 
+# Tests for webrtc client implementations via websocket signalling client (only host and droid, since wasm is not implemented yet)
 multi_test(
     name = "rtc-ws-sig-integration",
     srcs = [
         "Rtc.WsSig.Integration.Test.cpp",
-        "RtcTransportTests.h",
+        "Rtc.Client.Tests.h",
     ],
     cxxopts = ["-fexceptions"],
     platforms = [
         "host",
         "droid",
     ],
-    tags = ["manual"],  # requires a running WS signaling server
+    # "exclusive" forces serial execution so concurrent --runs_per_test instances
+    # don't race on the shared external WS signaling server.
+    tags = ["exclusive"],
+    # tags = ["manual"],  # requires a running WS signaling server
     deps = [
         "//pkg/rtt",
         "//pkg/rtt/rtc",

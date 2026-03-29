@@ -6,6 +6,7 @@
 #include <nlohmann/json.hpp>
 #include <rtc/rtc.hpp>
 
+#include <atomic>
 #include <memory>
 #include <utility>
 
@@ -16,19 +17,11 @@ using json = nlohmann::json;
 
 // ---------------------------------------------------------------------------
 // DcWsSigUser — ISigUser that owns the WebSocket connection
-//
-// Dropping the shared_ptr closes the socket and the server cleans up the
-// peer registration automatically (it holds a weak_ptr from now on).
 // ---------------------------------------------------------------------------
 
 class DcWsSigUser : public ISigUser
 {
 public:
-    DcWsSigUser(const DcWsSigUser&) = default;
-    DcWsSigUser(DcWsSigUser&&) = delete;
-    DcWsSigUser& operator=(const DcWsSigUser&) = default;
-    DcWsSigUser& operator=(DcWsSigUser&&) = delete;
-
     DcWsSigUser(PeerId id, std::shared_ptr<rtc::WebSocket> ws)
         : _id(std::move(id))
         , _ws(std::move(ws))
@@ -36,6 +29,7 @@ public:
 
     ~DcWsSigUser() override
     {
+        // Fire-and-forget if Leave() was never called.
         if (_ws && _ws->isOpen()) {
             _ws->close();
         }
@@ -53,9 +47,46 @@ public:
         _ws->send(envelope.dump());
     }
 
+    void Leave() override
+    {
+        if (_leaving.exchange(true)) {
+            return; // already leaving
+        }
+        if (_ws && _ws->isOpen()) {
+            _ws->close(); // onClosed will call NotifyClosed()
+        } else {
+            NotifyClosed(); // already closed, notify immediately
+        }
+    }
+
+    void SetHandler(std::weak_ptr<ISigHandler> handler)
+    {
+        _handler = std::move(handler);
+    }
+
+    void Deliver(SigMessage msg)
+    {
+        if (auto h = _handler.lock()) {
+            h->OnMessage(std::move(msg));
+        }
+    }
+
+    /// Called from the WebSocket onClosed callback.
+    void NotifyClosed()
+    {
+        if (auto h = _handler.lock()) {
+            const auto ec = _leaving.load()
+                ? std::error_code{}                            // clean (Leave() initiated)
+                : make_error_code(SigError::ConnectionLost);  // external drop
+            h->OnLeft(ec);
+        }
+    }
+
 private:
     PeerId _id;
     std::shared_ptr<rtc::WebSocket> _ws;
+    std::weak_ptr<ISigHandler> _handler;
+    std::atomic<bool> _leaving{false};
 };
 
 // ---------------------------------------------------------------------------
@@ -72,46 +103,57 @@ DcWsSigClient::DcWsSigClient(Options options)
 
 DcWsSigClient::~DcWsSigClient() = default;
 
-void DcWsSigClient::Join(PeerId id, SigMessageHandler onMessage, SigJoinHandler onJoined)
+void DcWsSigClient::Join(PeerId id, SigJoinHandler onJoined)
 {
-    const std::string url = "ws://" + _options.host + ":" +
-                            std::to_string(_options.port) + "/" + id.value;
+    const std::string url =
+        "ws://" + _options.host + ":" +
+        std::to_string(_options.port) + "/" + id.value;
 
     Log::Debug("[{}] connecting to {}", id.value, url);
 
     auto ws = std::make_shared<rtc::WebSocket>();
 
-    // Both onOpen and onError share the same handler via shared_ptr so that
-    // only one of them fires it (guarded by the `fired` flag).
-    auto fired     = std::make_shared<bool>(false);
-    auto onMsgCap  = std::make_shared<SigMessageHandler>(std::move(onMessage));
-    auto onJoinCap = std::make_shared<SigJoinHandler>(std::move(onJoined));
+    // Shared slot to pass the created user from onOpen to onClosed callback.
+    auto sharedUser = std::make_shared<std::weak_ptr<DcWsSigUser>>();
 
-    ws->onOpen([ws, id, fired, onJoinCap]() {
+    // Guard ensuring only one of onOpen/onError fires the factory.
+    auto fired = std::make_shared<bool>(false);
+    auto onJoinedCap = std::make_shared<SigJoinHandler>(std::move(onJoined));
+
+    ws->onOpen([ws, id, fired, onJoinedCap, sharedUser]() {
         if (*fired) {
             return;
         }
         *fired = true;
         Log::Info("[{}] signaling connected", id.value);
         auto user = std::make_shared<DcWsSigUser>(id, ws);
-        (*onJoinCap)(SigJoinResult{std::move(user)});
+        auto whandler = (*onJoinedCap)(SigJoinResult{user});
+        user->SetHandler(std::move(whandler));
+        *sharedUser = user;
     });
 
-    ws->onError([id, fired, onJoinCap](std::string err) {
+    ws->onError([id, fired, onJoinedCap](std::string err) {
         if (*fired) {
             return;
         }
         *fired = true;
         Log::Error("[{}] signaling error: {}", id.value, err);
-        (*onJoinCap)(std::unexpected(Error::ConnectionRefused));
+        (*onJoinedCap)(std::unexpected(Error::ConnectionRefused));
     });
 
-    ws->onClosed([id]() {
+    ws->onClosed([id, sharedUser]() {
         Log::Info("[{}] signaling disconnected", id.value);
+        if (auto user = sharedUser->lock()) {
+            user->NotifyClosed();
+        }
     });
 
-    ws->onMessage([id, onMsgCap](auto raw) {
+    ws->onMessage([id, sharedUser](auto raw) {
         if (!std::holds_alternative<std::string>(raw)) {
+            return;
+        }
+        auto user = sharedUser->lock();
+        if (!user) {
             return;
         }
 
@@ -129,7 +171,9 @@ void DcWsSigClient::Join(PeerId id, SigMessageHandler onMessage, SigJoinHandler 
             return;
         }
 
-        (*onMsgCap)(SigMessage{
+        // Deliver via the user's handler (routes through DcRtcClient/Server State).
+
+        user->Deliver(SigMessage{
             .from = PeerId{fromIt->template get<std::string>()},
             .payload = plIt->template get<std::string>(),
         });

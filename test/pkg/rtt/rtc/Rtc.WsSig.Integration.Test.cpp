@@ -10,7 +10,7 @@
 // Run with:
 //   bazel test //test/pkg/rtt/rtc:rtc-ws-sig-integration
 
-#include "RtcTransportTests.h"
+#include "Rtc.Client.Tests.h"
 
 #include "Rtt/Rtc/WsSigClient.h"
 #include "Rtt/Rtc/WsSigOptions.h"

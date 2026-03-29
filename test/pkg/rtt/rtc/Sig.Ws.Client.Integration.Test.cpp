@@ -15,6 +15,7 @@
 #ifdef __EMSCRIPTEN__
 #include <emscripten.h>
 #else
+#include <cerrno>
 #include <chrono>
 #include <thread>
 #endif
@@ -66,6 +67,46 @@ static WsSigClient::Options serverOptions()
     };
 }
 
+// Minimal ISigHandler that routes messages and disconnects to std::function callbacks.
+struct FuncHandler : ISigHandler
+{
+    explicit FuncHandler(
+        std::function<void(SigMessage&&)> onMessage,
+        std::function<void(std::error_code)> onLeft = {})
+        : _onMessage(std::move(onMessage))
+        , _onLeft(std::move(onLeft))
+    {}
+    void OnMessage(SigMessage&& msg) override { if (_onMessage) { _onMessage(std::move(msg)); } }
+    void OnLeft(std::error_code ec) override { if (_onLeft) { _onLeft(ec); } }
+private:
+    std::function<void(SigMessage&&)> _onMessage;
+    std::function<void(std::error_code)> _onLeft;
+};
+
+// Builds a SigJoinHandler (factory) from separate callbacks.
+// handlerOut keeps the handler alive for the duration of the connection.
+static SigJoinHandler makeJoinHandler(
+    std::shared_ptr<ISigHandler>& handlerOut,
+    std::shared_ptr<ISigUser>* userOut,
+    std::function<void(SigMessage&&)> onMessage,
+    std::function<void(bool)> onJoined = {},
+    std::function<void(std::error_code)> onLeft = {})
+{
+    auto h = std::make_shared<FuncHandler>(std::move(onMessage), std::move(onLeft));
+    handlerOut = h;
+    std::weak_ptr<ISigHandler> wh{h};
+    return [wh, userOut, onJoined = std::move(onJoined)](SigJoinResult r) mutable -> std::weak_ptr<ISigHandler> {
+        bool ok = r.has_value();
+        if (ok && userOut) {
+            *userOut = *r;
+        }
+        if (onJoined) {
+            onJoined(ok);
+        }
+        return ok ? wh : std::weak_ptr<ISigHandler>{};
+    };
+}
+
 // ---------------------------------------------------------------------------
 // Tests
 // ---------------------------------------------------------------------------
@@ -76,16 +117,14 @@ TEST(WsSigClient_Integration, Join_ConnectsToServer)
 
     volatile bool done = false;
     std::shared_ptr<ISigUser> joinedUser;
+    std::shared_ptr<ISigHandler> handler;
 
     client->Join(
         PeerId{"integ-join"},
-        [](const SigMessage&) {},
-        [&](SigJoinResult r) {
-            if (r.has_value()) {
-                joinedUser = *r;
-            }
-            done = true;
-        });
+        makeJoinHandler(handler, &joinedUser, 
+            [](const SigMessage&) {}, 
+            [&](bool) { done = true; }
+        ));
 
     ASSERT_TRUE(waitFor(done));
     ASSERT_NE(joinedUser, nullptr);
@@ -98,14 +137,17 @@ TEST(WsSigClient_Integration, Join_ServerUnavailable_ReportsError)
 
     volatile bool done = false;
     bool errorReported = false;
+    std::shared_ptr<ISigHandler> handler;
 
     client->Join(
         PeerId{"nobody"},
-        [](const SigMessage&) {},
-        [&](SigJoinResult r) {
-            errorReported = !r.has_value();
-            done = true;
-        });
+        makeJoinHandler(handler, nullptr,
+            [](const SigMessage&) {},
+            [&](bool ok) {
+                errorReported = !ok;
+                done = true;
+            }
+        ));
 
     ASSERT_TRUE(waitFor(done, 8000));
     EXPECT_TRUE(errorReported);
@@ -121,33 +163,29 @@ TEST(WsSigClient_Integration, Send_RelayedToPeer)
     std::string receivedPayload;
 
     std::shared_ptr<ISigUser> receiverUser;
+    std::shared_ptr<ISigHandler> receiverHandler;
     receiver->Join(
         PeerId{"integ-recv"},
-        [&](const SigMessage& msg) {
-            receivedPayload = msg.payload;
-            done = true;
-        },
-        [&](SigJoinResult r) {
-            if (r.has_value()) {
-                receiverUser = *r;
-            }
-            receiverReady = true;
-        });
+        makeJoinHandler(receiverHandler, &receiverUser, 
+            [&](const SigMessage& msg) {
+                receivedPayload = msg.payload;
+                done = true;
+            }, 
+            [&](bool) { receiverReady = true; }
+        ));
 
     ASSERT_TRUE(waitFor(receiverReady));
     ASSERT_NE(receiverUser, nullptr);
 
     std::shared_ptr<ISigUser> senderUser;
     volatile bool senderReady = false;
+    std::shared_ptr<ISigHandler> senderHandler;
     sender->Join(
         PeerId{"integ-send"},
-        [](const SigMessage&) {},
-        [&](SigJoinResult r) {
-            if (r.has_value()) {
-                senderUser = *r;
-            }
-            senderReady = true;
-        });
+        makeJoinHandler(senderHandler, &senderUser, 
+            [](const SigMessage&) {}, 
+            [&](bool) { senderReady = true; }
+        ));
 
     ASSERT_TRUE(waitFor(senderReady));
     ASSERT_NE(senderUser, nullptr);
@@ -156,6 +194,34 @@ TEST(WsSigClient_Integration, Send_RelayedToPeer)
 
     ASSERT_TRUE(waitFor(done));
     EXPECT_EQ(receivedPayload, "integration-relay-test");
+}
+
+TEST(WsSigClient_Integration, Leave_CallsOnLeft_Clean)
+{
+    auto client = WsSigClient::MakeDefault(serverOptions());
+
+    volatile bool connected = false;
+    volatile bool leftNotified = false;
+    std::error_code leftEc{std::make_error_code(std::errc::interrupted)}; // non-empty sentinel
+
+    std::shared_ptr<ISigUser> user;
+    std::shared_ptr<ISigHandler> handler;
+
+    client->Join(
+        PeerId{"leave-integ"},
+        makeJoinHandler(
+            handler, &user,
+            [](SigMessage&&) {},
+            [&](bool) { connected = true; },
+            [&](std::error_code ec) { leftEc = ec; leftNotified = true; }));
+
+    ASSERT_TRUE(waitFor(connected));
+    ASSERT_NE(user, nullptr);
+
+    user->Leave();
+
+    ASSERT_TRUE(waitFor(leftNotified));
+    EXPECT_FALSE(leftEc) << "expected empty error code for clean Leave(), got: " << leftEc.message();
 }
 
 TEST(WsSigClient_Integration, Send_Bidirectional)
@@ -168,21 +234,27 @@ TEST(WsSigClient_Integration, Send_Bidirectional)
     std::shared_ptr<ISigUser> ua, ub;
     volatile bool aReady = false, bReady = false;
 
+    std::shared_ptr<ISigHandler> ha, hb;
     ca->Join(
         PeerId{"integ-peer-a"},
-        [&](const SigMessage& msg) { fromB = msg.payload; gotB = true; },
-        [&](SigJoinResult r) {
-            if (r.has_value()) { ua = *r; }
-            aReady = true;
-        });
+        makeJoinHandler(ha, &ua, 
+            [&](const SigMessage& msg) { 
+                fromB = msg.payload;
+                gotB = true;
+            },
+            [&](bool) { aReady = true; }
+        ));
 
     cb->Join(
         PeerId{"integ-peer-b"},
-        [&](const SigMessage& msg) { fromA = msg.payload; gotA = true; },
-        [&](SigJoinResult r) {
-            if (r.has_value()) { ub = *r; }
-            bReady = true;
-        });
+        makeJoinHandler(hb, &ub, 
+            [&](const SigMessage& msg) { 
+                fromA = msg.payload;
+                gotA = true;
+            },
+            [&](bool) { bReady = true; }
+        ));
+
 
     ASSERT_TRUE(waitFor(aReady));
     ASSERT_TRUE(waitFor(bReady));
