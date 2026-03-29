@@ -9,6 +9,7 @@
 // The shared runTest_*() methods exercise the same scenarios regardless
 // of the signaling backend, enabling identical coverage across both test modes.
 
+#include "Log/Log.h"
 #include "Rtt/Rtc/ISigClient.h"
 #include "Rtt/Rtc/WrtcClient.h"
 #include "Rtt/Rtc/WrtcServer.h"
@@ -22,6 +23,7 @@
 #include <chrono>
 #include <cstring>
 #include <memory>
+#include <random>
 #include <span>
 #include <string>
 #include <string_view>
@@ -102,12 +104,37 @@ struct TestLinkAcceptor : public ILinkAcceptor
 class RtcTransportFixture : public ::testing::Test
 {
 protected:
+    std::shared_ptr<TestLinkAcceptor> serverAcceptor;
+    std::shared_ptr<TestLinkAcceptor> clientAcceptor;
+    std::shared_ptr<ITransport> server;
+    std::shared_ptr<ITransport> client;
+    PeerId _clientId;
+    PeerId _serverId;
+
+    void SetUp() override
+    {
+        serverAcceptor = std::make_shared<TestLinkAcceptor>();
+        clientAcceptor = std::make_shared<TestLinkAcceptor>();
+    }
+
     void TearDown() override
     {
-        // libdatachannel uses background threads for ICE and SCTP.
-        // Allow them to finish teardown before the next test creates new
-        // PeerConnections — avoids resource contention between tests.
-        std::this_thread::sleep_for(500ms);
+        // Disconnect any live links so libdatachannel fires onClosed on both
+        // sides. We wait for both disconnected flags before returning, which
+        // guarantees that the SCTP/ICE background threads are done before the
+        // next test creates new PeerConnections.
+        if (clientAcceptor->link) {
+            clientAcceptor->link->Disconnect();
+        }
+        if (serverAcceptor->link) {
+            serverAcceptor->link->Disconnect();
+        }
+        if (clientAcceptor->linkReady) {
+            EXPECT_TRUE(awaitFlag(clientAcceptor->disconnected));
+        }
+        if (serverAcceptor->linkReady) {
+            EXPECT_TRUE(awaitFlag(serverAcceptor->disconnected));
+        }
     }
 
     /// Return a signaling client for the given role.
@@ -118,23 +145,34 @@ protected:
     /// ICE servers; override to add STUN when testing through NAT.
     virtual std::vector<std::string> iceServers() { return {}; }
 
-    std::shared_ptr<ITransport> makeClient(PeerId localId, PeerId remoteId)
+    void openClientServer()
     {
-        return WrtcClient::MakeDefault(WrtcClient::Options{
-            .sigClient = makeSigClient(),
-            .localId = std::move(localId),
-            .remoteId = std::move(remoteId),
-            .iceServers = iceServers(),
-        });
-    }
+        // Unique per-process token (from random_device) combined with a
+        // per-process counter ensures peer IDs are globally unique across
+        // concurrent test processes (e.g. --runs_per_test > 1).
+        static const auto sProcToken = []() {
+            std::mt19937 rng{std::random_device{}()};
+            return std::uniform_int_distribution<unsigned>(0, 0xFFFFFFu)(rng);
+        }();
+        static std::atomic<int> sCounter{0};
+        const int n = ++sCounter;
 
-    std::shared_ptr<ITransport> makeServer(PeerId localId)
-    {
-        return WrtcServer::MakeDefault(WrtcServer::Options{
+        _clientId = PeerId{"c-" + std::to_string(sProcToken) + "-" + std::to_string(n)};
+        _serverId = PeerId{"s-" + std::to_string(sProcToken) + "-" + std::to_string(n)};
+
+        server = WrtcServer::MakeDefault(WrtcServer::Options{
             .sigClient = makeSigClient(),
-            .localId = std::move(localId),
+            .localId = _serverId,
             .iceServers = iceServers(),
         });
+        client = WrtcClient::MakeDefault(WrtcClient::Options{
+            .sigClient = makeSigClient(),
+            .localId = _clientId,
+            .remoteId = _serverId,
+            .iceServers = iceServers(),
+        });
+        server->Open(serverAcceptor);
+        client->Open(clientAcceptor);
     }
 
     // -----------------------------------------------------------------------
@@ -143,34 +181,20 @@ protected:
 
     void runTest_Connect_LinksEstablished()
     {
-        auto serverAcceptor = std::make_shared<TestLinkAcceptor>();
-        auto clientAcceptor = std::make_shared<TestLinkAcceptor>();
-
-        auto server = makeServer(PeerId{"server"});
-        auto client = makeClient(PeerId{"client"}, PeerId{"server"});
-
-        server->Open(serverAcceptor);
-        client->Open(clientAcceptor);
+        openClientServer();
 
         ASSERT_TRUE(awaitFlag(clientAcceptor->linkReady));
         ASSERT_TRUE(awaitFlag(serverAcceptor->linkReady));
 
-        EXPECT_EQ(clientAcceptor->link->LocalId().value, "client");
-        EXPECT_EQ(clientAcceptor->link->RemoteId().value, "server");
-        EXPECT_EQ(serverAcceptor->link->LocalId().value, "server");
-        EXPECT_EQ(serverAcceptor->link->RemoteId().value, "client");
+        EXPECT_EQ(clientAcceptor->link->LocalId().value, _clientId.value);
+        EXPECT_EQ(clientAcceptor->link->RemoteId().value, _serverId.value);
+        EXPECT_EQ(serverAcceptor->link->LocalId().value, _serverId.value);
+        EXPECT_EQ(serverAcceptor->link->RemoteId().value, _clientId.value);
     }
 
     void runTest_Send_ClientToServer()
     {
-        auto serverAcceptor = std::make_shared<TestLinkAcceptor>();
-        auto clientAcceptor = std::make_shared<TestLinkAcceptor>();
-
-        auto server = makeServer(PeerId{"server"});
-        auto client = makeClient(PeerId{"client"}, PeerId{"server"});
-
-        server->Open(serverAcceptor);
-        client->Open(clientAcceptor);
+        openClientServer();
 
         ASSERT_TRUE(awaitFlag(clientAcceptor->linkReady));
         ASSERT_TRUE(awaitFlag(serverAcceptor->linkReady));
@@ -189,14 +213,7 @@ protected:
 
     void runTest_Send_ServerToClient()
     {
-        auto serverAcceptor = std::make_shared<TestLinkAcceptor>();
-        auto clientAcceptor = std::make_shared<TestLinkAcceptor>();
-
-        auto server = makeServer(PeerId{"server"});
-        auto client = makeClient(PeerId{"client"}, PeerId{"server"});
-
-        server->Open(serverAcceptor);
-        client->Open(clientAcceptor);
+        openClientServer();
 
         ASSERT_TRUE(awaitFlag(clientAcceptor->linkReady));
         ASSERT_TRUE(awaitFlag(serverAcceptor->linkReady));
@@ -215,14 +232,7 @@ protected:
 
     void runTest_Send_Bidirectional()
     {
-        auto serverAcceptor = std::make_shared<TestLinkAcceptor>();
-        auto clientAcceptor = std::make_shared<TestLinkAcceptor>();
-
-        auto server = makeServer(PeerId{"server"});
-        auto client = makeClient(PeerId{"client"}, PeerId{"server"});
-
-        server->Open(serverAcceptor);
-        client->Open(clientAcceptor);
+        openClientServer();
 
         ASSERT_TRUE(awaitFlag(clientAcceptor->linkReady));
         ASSERT_TRUE(awaitFlag(serverAcceptor->linkReady));
@@ -247,20 +257,15 @@ protected:
 
     void runTest_Disconnect_ClientSide()
     {
-        auto serverAcceptor = std::make_shared<TestLinkAcceptor>();
-        auto clientAcceptor = std::make_shared<TestLinkAcceptor>();
-
-        auto server = makeServer(PeerId{"server"});
-        auto client = makeClient(PeerId{"client"}, PeerId{"server"});
-
-        server->Open(serverAcceptor);
-        client->Open(clientAcceptor);
+        openClientServer();
 
         ASSERT_TRUE(awaitFlag(clientAcceptor->linkReady));
         ASSERT_TRUE(awaitFlag(serverAcceptor->linkReady));
 
         clientAcceptor->link->Disconnect();
 
+        // Both sides observe onDisconnected — from _dc->onClosed() callback.
+        ASSERT_TRUE(awaitFlag(clientAcceptor->disconnected));
         ASSERT_TRUE(awaitFlag(serverAcceptor->disconnected));
     }
 };

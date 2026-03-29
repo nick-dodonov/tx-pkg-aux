@@ -14,20 +14,6 @@ namespace Rtt::Rtc
 /// any combination of in-process peers to exchange signaling messages.
 ///
 /// Join() completes synchronously: onJoined is called before Join() returns.
-///
-/// Usage:
-/// @code
-///   auto hub = std::make_shared<SigHub>();
-///   LocalSigClient client{hub};
-///
-///   std::shared_ptr<ISigUser> user;
-///   client.Join(
-///       PeerId{"alice"},
-///       [](SigMessage m) { /* handle message */ },
-///       [&](SigJoinResult result) {
-///           if (result) user = *result;
-///       });
-/// @endcode
 class LocalSigClient : public ISigClient
 {
 public:
@@ -36,10 +22,8 @@ public:
     /// Register a peer on the shared hub.
     ///
     /// onJoined is called synchronously — before Join() returns.
-    /// The returned ISigUser unregisters from the hub when destroyed.
-    void Join(PeerId localId,
-              SigMessageHandler onMessage,
-              SigJoinHandler onJoined) override;
+    /// Leave() on the returned ISigUser unregisters the peer and triggers OnLeft({}).
+    void Join(PeerId localId, SigJoinHandler onJoined) override;
 
 private:
     std::shared_ptr<SigHub> _hub;

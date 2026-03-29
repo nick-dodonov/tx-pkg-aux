@@ -42,7 +42,9 @@ public:
         PeerId remoteId,
         std::shared_ptr<rtc::PeerConnection> pc,
         std::shared_ptr<rtc::DataChannel> dc,
-        std::size_t maxMessageSize = 65535);
+        std::size_t maxMessageSize = 65535,
+        std::function<void()> onClosed = {},
+        std::function<void()> onFailed = {});
 
     // ILink
     [[nodiscard]] const PeerId& LocalId() const override;
@@ -69,7 +71,8 @@ private:
     std::shared_ptr<rtc::DataChannel> _dc;
     std::size_t _maxMessageSize;
     LinkHandler _handler;
-    std::atomic<bool> _closed{false};
+    std::atomic<bool> _disconnectRequested{false};
+    std::atomic<bool> _closedFired{false};
 };
 
 static_assert(LinkLike<DcRtcLink>);

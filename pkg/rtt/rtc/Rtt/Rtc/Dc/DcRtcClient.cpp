@@ -19,14 +19,10 @@ namespace Rtt::Rtc
 using json = nlohmann::json;
 
 // ---------------------------------------------------------------------------
-// DcRtcClient::State — holds all negotiation objects
-//
-// Kept alive by DcRtcClient::_state for the connection lifetime.
-// The PC and DC are also held by DcRtcLink once the DataChannel is open;
-// DcRtcClient can be destroyed after that and the link continues working.
+// DcRtcClient::State — holds all negotiation objects, implements ISigHandler
 // ---------------------------------------------------------------------------
 
-struct DcRtcClient::State
+struct DcRtcClient::State : ISigHandler
 {
     std::shared_ptr<ILinkAcceptor> acceptor;
     std::shared_ptr<ISigUser> sigUser;
@@ -37,6 +33,55 @@ struct DcRtcClient::State
     PeerId remoteId;
     std::vector<std::string> iceServers;
     std::size_t maxMessageSize = 65535;
+
+    // ISigHandler — routes incoming SDP answers and ICE candidates.
+    //
+    // libdatachannel fires onLocalDescription and onLocalCandidate from
+    // independent background threads on the REMOTE peer, so candidates from
+    // the server can arrive at the client before the answer — even though the
+    // answer is always generated first. We buffer candidates until the answer
+    // has been applied to the local PeerConnection.
+    void OnMessage(SigMessage&& msg) override
+    {
+        if (!pc) {
+            return;
+        }
+        const auto j = json::parse(std::move(msg).payload, nullptr, /*exceptions=*/false);
+        if (j.is_discarded()) {
+            return;
+        }
+        const auto type = j.value("type", std::string{});
+        if (type == "answer") {
+            const auto sdp = j.value("description", std::string{});
+            pc->setRemoteDescription(rtc::Description(sdp, type));
+            _remoteDescriptionSet = true;
+            for (auto& [cand, mid] : _pendingCandidates) {
+                pc->addRemoteCandidate(rtc::Candidate(cand, mid));
+            }
+            _pendingCandidates.clear();
+        } else if (type == "candidate") {
+            auto cand = j.value("candidate", std::string{});
+            auto mid  = j.value("mid", std::string{});
+            if (_remoteDescriptionSet) {
+                pc->addRemoteCandidate(rtc::Candidate(cand, mid));
+            } else {
+                _pendingCandidates.emplace_back(std::move(cand), std::move(mid));
+            }
+        }
+    }
+
+    // ISigHandler — external signaling disconnect.
+    void OnLeft(std::error_code ec) override
+    {
+        if (ec) {
+            Log::Warn("signaling connection lost: {}", ec.message());
+            acceptor->OnLink(std::unexpected(Error::TransportClosed));
+        }
+    }
+
+private:
+    bool _remoteDescriptionSet{false};
+    std::vector<std::pair<std::string, std::string>> _pendingCandidates;
 };
 
 // ---------------------------------------------------------------------------
@@ -62,37 +107,17 @@ void DcRtcClient::Open(std::shared_ptr<ILinkAcceptor> acceptor)
 
     auto wstate = std::weak_ptr<State>{state};
 
-    // Route incoming SDP answers and ICE candidates from the remote peer.
-    auto onSigMsg = [wstate](SigMessage msg) {
-        auto s = wstate.lock();
-        if (!s || !s->pc) {
-            return;
-        }
-        const auto j = json::parse(msg.payload, nullptr, /*exceptions=*/false);
-        if (j.is_discarded()) {
-            return;
-        }
-        const auto type = j.value("type", std::string{});
-        if (type == "answer") {
-            const auto sdp = j.value("description", std::string{});
-            s->pc->setRemoteDescription(rtc::Description(sdp, type));
-        } else if (type == "candidate") {
-            const auto candidate = j.value("candidate", std::string{});
-            const auto mid = j.value("mid", std::string{});
-            s->pc->addRemoteCandidate(rtc::Candidate(candidate, mid));
-        }
-    };
-
-    // On successful join: create RTCPeerConnection and initiate negotiation.
-    auto onJoined = [wstate](SigJoinResult result) {
+    // Factory: called when signaling join completes (success or failure).
+    // Returns weak_ptr<ISigHandler> so the signaling layer can route messages.
+    auto onJoined = [wstate](SigJoinResult result) -> std::weak_ptr<ISigHandler> {
         auto s = wstate.lock();
         if (!s) {
-            return;
+            return {};
         }
         if (!result) {
             Log::Error("signaling join failed: {}", ErrorToString(result.error()));
             s->acceptor->OnLink(std::unexpected(result.error()));
-            return;
+            return {};
         }
         s->sigUser = std::move(*result);
 
@@ -107,7 +132,6 @@ void DcRtcClient::Open(std::shared_ptr<ILinkAcceptor> acceptor)
         auto wsigUser = std::weak_ptr<ISigUser>{s->sigUser};
         const auto remoteId = s->remoteId;
 
-        // Forward our SDP offer to the remote peer.
         pc->onLocalDescription([wsigUser, remoteId](const rtc::Description& desc) {
             if (auto su = wsigUser.lock()) {
                 const json payload = {{"type", desc.typeString()},
@@ -116,7 +140,6 @@ void DcRtcClient::Open(std::shared_ptr<ILinkAcceptor> acceptor)
             }
         });
 
-        // Forward each local ICE candidate to the remote peer (trickle ICE).
         pc->onLocalCandidate([wsigUser, remoteId](const rtc::Candidate& cand) {
             if (auto su = wsigUser.lock()) {
                 const json payload = {{"type", "candidate"},
@@ -126,17 +149,6 @@ void DcRtcClient::Open(std::shared_ptr<ILinkAcceptor> acceptor)
             }
         });
 
-        pc->onStateChange([wstate](rtc::PeerConnection::State st) {
-            if (st == rtc::PeerConnection::State::Failed) {
-                if (auto s = wstate.lock()) {
-                    Log::Error("peer connection failed");
-                    s->acceptor->OnLink(std::unexpected(Error::Unknown));
-                }
-            }
-        });
-
-        // Creating the DataChannel triggers SDP negotiation — the library
-        // fires onLocalDescription automatically with the generated offer.
         const auto maxMsgSize = s->maxMessageSize;
         const auto localId = s->localId;
 
@@ -150,14 +162,34 @@ void DcRtcClient::Open(std::shared_ptr<ILinkAcceptor> acceptor)
             }
             Log::Debug("data channel open {} -> {}", localId.value, remoteId.value);
 
-            auto link = DcRtcLink::Create(localId, remoteId, s->pc, s->dc, maxMsgSize);
+            auto onClosed = [wstate]() {
+                // PC teardown complete — leave signaling to close the WS connection.
+                if (auto s = wstate.lock(); s && s->sigUser) {
+                    s->sigUser->Leave();
+                }
+            };
+            auto onFailed = [wstate]() {
+                if (auto s = wstate.lock()) {
+                    Log::Error("peer connection failed");
+                    s->acceptor->OnLink(std::unexpected(Error::Unknown));
+                    if (s->sigUser) {
+                        s->sigUser->Leave();
+                    }
+                }
+            };
+
+            auto link = DcRtcLink::Create(localId, remoteId, s->pc, s->dc, maxMsgSize,
+                                          std::move(onClosed), std::move(onFailed));
             auto handler = s->acceptor->OnLink(link);
             link->SetHandler(std::move(handler));
         });
+
+        // Return State as the ISigHandler — it will receive OnMessage and OnLeft.
+        return std::weak_ptr<ISigHandler>{s};
     };
 
     Log::Debug("joining signaling as {}", _options.localId.value);
-    _options.sigClient->Join(_options.localId, std::move(onSigMsg), std::move(onJoined));
+    _options.sigClient->Join(_options.localId, std::move(onJoined));
 }
 
 } // namespace Rtt::Rtc

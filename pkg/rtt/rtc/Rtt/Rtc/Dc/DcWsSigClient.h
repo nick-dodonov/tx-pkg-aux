@@ -20,7 +20,7 @@ public:
     ~DcWsSigClient() override;
 
     // ISigClient
-    void Join(PeerId id, SigMessageHandler onMessage, SigJoinHandler onJoined) override;
+    void Join(PeerId id, SigJoinHandler onJoined) override;
 
 private:
     Options _options;

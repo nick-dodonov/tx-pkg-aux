@@ -9,17 +9,11 @@ LocalSigClient::LocalSigClient(std::shared_ptr<SigHub> hub)
     : _hub(std::move(hub))
 {}
 
-void LocalSigClient::Join(PeerId localId,
-                           SigMessageHandler onMessage,
-                           SigJoinHandler onJoined)
+void LocalSigClient::Join(PeerId localId, SigJoinHandler onJoined)
 {
     Log::Debug("joining as {}", localId.value);
-
-    // Register synchronously — SigHub::Register() is thread-safe.
-    auto user = _hub->Register(localId, std::move(onMessage));
-
-    // Notify the caller immediately; no network round-trip required.
-    onJoined(SigJoinResult{std::move(user)});
+    // SigHub::Register calls onJoined synchronously with the new user.
+    _hub->Register(std::move(localId), std::move(onJoined));
 }
 
 } // namespace Rtt::Rtc

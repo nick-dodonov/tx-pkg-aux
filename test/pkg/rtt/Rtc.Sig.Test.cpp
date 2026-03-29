@@ -4,6 +4,7 @@
 #include <gtest/gtest.h>
 
 #include <atomic>
+#include <functional>
 #include <latch>
 #include <memory>
 #include <string>
@@ -32,6 +33,42 @@ static bool await(std::latch& latch)
     }();
 }
 
+// Minimal ISigHandler backed by lambdas.
+struct FuncHandler : ISigHandler
+{
+    explicit FuncHandler(std::function<void(SigMessage&&)> onMsg,
+                         std::function<void(std::error_code)> onLeft = {})
+        : _onMessage(std::move(onMsg)), _onLeft(std::move(onLeft)) {}
+    void OnMessage(SigMessage&& msg) override { if (_onMessage) { _onMessage(std::move(msg)); } }
+    void OnLeft(std::error_code ec) override   { if (_onLeft)    { _onLeft(ec); } }
+private:
+    std::function<void(SigMessage&&)> _onMessage;
+    std::function<void(std::error_code)> _onLeft;
+};
+
+// Build a SigJoinHandler from separate callbacks.
+// handlerOut keeps the ISigHandler alive for the connection lifetime.
+static SigJoinHandler makeJoinHandler(
+    std::shared_ptr<ISigHandler>& handlerOut,
+    std::shared_ptr<ISigUser>* userOut,
+    std::function<void(SigMessage&&)> onMessage,
+    std::function<void(bool)> onJoined = {})
+{
+    auto h = std::make_shared<FuncHandler>(std::move(onMessage));
+    handlerOut = h;
+    std::weak_ptr<ISigHandler> wh{h};
+    return [wh, userOut, onJoined = std::move(onJoined)](SigJoinResult r) mutable -> std::weak_ptr<ISigHandler> {
+        bool ok = r.has_value();
+        if (ok && userOut) {
+            *userOut = *r;
+        }
+        if (onJoined) {
+            onJoined(ok);
+        }
+        return ok ? wh : std::weak_ptr<ISigHandler>{};
+    };
+}
+
 struct SignalFixture : testing::Test
 {
     std::shared_ptr<SigHub> hub = std::make_shared<SigHub>();
@@ -52,14 +89,11 @@ static_assert(SigClientLike<LocalSigClient>);
 TEST_F(SignalFixture, Join_CallsHandlerWithUser)
 {
     std::shared_ptr<ISigUser> joinedUser;
+    std::shared_ptr<ISigHandler> handler;
 
     alice->Join(
         PeerId{"alice"},
-        [](const SigMessage&) {},
-        [&](SigJoinResult r) {
-            ASSERT_TRUE(r.has_value());
-            joinedUser = *r;
-        });
+        makeJoinHandler(handler, &joinedUser, [](SigMessage&&) {}));
 
     ASSERT_NE(joinedUser, nullptr);
     EXPECT_EQ(joinedUser->LocalId().value, "alice");
@@ -70,20 +104,19 @@ TEST_F(SignalFixture, Send_DeliveredToTarget)
     std::string received;
     std::latch  done{1};
 
-    std::shared_ptr<ISigUser> bobUser;
+    std::shared_ptr<ISigUser> aliceUser, bobUser;
+    std::shared_ptr<ISigHandler> aliceHandler, bobHandler;
+
     bob->Join(
         PeerId{"bob"},
-        [&](const SigMessage& msg) {
+        makeJoinHandler(bobHandler, &bobUser, [&](SigMessage&& msg) {
             received = msg.payload;
             done.count_down();
-        },
-        [&](SigJoinResult r) { bobUser = *r; });
+        }));
 
-    std::shared_ptr<ISigUser> aliceUser;
     alice->Join(
         PeerId{"alice"},
-        [](const SigMessage&) {},
-        [&](SigJoinResult r) { aliceUser = *r; });
+        makeJoinHandler(aliceHandler, &aliceUser, [](SigMessage&&) {}));
 
     aliceUser->Send(PeerId{"bob"}, "hello");
 
@@ -97,16 +130,21 @@ TEST_F(SignalFixture, Send_Bidirectional)
     std::latch  done{2};
 
     std::shared_ptr<ISigUser> aliceUser, bobUser;
+    std::shared_ptr<ISigHandler> aliceHandler, bobHandler;
 
     alice->Join(
         PeerId{"alice"},
-        [&](const SigMessage& msg) { aliceGot = msg.payload; done.count_down(); },
-        [&](SigJoinResult r) { aliceUser = *r; });
+        makeJoinHandler(aliceHandler, &aliceUser, [&](SigMessage&& msg) {
+            aliceGot = msg.payload;
+            done.count_down();
+        }));
 
     bob->Join(
         PeerId{"bob"},
-        [&](const SigMessage& msg) { bobGot = msg.payload; done.count_down(); },
-        [&](SigJoinResult r) { bobUser = *r; });
+        makeJoinHandler(bobHandler, &bobUser, [&](SigMessage&& msg) {
+            bobGot = msg.payload;
+            done.count_down();
+        }));
 
     aliceUser->Send(PeerId{"bob"},   "ping");
     bobUser->Send(PeerId{"alice"}, "pong");
@@ -118,22 +156,24 @@ TEST_F(SignalFixture, Send_Bidirectional)
 
 TEST_F(SignalFixture, UserLeave_SendToLeaverIsIgnored)
 {
-    std::latch  arrived{1};
+    std::latch arrived{1};
 
     std::shared_ptr<ISigUser> aliceUser, bobUser;
+    std::shared_ptr<ISigHandler> aliceHandler, bobHandler;
 
     alice->Join(
         PeerId{"alice"},
-        [&](const SigMessage&) { arrived.count_down(); }, // should not be called
-        [&](SigJoinResult r) { aliceUser = *r; });
+        makeJoinHandler(aliceHandler, &aliceUser, [&](SigMessage&&) {
+            arrived.count_down(); // should not be called
+        }));
 
     bob->Join(
         PeerId{"bob"},
-        [](const SigMessage&) {},
-        [&](SigJoinResult r) { bobUser = *r; });
+        makeJoinHandler(bobHandler, &bobUser, [](SigMessage&&) {}));
 
-    // Alice leaves.
+    // Alice leaves — drop the handle so the hub sees no live handler.
     aliceUser.reset();
+    aliceHandler.reset();
 
     // Bob tries to reach alice — should silently drop.
     bobUser->Send(PeerId{"alice"}, "anyone home?");
@@ -150,16 +190,18 @@ TEST_F(SignalFixture, ConcurrentSend_ThreadSafe)
     std::latch done{kMessages};
 
     std::shared_ptr<ISigUser> aliceUser, bobUser;
+    std::shared_ptr<ISigHandler> aliceHandler, bobHandler;
 
     alice->Join(
         PeerId{"alice"},
-        [&](const SigMessage&) { count.fetch_add(1); done.count_down(); },
-        [&](SigJoinResult r) { aliceUser = *r; });
+        makeJoinHandler(aliceHandler, &aliceUser, [&](SigMessage&&) {
+            count.fetch_add(1);
+            done.count_down();
+        }));
 
     bob->Join(
         PeerId{"bob"},
-        [](const SigMessage&) {},
-        [&](SigJoinResult r) { bobUser = *r; });
+        makeJoinHandler(bobHandler, &bobUser, [](SigMessage&&) {}));
 
     std::vector<std::jthread> senders;
     senders.reserve(kMessages);
@@ -173,3 +215,7 @@ TEST_F(SignalFixture, ConcurrentSend_ThreadSafe)
     ASSERT_TRUE(await(done));
     EXPECT_EQ(count.load(), kMessages);
 }
+
+
+// ---------------------------------------------------------------------------
+// Helpers

@@ -1,6 +1,5 @@
 #pragma once
 #if !defined(__EMSCRIPTEN__)
-#include "Rtt/Rtc/ISigServer.h"
 #include "Rtt/Rtc/SigHub.h"
 
 #include <cstdint>
@@ -23,7 +22,7 @@ namespace Rtt::Rtc
 ///   Receive: {"id": "<senderPeerId>", "payload": "<text>"}
 ///
 /// @note DcWsSigServer is NOT copyable or movable after Start() has been called.
-class DcWsSigServer : public ISigServer
+class DcWsSigServer
 {
 public:
     struct Options
@@ -36,7 +35,7 @@ public:
     /// @param hub     Shared routing hub; must outlive this server.
     /// @param options Server configuration.
     DcWsSigServer(std::shared_ptr<SigHub> hub, Options options);
-    ~DcWsSigServer() override;
+    ~DcWsSigServer();
 
     DcWsSigServer(const DcWsSigServer&) = delete;
     DcWsSigServer& operator=(const DcWsSigServer&) = delete;
@@ -46,9 +45,15 @@ public:
     /// Start accepting connections.  May be called at most once.
     void Start();
 
+    /// Force-close one connected client's WebSocket.
+    /// Triggers onClosed on both sides: the server will Leave() the hub user,
+    /// and the client will receive OnLeft(SigError::ConnectionLost).
+    /// No-op if the peer is not currently connected.
+    void DisconnectPeer(const PeerId& peerId);
+
     /// The port the server is actually listening on.
     /// Returns 0 before Start() is called.
-    [[nodiscard]] std::uint16_t Port() const noexcept override;
+    [[nodiscard]] std::uint16_t Port() const noexcept;
 
 private:
     std::shared_ptr<SigHub> _hub;

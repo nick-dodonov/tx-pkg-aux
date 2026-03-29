@@ -8,7 +8,7 @@
 // Note: even in-process WebRTC negotiation is asynchronous (libdatachannel
 // uses internal threads for ICE gathering), so all tests poll for completion.
 
-#include "RtcTransportTests.h"
+#include "Rtc.Client.Tests.h"
 
 #include "Rtt/Rtc/SigHub.h"
 #include "Rtt/Rtc/LocalSigClient.h"

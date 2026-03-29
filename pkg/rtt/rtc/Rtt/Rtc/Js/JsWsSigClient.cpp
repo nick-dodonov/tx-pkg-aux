@@ -127,6 +127,8 @@ public:
         JsWsContext_Send(_ctx, to.value.c_str(), payload.c_str());
     }
 
+    void Leave() override;
+
 private:
     PeerId _id;
     JsWsSigContext* _ctx;
@@ -139,20 +141,20 @@ private:
 struct JsWsSigContext
 {
     PeerId id;
-    SigMessageHandler onMessage;
     SigJoinHandler onJoined;
-    bool fired = false; // true after onOpen or onError has fired
+    std::weak_ptr<ISigHandler> handler;
+    bool fired = false;
+    bool leaving = false;
 
-    void OnOpen()
+    void OnOpen(std::shared_ptr<JsWsSigUser> user)
     {
         if (fired) {
             return;
         }
         fired = true;
         Log::Info("[{}] signaling connected", id.value);
-        // Ownership of ctx transfers to JsWsSigUser — do NOT delete here.
-        auto user = std::make_shared<JsWsSigUser>(id, this);
-        std::move(onJoined)(SigJoinResult{std::move(user)});
+        handler = std::move(onJoined)(SigJoinResult{std::move(user)});
+        onJoined = {};
     }
 
     void OnError(const char* err)
@@ -169,22 +171,41 @@ struct JsWsSigContext
 
     void OnClose()
     {
-        // Server-side close after open.  JsWsSigUser still owns ctx — do not
-        // delete.  Future Send() calls will silently no-op (map entry gone).
+        if (leaving) {
+            return; // Leave() already notified OnLeft({})
+        }
         Log::Info("[{}] signaling disconnected", id.value);
+        if (auto h = handler.lock()) {
+            h->OnLeft(SigError::ConnectionLost);
+        }
     }
 
     void OnMessage(const char* fromId, const char* payload)
     {
-        onMessage(SigMessage{PeerId{fromId}, payload});
+        if (auto h = handler.lock()) {
+            h->OnMessage(SigMessage{PeerId{fromId}, payload});
+        }
     }
 };
 
-// JsWsSigUser destructor defined here where JsWsSigContext is complete.
+// JsWsSigUser destructor and Leave() defined here where JsWsSigContext is complete.
 JsWsSigUser::~JsWsSigUser()
 {
     JsWsContext_Close(_ctx);
     delete _ctx;
+}
+
+void JsWsSigUser::Leave()
+{
+    if (_ctx->leaving) {
+        return;
+    }
+    _ctx->leaving = true;
+    auto h = _ctx->handler.lock();
+    JsWsContext_Close(_ctx); // removes from JS map — onclose won't call OnClose
+    if (h) {
+        h->OnLeft({});
+    }
 }
 
 // ---------------------------------------------------------------------------
@@ -195,7 +216,9 @@ extern "C"
 {
     EMSCRIPTEN_KEEPALIVE void JsWsContext_OnOpen(JsWsSigContext* ctx)
     {
-        ctx->OnOpen();
+        // Ownership of ctx transfers to JsWsSigUser — do NOT delete here.
+        auto user = std::make_shared<JsWsSigUser>(ctx->id, ctx);
+        ctx->OnOpen(std::move(user));
     }
 
     EMSCRIPTEN_KEEPALIVE void JsWsContext_OnError(JsWsSigContext* ctx, const char* err)
@@ -231,7 +254,7 @@ JsWsSigClient::JsWsSigClient(Options options)
 
 JsWsSigClient::~JsWsSigClient() = default;
 
-void JsWsSigClient::Join(PeerId id, SigMessageHandler onMessage, SigJoinHandler onJoined)
+void JsWsSigClient::Join(PeerId id, SigJoinHandler onJoined)
 {
     const std::string url = "ws://" + _options.host + ":" +
                             std::to_string(_options.port) + "/" + id.value;
@@ -240,7 +263,6 @@ void JsWsSigClient::Join(PeerId id, SigMessageHandler onMessage, SigJoinHandler 
 
     auto* ctx = new JsWsSigContext{
         .id = id,
-        .onMessage = std::move(onMessage),
         .onJoined = std::move(onJoined),
     };
     JsWsContext_Connect(ctx, url.c_str());

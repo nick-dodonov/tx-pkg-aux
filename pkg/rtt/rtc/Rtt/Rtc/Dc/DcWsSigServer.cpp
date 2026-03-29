@@ -17,6 +17,31 @@ namespace Rtt::Rtc
 using json = nlohmann::json;
 
 // ---------------------------------------------------------------------------
+// WsClientHandler — ISigHandler for one connected WebSocket client
+// ---------------------------------------------------------------------------
+
+struct WsClientHandler : ISigHandler
+{
+    std::shared_ptr<rtc::WebSocket> ws;
+    std::string connId;
+    std::shared_ptr<ISigUser> user; // keeps hub registration alive
+
+    void OnMessage(SigMessage&& msg) override
+    {
+        if (!ws->isOpen()) {
+            return;
+        }
+        const json envelope = {{"id", msg.from.value}, {"payload", std::move(msg.payload)}};
+        ws->send(envelope.dump());
+    }
+
+    void OnLeft(std::error_code /*ec*/) override
+    {
+        // No-op: server-side handler — Leave() was called from onClosed.
+    }
+};
+
+// ---------------------------------------------------------------------------
 // DcWsSigServer::Impl — owns the libdatachannel resources
 // ---------------------------------------------------------------------------
 
@@ -73,17 +98,19 @@ void DcWsSigServer::Start()
 
             Log::Info("client connected: [{}]", connId);
 
-            // Register on the hub; the returned user keeps the slot alive.
-            // Capture the user in the ws callbacks (they share ownership).
-            auto user = hub->Register(
+            // Create handler that forwards hub messages to this WS client.
+            auto handler = std::make_shared<WsClientHandler>();
+            handler->ws = ws;
+            handler->connId = connId;
+
+            hub->Register(
                 PeerId{connId},
-                // Outbound: deliver hub messages to this WebSocket client.
-                [ws](SigMessage msg) {
-                    if (!ws->isOpen()) {
-                        return;
+                [handler](SigJoinResult result) -> std::weak_ptr<ISigHandler> {
+                    if (!result) {
+                        return {};
                     }
-                    const json envelope = {{"id", msg.from.value}, {"payload", std::move(msg.payload)}};
-                    ws->send(envelope.dump());
+                    handler->user = std::move(*result);
+                    return handler;
                 });
 
             // Track the connection so we can clean up on close.
@@ -92,7 +119,7 @@ void DcWsSigServer::Start()
                 impl->connections[connId] = ws;
             }
 
-            ws->onMessage([impl, hub, connId, user](auto raw) {
+            ws->onMessage([impl, hub, connId, handler](auto raw) {
                 // The signaling protocol uses text frames; ignore binary.
                 if (!std::holds_alternative<std::string>(raw)) {
                     return;
@@ -119,11 +146,16 @@ void DcWsSigServer::Start()
                 hub->Dispatch(PeerId{connId}, PeerId{to}, payload);
             });
 
-            ws->onClosed([impl, connId, user]() {
+            ws->onClosed([impl, connId, handler]() {
                 Log::Info("client disconnected: [{}]", connId);
-                std::lock_guard lock{impl->connMutex};
-                impl->connections.erase(connId);
-                // Dropping `user` here unregisters the peer from the hub.
+                {
+                    std::lock_guard lock{impl->connMutex};
+                    impl->connections.erase(connId);
+                }
+                // Explicit leave so the hub unregisters the peer.
+                if (handler->user) {
+                    handler->user->Leave();
+                }
             });
         });
     });
@@ -135,6 +167,23 @@ void DcWsSigServer::Start()
 std::uint16_t DcWsSigServer::Port() const noexcept
 {
     return _impl ? _impl->port.load() : 0;
+}
+
+void DcWsSigServer::DisconnectPeer(const PeerId& peerId)
+{
+    if (!_impl) {
+        return;
+    }
+    std::shared_ptr<rtc::WebSocket> ws;
+    {
+        std::lock_guard lock{_impl->connMutex};
+        if (auto it = _impl->connections.find(peerId.value); it != _impl->connections.end()) {
+            ws = it->second.lock();
+        }
+    }
+    if (ws && ws->isOpen()) {
+        ws->close();
+    }
 }
 
 } // namespace Rtt::Rtc
