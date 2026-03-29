@@ -1,6 +1,6 @@
-// Integration tests for WsSigClient + WsSigServer.
+// In-process integration tests for DcWsSigClient + DcWsSigServer.
 //
-// WsSigServer is used directly to avoid an external Node.js dependency.
+// DcWsSigServer is started in-process to avoid an external Node.js dependency.
 // The server is started once per test suite on an ephemeral OS-assigned port
 // (Options::port = 0) and torn down afterwards.
 
@@ -37,10 +37,10 @@ static bool await(std::latch& latch, std::chrono::milliseconds timeout = 3s)
 }
 
 // ---------------------------------------------------------------------------
-// Test fixture — one WsSigServer shared by all tests in the suite
+// Test fixture — one DcWsSigServer shared by all tests in the suite
 // ---------------------------------------------------------------------------
 
-class WsSigClientTest : public testing::Test
+class DcWsSigInProcessTest : public testing::Test
 {
 protected:
     static void SetUpTestSuite()
@@ -58,18 +58,21 @@ protected:
         sHub.reset();
     }
 
-    // Make a WsSigClient pointed at the shared server.
+    // Make a DcWsSigClient pointed at the shared server.
     static DcWsSigClient makeClient()
     {
-        return DcWsSigClient{DcWsSigClient::Options{.host = "127.0.0.1", .port = server->Port()}};
+        return DcWsSigClient{DcWsSigClient::Options{
+            .host = "127.0.0.1",
+            .port = server->Port()
+        }};
     }
 
     static std::shared_ptr<SigHub> sHub;
     static std::unique_ptr<DcWsSigServer> server;
 };
 
-std::shared_ptr<SigHub> WsSigClientTest::sHub;
-std::unique_ptr<DcWsSigServer> WsSigClientTest::server;
+std::shared_ptr<SigHub> DcWsSigInProcessTest::sHub;
+std::unique_ptr<DcWsSigServer> DcWsSigInProcessTest::server;
 
 // ---------------------------------------------------------------------------
 // Static interface checks
@@ -82,7 +85,7 @@ static_assert(SigServerLike<DcWsSigServer>);
 // Tests
 // ---------------------------------------------------------------------------
 
-TEST_F(WsSigClientTest, Join_ConnectsToServer)
+TEST_F(DcWsSigInProcessTest, Join_ConnectsToServer)
 {
     auto client = makeClient();
 
@@ -104,7 +107,7 @@ TEST_F(WsSigClientTest, Join_ConnectsToServer)
     EXPECT_EQ(joinedUser->LocalId().value, "test-join");
 }
 
-TEST_F(WsSigClientTest, Join_ServerUnavailable_ReportsError)
+TEST_F(DcWsSigInProcessTest, Join_ServerUnavailable_ReportsError)
 {
     // Connect to a port where nobody is listening.
     DcWsSigClient badClient{DcWsSigClient::Options{.host = "127.0.0.1", .port = 1}};
@@ -124,7 +127,7 @@ TEST_F(WsSigClientTest, Join_ServerUnavailable_ReportsError)
     EXPECT_TRUE(errorReported);
 }
 
-TEST_F(WsSigClientTest, Send_RelayedToPeer)
+TEST_F(DcWsSigInProcessTest, Send_RelayedToPeer)
 {
     auto sender   = makeClient();
     auto receiver = makeClient();
@@ -167,7 +170,7 @@ TEST_F(WsSigClientTest, Send_RelayedToPeer)
     EXPECT_EQ(receivedPayload, "relay-test");
 }
 
-TEST_F(WsSigClientTest, Send_Bidirectional)
+TEST_F(DcWsSigInProcessTest, Send_Bidirectional)
 {
     auto ca = makeClient();
     auto cb = makeClient();
@@ -180,18 +183,18 @@ TEST_F(WsSigClientTest, Send_Bidirectional)
     ca.Join(
         PeerId{"peer-a"},
         [&](const SigMessage& msg) { fromB = msg.payload; done.count_down(); },
-        [&](SigJoinResult r) { 
-            if (r.has_value()) { 
-                ua = *r; 
+        [&](SigJoinResult r) {
+            if (r.has_value()) {
+                ua = *r;
             }
         });
 
     cb.Join(
         PeerId{"peer-b"},
         [&](const SigMessage& msg) { fromA = msg.payload; done.count_down(); },
-        [&](SigJoinResult r) { 
-            if (r.has_value()) { 
-                ub = *r; 
+        [&](SigJoinResult r) {
+            if (r.has_value()) {
+                ub = *r;
             }
         });
 
@@ -209,7 +212,7 @@ TEST_F(WsSigClientTest, Send_Bidirectional)
     EXPECT_EQ(fromB, "from-b");
 }
 
-TEST_F(WsSigClientTest, UserLeave_ClosesWebSocket)
+TEST_F(DcWsSigInProcessTest, UserLeave_ClosesWebSocket)
 {
     auto client = makeClient();
 
@@ -220,7 +223,9 @@ TEST_F(WsSigClientTest, UserLeave_ClosesWebSocket)
         PeerId{"leaver"},
         [](const SigMessage&) {},
         [&](SigJoinResult r) {
-            if (r.has_value()) user = *r;
+            if (r.has_value()) {
+                user = *r;
+            }
             connected.count_down();
         });
 

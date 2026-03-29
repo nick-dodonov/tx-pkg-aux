@@ -70,7 +70,7 @@ static WsSigClient::Options serverOptions()
 // Tests
 // ---------------------------------------------------------------------------
 
-TEST(WsSigClientIntegration, Join_ConnectsToServer)
+TEST(WsSigClient_Integration, Join_ConnectsToServer)
 {
     auto client = WsSigClient::MakeDefault(serverOptions());
 
@@ -92,7 +92,7 @@ TEST(WsSigClientIntegration, Join_ConnectsToServer)
     EXPECT_EQ(joinedUser->LocalId().value, "integ-join");
 }
 
-TEST(WsSigClientIntegration, Join_ServerUnavailable_ReportsError)
+TEST(WsSigClient_Integration, Join_ServerUnavailable_ReportsError)
 {
     auto client = WsSigClient::MakeDefault({.host = "127.0.0.1", .port = 1});
 
@@ -111,7 +111,7 @@ TEST(WsSigClientIntegration, Join_ServerUnavailable_ReportsError)
     EXPECT_TRUE(errorReported);
 }
 
-TEST(WsSigClientIntegration, Send_RelayedToPeer)
+TEST(WsSigClient_Integration, Send_RelayedToPeer)
 {
     auto sender   = WsSigClient::MakeDefault(serverOptions());
     auto receiver = WsSigClient::MakeDefault(serverOptions());
@@ -158,7 +158,7 @@ TEST(WsSigClientIntegration, Send_RelayedToPeer)
     EXPECT_EQ(receivedPayload, "integration-relay-test");
 }
 
-TEST(WsSigClientIntegration, Send_Bidirectional)
+TEST(WsSigClient_Integration, Send_Bidirectional)
 {
     auto ca = WsSigClient::MakeDefault(serverOptions());
     auto cb = WsSigClient::MakeDefault(serverOptions());

@@ -3,6 +3,7 @@ load("@tx-kit-ext//rules:multi_app.bzl", "multi_app")
 multi_app(
     name = "server",
     srcs = ["Server.cpp", "RttBridge.h"],
+    platforms = ["host", "droid"],  # No UDP support on WASM, and we don't need a server there anyway
     deps = [
         "//pkg/app",
         "//pkg/asio",
@@ -14,6 +15,7 @@ multi_app(
 multi_app(
     name = "client",
     srcs = ["Client.cpp", "RttBridge.h"],
+    platforms = ["host", "droid"],  # No UDP support on WASM
     deps = [
         "//pkg/app",
         "//pkg/asio",

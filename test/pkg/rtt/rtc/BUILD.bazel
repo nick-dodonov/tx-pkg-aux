@@ -1,15 +1,8 @@
 load("@tx-kit-ext//rules:multi_app.bzl", "multi_test")
 
 multi_test(
-    name = "rtc",
-    srcs = glob(
-        [
-            "*.cpp",
-            "*.h",
-        ],
-        allow_empty = True,
-        exclude = ["WsSigClientIntegration.Test.cpp"],
-    ),
+    name = "ws-sig-in-process",
+    srcs = ["DcWsSig.InProcess.Test.cpp"],
     cxxopts = ["-fexceptions"],
     platforms = [
         "host",
@@ -23,13 +16,14 @@ multi_test(
 )
 
 multi_test(
-    name = "rtc_integration",
-    srcs = ["WsSigClientIntegration.Test.cpp"],
+    name = "ws-sig-client",
+    srcs = ["WsSigClient.Integration.Test.cpp"],
     cxxopts = ["-fexceptions"],
     linkopts = select({
         "@platforms//cpu:wasm32": ["-sASYNCIFY=1"],
         "//conditions:default": [],
     }),
+    tags = ["manual"],  # requires the server to be running
     deps = [
         "//pkg/rtt/rtc",
         "@googletest//:gtest_main",
