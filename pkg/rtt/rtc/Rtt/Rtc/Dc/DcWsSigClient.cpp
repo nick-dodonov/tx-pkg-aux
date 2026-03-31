@@ -8,7 +8,9 @@
 
 #include <atomic>
 #include <memory>
+#include <mutex>
 #include <utility>
+#include <vector>
 
 namespace Rtt::Rtc
 {
@@ -49,7 +51,8 @@ namespace Rtt::Rtc
         void Leave() override
         {
             if (_leaving.exchange(true)) {
-                return; // already leaving
+                // Log::Trace("[{}] already leaving, ignoring", _id.value);
+                return;
             }
             if (_ws && _ws->isOpen()) {
                 _ws->close(); // onClosed will call NotifyClosed()
@@ -58,12 +61,28 @@ namespace Rtt::Rtc
             }
         }
 
-        void SetHandler(std::weak_ptr<ISigHandler> handler) { _handler = std::move(handler); }
+        void SetHandler(std::weak_ptr<ISigHandler> handler)
+        {
+            std::vector<SigMessage> pending;
+            {
+                std::lock_guard lock{_handlerMutex};
+                _handler = std::move(handler);
+                pending = std::move(_pending);
+            }
+            if (auto h = _handler.lock()) {
+                for (auto& msg : pending) {
+                    h->OnMessage(std::move(msg));
+                }
+            }
+        }
 
         void Deliver(SigMessage msg)
         {
+            std::lock_guard lock{_handlerMutex};
             if (auto h = _handler.lock()) {
                 h->OnMessage(std::move(msg));
+            } else {
+                _pending.push_back(std::move(msg));
             }
         }
 
@@ -80,7 +99,9 @@ namespace Rtt::Rtc
     private:
         PeerId _id;
         std::shared_ptr<rtc::WebSocket> _ws;
+        std::mutex _handlerMutex;
         std::weak_ptr<ISigHandler> _handler;
+        std::vector<SigMessage> _pending;
         std::atomic<bool> _leaving{false};
     };
 
@@ -115,18 +136,27 @@ namespace Rtt::Rtc
 
         ws->onOpen([ws, id, fired, onJoinedCap, sharedUser]() {
             if (*fired) {
+                Log::Trace("[{}] onOpen: already fired, ignoring", id.value);
                 return;
             }
             *fired = true;
             Log::Info("[{}] signaling connected", id.value);
             auto user = std::make_shared<DcWsSigUser>(id, ws);
-            auto whandler = (*onJoinedCap)(SigJoinResult{user});
-            user->SetHandler(std::move(whandler));
+            // Register the user in sharedUser BEFORE calling onJoinedCap.
+            // onJoinedCap may synchronously start WebRTC negotiation, triggering
+            // onLocalDescription on a libdatachannel background thread. On fast
+            // loopback the remote's answer can arrive via onMessage before
+            // onJoinedCap returns. Without this, sharedUser->lock() would return
+            // nullptr and the answer would be silently dropped.
             *sharedUser = user;
+            auto whandler = (*onJoinedCap)(SigJoinResult{user});
+            // SetHandler replays any messages buffered during onJoinedCap execution.
+            user->SetHandler(std::move(whandler));
         });
 
         ws->onError([id, fired, onJoinedCap](std::string err) {
             if (*fired) {
+                Log::Trace("[{}] onError: already fired, ignoring ({})", id.value, err);
                 return;
             }
             *fired = true;
@@ -143,10 +173,12 @@ namespace Rtt::Rtc
 
         ws->onMessage([id, sharedUser](auto raw) {
             if (!std::holds_alternative<std::string>(raw)) {
+                Log::Trace("[{}] onMessage: ignoring non-text frame", id.value);
                 return;
             }
             auto user = sharedUser->lock();
             if (!user) {
+                Log::Warn("[{}] onMessage: user not ready, dropping message", id.value);
                 return;
             }
 

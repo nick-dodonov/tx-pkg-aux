@@ -56,6 +56,7 @@ namespace Rtt::Rtc
             const auto remotePeerId = msg.from;
 
             if (type == "offer") {
+                Log::Trace("offer received from {}", remotePeerId.value);
                 handleOffer(remotePeerId, j);
             } else if (type == "candidate") {
                 auto candidate = j.value("candidate", std::string{});
@@ -66,8 +67,10 @@ namespace Rtt::Rtc
                     if (auto it = peers.find(remotePeerId.value); it != peers.end()) {
                         auto& peer = it->second;
                         if (peer.remoteDescSet) {
+                            Log::Trace("ICE candidate from {} (direct)", remotePeerId.value);
                             pc = peer.pc;
                         } else {
+                            Log::Trace("ICE candidate from {} (buffered, no remote desc yet)", remotePeerId.value);
                             peer.pendingCandidates.emplace_back(std::move(candidate), std::move(mid));
                         }
                     }
@@ -106,6 +109,7 @@ namespace Rtt::Rtc
             auto wsigUser = std::weak_ptr<ISigUser>{sigUser};
             pc->onLocalDescription([wsigUser, remotePeerId](const rtc::Description& desc) {
                 if (auto su = wsigUser.lock()) {
+                    Log::Trace("sending {} to {}", desc.typeString(), remotePeerId.value);
                     const json payload = {{"type", desc.typeString()}, {"description", std::string(desc)}};
                     su->Send(remotePeerId, payload.dump());
                 }
@@ -113,6 +117,7 @@ namespace Rtt::Rtc
 
             pc->onLocalCandidate([wsigUser, remotePeerId](const rtc::Candidate& cand) {
                 if (auto su = wsigUser.lock()) {
+                    Log::Trace("sending ICE candidate to {}", remotePeerId.value);
                     const json payload = {{"type", "candidate"}, {"candidate", std::string(cand)}, {"mid", cand.mid()}};
                     su->Send(remotePeerId, payload.dump());
                 }
@@ -158,6 +163,7 @@ namespace Rtt::Rtc
                     pending = std::move(it->second.pendingCandidates);
                 }
             }
+            Log::Trace("flushing {} pending ICE candidates for {}", pending.size(), remotePeerId.value);
             for (auto& [cand, mid] : pending) {
                 pc->addRemoteCandidate(rtc::Candidate(cand, mid));
             }

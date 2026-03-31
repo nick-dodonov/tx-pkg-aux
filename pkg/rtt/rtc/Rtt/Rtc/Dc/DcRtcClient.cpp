@@ -43,6 +43,7 @@ namespace Rtt::Rtc
         void OnMessage(SigMessage&& msg) override
         {
             if (!pc) {
+                Log::Warn("message received but no peer connection exists, ignoring");
                 return;
             }
             const auto j = json::parse(std::move(msg).payload, nullptr, /*exceptions=*/false);
@@ -51,19 +52,25 @@ namespace Rtt::Rtc
             }
             const auto type = j.value("type", std::string{});
             if (type == "answer") {
+                Log::Trace("answer received from {}", msg.from.value);
                 const auto sdp = j.value("description", std::string{});
                 pc->setRemoteDescription(rtc::Description(sdp, type));
                 _remoteDescriptionSet = true;
-                for (auto& [cand, mid] : _pendingCandidates) {
-                    pc->addRemoteCandidate(rtc::Candidate(cand, mid));
+                if (!_pendingCandidates.empty()) {
+                    Log::Trace("flushing {} pending ICE candidates", _pendingCandidates.size());
+                    for (auto& [cand, mid] : _pendingCandidates) {
+                        pc->addRemoteCandidate(rtc::Candidate(cand, mid));
+                    }
+                    _pendingCandidates.clear();
                 }
-                _pendingCandidates.clear();
             } else if (type == "candidate") {
                 auto cand = j.value("candidate", std::string{});
                 auto mid = j.value("mid", std::string{});
                 if (_remoteDescriptionSet) {
+                    Log::Trace("ICE candidate from {} (direct)", msg.from.value);
                     pc->addRemoteCandidate(rtc::Candidate(cand, mid));
                 } else {
+                    Log::Trace("ICE candidate from {} (buffered, no remote desc yet)", msg.from.value);
                     _pendingCandidates.emplace_back(std::move(cand), std::move(mid));
                 }
             }
@@ -133,6 +140,7 @@ namespace Rtt::Rtc
 
             pc->onLocalDescription([wsigUser, remoteId](const rtc::Description& desc) {
                 if (auto su = wsigUser.lock()) {
+                    Log::Trace("sending {} to {}", desc.typeString(), remoteId.value);
                     const json payload = {{"type", desc.typeString()}, {"description", std::string(desc)}};
                     su->Send(remoteId, payload.dump());
                 }
@@ -140,6 +148,7 @@ namespace Rtt::Rtc
 
             pc->onLocalCandidate([wsigUser, remoteId](const rtc::Candidate& cand) {
                 if (auto su = wsigUser.lock()) {
+                    Log::Trace("sending ICE candidate to {}", remoteId.value);
                     const json payload = {{"type", "candidate"}, {"candidate", std::string(cand)}, {"mid", cand.mid()}};
                     su->Send(remoteId, payload.dump());
                 }
