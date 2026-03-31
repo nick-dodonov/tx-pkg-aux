@@ -1,54 +1,108 @@
 #if !defined(__EMSCRIPTEN__)
 #include "DcRtcLink.h"
 
-#include "Log/Log.h"
+#include "Rtt/Rtc/ISigUser.h"
 
+#include <nlohmann/json.hpp>
 #include <rtc/rtc.hpp>
 
-#include <cstring>
 #include <functional>
 #include <memory>
+#include <string>
+#include <utility>
 #include <vector>
 
 namespace Rtt::Rtc
 {
+    using json = nlohmann::json;
+
+    static std::string_view ToStringView(rtc::PeerConnection::GatheringState st)
+    {
+        using G = rtc::PeerConnection::GatheringState;
+        switch (st) {
+        case G::New:        return "New";
+        case G::InProgress: return "InProgress";
+        case G::Complete:   return "Complete";
+        }
+        return "?";
+    }
+
+    static std::string_view ToStringView(rtc::PeerConnection::State st)
+    {
+        using S = rtc::PeerConnection::State;
+        switch (st) {
+        case S::New:          return "New";
+        case S::Connecting:   return "Connecting";
+        case S::Connected:    return "Connected";
+        case S::Disconnected: return "Disconnected";
+        case S::Failed:       return "Failed";
+        case S::Closed:       return "Closed";
+        }
+        return "?";
+    }
+
     // ---------------------------------------------------------------------------
-    // DcRtcLink — private constructor
+    // Phase 1: Create — sets up PeerConnection and wires signaling + logging callbacks
     // ---------------------------------------------------------------------------
 
     DcRtcLink::DcRtcLink(
+        rtc::Configuration config,
         PeerId localId,
         PeerId remoteId,
-        std::shared_ptr<rtc::PeerConnection> pc,
-        std::shared_ptr<rtc::DataChannel> dc,
-        std::size_t maxMessageSize
-    )
-        : _localId(std::move(localId))
-        , _remoteId(std::move(remoteId))
-        , _pc(std::move(pc))
-        , _dc(std::move(dc))
-        , _maxMessageSize(maxMessageSize)
-    {}
-
-    // ---------------------------------------------------------------------------
-    // Create — wires DC callbacks and returns a live link
-    // ---------------------------------------------------------------------------
-
-    std::shared_ptr<DcRtcLink> DcRtcLink::Create(
-        PeerId localId,
-        PeerId remoteId,
-        std::shared_ptr<rtc::PeerConnection> pc,
-        std::shared_ptr<rtc::DataChannel> dc,
+        std::weak_ptr<ISigUser> sigUser,
         std::size_t maxMessageSize,
+        Log::Logger logger
+    )
+        : pc(std::move(config))
+        , _localId(localId)
+        , _remoteId(remoteId)
+        , _maxMessageSize(maxMessageSize)
+        , _logger(logger)
+    {
+        pc.onLocalDescription([sigUser, remoteId, logger](const rtc::Description& desc) mutable {
+            if (auto su = sigUser.lock()) {
+                logger.Trace("sending {} to {}", desc.typeString(), remoteId.value);
+                const json payload = {{"type", desc.typeString()}, {"description", std::string(desc)}};
+                su->Send(remoteId, payload.dump());
+            }
+        });
+
+        pc.onLocalCandidate([sigUser, remoteId, logger](const rtc::Candidate& cand) mutable {
+            if (auto su = sigUser.lock()) {
+                logger.Trace("sending ICE candidate to {}", remoteId.value);
+                const json payload = {{"type", "candidate"}, {"candidate", std::string(cand)}, {"mid", cand.mid()}};
+                su->Send(remoteId, payload.dump());
+            }
+        });
+
+        pc.onGatheringStateChange([localId, remoteId, logger](rtc::PeerConnection::GatheringState st) mutable {
+            logger.Trace("ICE gathering [{} -> {}]: {}", localId.value, remoteId.value, ToStringView(st));
+        });
+
+        // Pre-link state change: diagnostic logging only.
+        // Attach() will override this with a handler that fires onClosed/onFailed.
+        pc.onStateChange([localId, remoteId, logger](rtc::PeerConnection::State st) mutable {
+            logger.Trace("PC state [{} -> {}]: {}", localId.value, remoteId.value, ToStringView(st));
+        });
+    }
+
+    // ---------------------------------------------------------------------------
+    // Phase 2: Attach — bind the open DataChannel and wire data/disconnect callbacks
+    // ---------------------------------------------------------------------------
+
+    void DcRtcLink::Attach(
+        std::shared_ptr<rtc::DataChannel> dc,
         std::function<void()> onClosed,
         std::function<void()> onFailed
     )
     {
-        auto link = std::shared_ptr<DcRtcLink>(new DcRtcLink(std::move(localId), std::move(remoteId), std::move(pc), std::move(dc), maxMessageSize));
+        _dc = std::move(dc);
+        _logger.Debug("data channel open {} -> {}", _localId.value, _remoteId.value);
 
-        auto wlink = std::weak_ptr<DcRtcLink>{link};
+        auto wlink = std::weak_ptr<DcRtcLink>{std::static_pointer_cast<DcRtcLink>(shared_from_this())};
+        assert(wlink.expired() == false && "shared_from_this() must be valid when calling Attach()");
 
-        link->_dc->onMessage([wlink](rtc::message_variant data) {
+        _dc->onMessage([wlink](rtc::message_variant data) {
             auto self = wlink.lock();
             if (!self || self->_disconnectRequested) {
                 return;
@@ -62,29 +116,21 @@ namespace Rtt::Rtc
             }
         });
 
-        link->_dc->onClosed([wlink]() {
+        _dc->onClosed([wlink]() {
             // Log the DC-level close. onDisconnected fires later from PC state change
             // to guarantee all libdatachannel internal threads (SCTP/DTLS/ICE) are done.
-            auto self = wlink.lock();
-            if (self) {
-                Log::Debug("data channel closed {} -> {}", self->_localId.value, self->_remoteId.value);
+            if (auto self = wlink.lock()) {
+                self->_logger.Debug("data channel closed {} -> {}", self->_localId.value, self->_remoteId.value);
             }
         });
 
-        // Fire onDisconnected when the PeerConnection itself reaches a terminal
-        // state. This is later than DC close and ensures ICE/DTLS teardown is
-        // complete — safe to create new PeerConnections for the next test.
-        link->_pc->onStateChange([wlink, onClosed = std::move(onClosed), onFailed = std::move(onFailed)](rtc::PeerConnection::State st) {
+        // Override the pre-link onStateChange with one that fires onClosed/onFailed
+        // and notifies the link handler. PC reaching a terminal state is later than
+        // DC close — ensures ICE/DTLS teardown is complete before calling back.
+        pc.onStateChange([wlink, onClosed = std::move(onClosed), onFailed = std::move(onFailed)](rtc::PeerConnection::State st) mutable {
             using S = rtc::PeerConnection::State;
-            const std::string_view name = st == S::New          ? "New"
-                                        : st == S::Connecting   ? "Connecting"
-                                        : st == S::Connected    ? "Connected"
-                                        : st == S::Disconnected ? "Disconnected"
-                                        : st == S::Failed       ? "Failed"
-                                        : st == S::Closed       ? "Closed"
-                                                                : "?";
             if (auto self = wlink.lock()) {
-                Log::Trace("PC state [{} -> {}]: {}", self->_localId.value, self->_remoteId.value, name);
+                self->_logger.Trace("PC state [{} -> {}]: {}", self->_localId.value, self->_remoteId.value, ToStringView(st));
             }
             if (st == S::Closed || st == S::Disconnected) {
                 if (onClosed) {
@@ -100,14 +146,50 @@ namespace Rtt::Rtc
                 if (!self || self->_closedFired.exchange(true)) {
                     return;
                 }
-                Log::Debug("peer connection closed {} -> {}", self->_localId.value, self->_remoteId.value);
+                self->_logger.Debug("peer connection closed {} -> {}", self->_localId.value, self->_remoteId.value);
                 if (self->_handler.onDisconnected) {
                     self->_handler.onDisconnected();
                 }
             }
         });
+    }
 
-        return link;
+    // ---------------------------------------------------------------------------
+    // ICE negotiation
+    // ---------------------------------------------------------------------------
+
+    void DcRtcLink::SetRemoteDescription(const std::string& sdp, rtc::Description::Type type, const PeerId& fromPeerId)
+    {
+        _logger.Trace("{} received from {}", rtc::Description::typeToString(type), fromPeerId.value); //TODO: typeToStringView
+        pc.setRemoteDescription(rtc::Description(sdp, type));
+
+        std::vector<std::pair<std::string, std::string>> pending;
+        {
+            std::lock_guard lock{_mutex};
+            _remoteDescSet = true;
+            pending = std::move(_pendingCandidates);
+        }
+        if (!pending.empty()) {
+            _logger.Trace("flushing {} pending ICE candidates", pending.size());
+            for (auto& [cand, mid] : pending) {
+                pc.addRemoteCandidate(rtc::Candidate(std::move(cand), std::move(mid)));
+            }
+        }
+    }
+
+    void DcRtcLink::AddRemoteCandidate(std::string cand, std::string mid, const PeerId& fromPeerId)
+    {
+        {
+            std::lock_guard lock{_mutex};
+            if (_remoteDescSet) {
+                _logger.Trace("ICE candidate from {} (direct)", fromPeerId.value);
+            } else {
+                _logger.Trace("ICE candidate from {} (buffered, no remote desc yet)", fromPeerId.value);
+                _pendingCandidates.emplace_back(std::move(cand), std::move(mid));
+                return;
+            }
+        }
+        pc.addRemoteCandidate(rtc::Candidate(std::move(cand), std::move(mid)));
     }
 
     // ---------------------------------------------------------------------------
@@ -118,6 +200,7 @@ namespace Rtt::Rtc
     {
         return _localId;
     }
+
     const PeerId& DcRtcLink::RemoteId() const
     {
         return _remoteId;
@@ -140,7 +223,7 @@ namespace Rtt::Rtc
             return;
         }
 
-        Log::Trace("send {} bytes {} -> {}", bytesWritten, _localId.value, _remoteId.value);
+        _logger.Trace("send {} bytes {} -> {}", bytesWritten, _localId.value, _remoteId.value);
 
         rtc::binary payload(buf.begin(), buf.begin() + static_cast<std::ptrdiff_t>(bytesWritten));
         _dc->send(std::move(payload));
@@ -152,16 +235,14 @@ namespace Rtt::Rtc
             return;
         }
 
-        Log::Trace("disconnect {} -> {}", _localId.value, _remoteId.value);
+        _logger.Trace("disconnect {} -> {}", _localId.value, _remoteId.value);
 
         // Close the DataChannel and PeerConnection asynchronously.
-        // onDisconnected will fire from _dc->onClosed() on both sides uniformly.
+        // onDisconnected will fire from pc->onStateChange on both sides uniformly.
         if (_dc) {
             _dc->close();
         }
-        if (_pc) {
-            _pc->close();
-        }
+        pc.close();
     }
 }
 #endif

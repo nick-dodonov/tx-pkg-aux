@@ -1,6 +1,7 @@
 #if !defined(__EMSCRIPTEN__)
 #include "DcRtcServer.h"
 #include "DcRtcLink.h"
+#include "DcRtcConfig.h"
 
 #include "Log/Log.h"
 #include "Rtt/Rtc/ISigUser.h"
@@ -13,7 +14,6 @@
 #include <string>
 #include <unordered_map>
 #include <utility>
-#include <vector>
 
 namespace Rtt::Rtc
 {
@@ -27,22 +27,17 @@ namespace Rtt::Rtc
         : ISigHandler
         , std::enable_shared_from_this<State>
     {
+        Log::Logger logger{"DcRtcServer"};
+
         std::shared_ptr<ILinkAcceptor> acceptor;
         std::shared_ptr<ISigUser> sigUser;
 
         PeerId localId;
-        std::vector<std::string> iceServers;
+        rtc::Configuration config;
         std::size_t maxMessageSize = 65535;
 
         std::mutex mutex;
-
-        struct PeerState
-        {
-            std::shared_ptr<rtc::PeerConnection> pc;
-            bool remoteDescSet{false};
-            std::vector<std::pair<std::string, std::string>> pendingCandidates;
-        };
-        std::unordered_map<std::string, PeerState> peers;
+        std::unordered_map<std::string, std::shared_ptr<DcRtcLink>> peers;
 
         // ISigHandler — handles offers and ICE candidates from remote peers.
         void OnMessage(SigMessage&& msg) override
@@ -53,30 +48,23 @@ namespace Rtt::Rtc
             }
 
             const auto type = j.value("type", std::string{});
-            const auto remotePeerId = msg.from;
+            const auto& remotePeerId = msg.from;
 
             if (type == "offer") {
-                Log::Trace("offer received from {}", remotePeerId.value);
-                handleOffer(remotePeerId, j);
+                logger.Trace("offer received from {}", remotePeerId.value);
+                HandleOffer(remotePeerId, j);
             } else if (type == "candidate") {
                 auto candidate = j.value("candidate", std::string{});
                 auto mid = j.value("mid", std::string{});
-                std::shared_ptr<rtc::PeerConnection> pc;
+                std::shared_ptr<DcRtcLink> link;
                 {
                     std::lock_guard lock{mutex};
                     if (auto it = peers.find(remotePeerId.value); it != peers.end()) {
-                        auto& peer = it->second;
-                        if (peer.remoteDescSet) {
-                            Log::Trace("ICE candidate from {} (direct)", remotePeerId.value);
-                            pc = peer.pc;
-                        } else {
-                            Log::Trace("ICE candidate from {} (buffered, no remote desc yet)", remotePeerId.value);
-                            peer.pendingCandidates.emplace_back(std::move(candidate), std::move(mid));
-                        }
+                        link = it->second;
                     }
                 }
-                if (pc) {
-                    pc->addRemoteCandidate(rtc::Candidate(candidate, mid));
+                if (link) {
+                    link->AddRemoteCandidate(std::move(candidate), std::move(mid), remotePeerId);
                 }
             }
         }
@@ -85,81 +73,39 @@ namespace Rtt::Rtc
         void OnLeft(std::error_code ec) override
         {
             if (ec) {
-                Log::Warn("signaling connection lost: {}", ec.message());
+                logger.Warn("signaling connection lost: {}", ec.message());
                 acceptor->OnLink(std::unexpected(Error::TransportClosed));
             }
         }
 
     private:
-        void handleOffer(const PeerId& remotePeerId, const json& j)
+        void HandleOffer(const PeerId& remotePeerId, const json& j)
         {
             const auto sdp = j.value("description", std::string{});
 
-            rtc::Configuration config;
-            for (const auto& srv : iceServers) {
-                config.iceServers.emplace_back(srv);
-            }
-
-            auto pc = std::make_shared<rtc::PeerConnection>(config);
+            auto link = std::make_shared<DcRtcLink>(
+                config,
+                localId,
+                remotePeerId,
+                std::weak_ptr<ISigUser>{sigUser},
+                maxMessageSize,
+                logger
+            );
             {
                 std::lock_guard lock{mutex};
-                peers[remotePeerId.value].pc = pc;
+                peers[remotePeerId.value] = link;
             }
 
-            auto wsigUser = std::weak_ptr<ISigUser>{sigUser};
-            pc->onLocalDescription([wsigUser, remotePeerId](const rtc::Description& desc) {
-                if (auto su = wsigUser.lock()) {
-                    Log::Trace("sending {} to {}", desc.typeString(), remotePeerId.value);
-                    const json payload = {{"type", desc.typeString()}, {"description", std::string(desc)}};
-                    su->Send(remotePeerId, payload.dump());
-                }
-            });
-
-            pc->onLocalCandidate([wsigUser, remotePeerId](const rtc::Candidate& cand) {
-                if (auto su = wsigUser.lock()) {
-                    Log::Trace("sending ICE candidate to {}", remotePeerId.value);
-                    const json payload = {{"type", "candidate"}, {"candidate", std::string(cand)}, {"mid", cand.mid()}};
-                    su->Send(remotePeerId, payload.dump());
-                }
-            });
-
-            // Log gathering and connection state changes during ICE negotiation
-            // (before DcRtcLink is created). DcRtcLink::Create will override
-            // onStateChange once the data channel opens.
-            pc->onGatheringStateChange([remotePeerId, lid = localId](rtc::PeerConnection::GatheringState st) {
-                using G = rtc::PeerConnection::GatheringState;
-                const std::string_view name = st == G::New         ? "New"
-                                            : st == G::InProgress  ? "InProgress"
-                                            : st == G::Complete    ? "Complete"
-                                                                   : "?";
-                Log::Trace("ICE gathering [{} -> {}]: {}", lid.value, remotePeerId.value, name);
-            });
-            pc->onStateChange([remotePeerId, lid = localId](rtc::PeerConnection::State st) {
-                using S = rtc::PeerConnection::State;
-                const std::string_view name = st == S::New          ? "New"
-                                            : st == S::Connecting   ? "Connecting"
-                                            : st == S::Connected    ? "Connected"
-                                            : st == S::Disconnected ? "Disconnected"
-                                            : st == S::Failed       ? "Failed"
-                                            : st == S::Closed       ? "Closed"
-                                                                    : "?";
-                Log::Trace("PC state [{} -> {}]: {}", lid.value, remotePeerId.value, name);
-            });
-
             auto wself = std::weak_ptr<State>{shared_from_this()};
-
-            const auto myLocalId = localId;
-            const auto maxMsgSize = maxMessageSize;
             const auto wacceptor = std::weak_ptr<ILinkAcceptor>{acceptor};
 
-            pc->onDataChannel(
-                [wpc = std::weak_ptr<rtc::PeerConnection>{pc}, wself, myLocalId, remotePeerId, maxMsgSize, wacceptor](std::shared_ptr<rtc::DataChannel> dc) {
-                    auto pc = wpc.lock();
+            link->pc.onDataChannel(
+                [wlink = std::weak_ptr<DcRtcLink>{link}, wself, wacceptor, remotePeerId](std::shared_ptr<rtc::DataChannel> dc) {
+                    auto link = wlink.lock();
                     auto acc = wacceptor.lock();
-                    if (!pc || !acc) {
+                    if (!link || !acc) {
                         return;
                     }
-                    Log::Debug("data channel open {} -> {}", myLocalId.value, remotePeerId.value);
 
                     // Both closed and failed paths erase the peer from the map.
                     auto onPeerGone = [wself, remotePeerId]() {
@@ -169,29 +115,13 @@ namespace Rtt::Rtc
                         }
                     };
 
-                    auto link = DcRtcLink::Create(myLocalId, remotePeerId, pc, std::move(dc), maxMsgSize, onPeerGone, onPeerGone);
+                    link->Attach(std::move(dc), onPeerGone, onPeerGone);
                     auto handler = acc->OnLink(link);
                     link->SetHandler(std::move(handler));
                 }
             );
 
-            pc->setRemoteDescription(rtc::Description(sdp, "offer"));
-
-            // Flush any candidates that arrived before setRemoteDescription.
-            std::vector<std::pair<std::string, std::string>> pending;
-            {
-                std::lock_guard lock{mutex};
-                if (auto it = peers.find(remotePeerId.value); it != peers.end()) {
-                    it->second.remoteDescSet = true;
-                    pending = std::move(it->second.pendingCandidates);
-                }
-            }
-            if (!pending.empty()) {
-            Log::Trace("flushing {} pending ICE candidates for {}", pending.size(), remotePeerId.value);
-                for (auto& [cand, mid] : pending) {
-                    pc->addRemoteCandidate(rtc::Candidate(cand, mid));
-                }
-            }
+            link->SetRemoteDescription(sdp, rtc::Description::Type::Offer, remotePeerId);
         }
     };
 
@@ -210,7 +140,7 @@ namespace Rtt::Rtc
         auto state = std::make_shared<State>();
         state->acceptor = std::move(acceptor);
         state->localId = _options.localId;
-        state->iceServers = _options.iceServers;
+        state->config = BuildConfiguration(_options);
         state->maxMessageSize = _options.maxMessageSize;
 
         _state = state;
@@ -223,16 +153,16 @@ namespace Rtt::Rtc
                 return {};
             }
             if (!result) {
-                Log::Error("signaling join failed: {}", ErrorToString(result.error()));
+                s->logger.Error("signaling join failed: {}", ErrorToString(result.error()));
                 s->acceptor->OnLink(std::unexpected(result.error()));
                 return {};
             }
             s->sigUser = std::move(*result);
-            Log::Debug("signaling ready as {}", s->localId.value);
+            s->logger.Debug("signaling ready as {}", s->localId.value);
             return std::weak_ptr<ISigHandler>{s};
         };
 
-        Log::Debug("joining signaling as {}", _options.localId.value);
+        state->logger.Debug("joining signaling as {}", _options.localId.value);
         _options.sigClient->Join(_options.localId, std::move(onJoined));
     }
 }
