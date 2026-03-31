@@ -19,6 +19,10 @@
 
 #include <gtest/gtest.h>
 
+#ifdef __EMSCRIPTEN__
+#include <emscripten.h>
+#endif
+
 #include <atomic>
 #include <chrono>
 #include <cstring>
@@ -47,7 +51,11 @@ inline bool awaitFlag(const std::atomic<bool>& flag,
         if (flag.load()) {
             return true;
         }
+#ifdef __EMSCRIPTEN__
+        emscripten_sleep(10);
+#else
         std::this_thread::sleep_for(10ms);
+#endif
     }
     return false;
 }

@@ -13,7 +13,9 @@ multi_lib(
         "//pkg/log",
         "//pkg/rtt",
     ] + select({
-        "@platforms//cpu:wasm32": [],
+        "@platforms//cpu:wasm32": [
+            "@nlohmann_json//:json",
+        ],
         "//conditions:default": [
             "@datachannel",
             "@nlohmann_json//:json",

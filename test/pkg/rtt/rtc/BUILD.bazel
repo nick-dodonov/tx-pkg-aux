@@ -35,7 +35,9 @@ multi_test(
     ],
 )
 
-# Tests for webrtc client implementations via local signalling client (only host and droid, since wasm is not implemented yet)
+# Tests for webrtc client implementations via local signalling client.
+# On host/droid: uses DcRtcClient/DcRtcServer (libdatachannel).
+# On wasm: uses JsRtcTransport (browser RTCPeerConnection via JS bridge).
 multi_test(
     name = "rtc-local-sig",
     srcs = [
@@ -43,10 +45,18 @@ multi_test(
         "Rtc.Client.Tests.h",
     ],
     cxxopts = ["-fexceptions"],
-    platforms = [
-        "host",
-        "droid",
-    ],
+    linkopts = select({
+        "@platforms//cpu:wasm32": [
+            "-sASYNCIFY=1",
+            "--extern-pre-js",
+            "$(location :node-webrtc-polyfill.js)",
+        ],
+        "//conditions:default": [],
+    }),
+    additional_linker_inputs = select({
+        "@platforms//cpu:wasm32": [":node-webrtc-polyfill.js"],
+        "//conditions:default": [],
+    }),
     # "exclusive" forces serial execution so concurrent --runs_per_test instances
     # don't race on shared OS resources (UDP sockets, thread pool) used by
     # libdatachannel for loopback ICE connectivity checks.
@@ -58,7 +68,9 @@ multi_test(
     ],
 )
 
-# Tests for webrtc client implementations via websocket signalling client (only host and droid, since wasm is not implemented yet)
+# Tests for webrtc client implementations via websocket signalling client.
+# On host/droid: uses DcRtcClient/DcRtcServer (libdatachannel).
+# On wasm: uses JsRtcTransport (browser RTCPeerConnection via JS bridge) + JsWsSigClient.
 multi_test(
     name = "rtc-ws-sig-integration",
     srcs = [
@@ -66,10 +78,18 @@ multi_test(
         "Rtc.Client.Tests.h",
     ],
     cxxopts = ["-fexceptions"],
-    platforms = [
-        "host",
-        "droid",
-    ],
+    linkopts = select({
+        "@platforms//cpu:wasm32": [
+            "-sASYNCIFY=1",
+            "--extern-pre-js",
+            "$(location :node-webrtc-polyfill.js)",
+        ],
+        "//conditions:default": [],
+    }),
+    additional_linker_inputs = select({
+        "@platforms//cpu:wasm32": [":node-webrtc-polyfill.js"],
+        "//conditions:default": [],
+    }),
     # "exclusive" forces serial execution so concurrent --runs_per_test instances
     # don't race on the shared external WS signaling server.
     tags = ["exclusive"],

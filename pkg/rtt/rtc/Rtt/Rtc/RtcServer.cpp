@@ -1,7 +1,7 @@
 #include "RtcServer.h"
 
 #ifdef __EMSCRIPTEN__
-// #include "Js/JsRtcServer.h"  // NYI
+#include "Js/JsRtcTransport.h"
 #else
 #include "Dc/DcRtcServer.h"
 #endif
@@ -14,8 +14,7 @@ namespace Rtt::Rtc
     std::shared_ptr<ITransport> RtcServer::MakeDefault(Options options)
     {
 #ifdef __EMSCRIPTEN__
-        // NYI: JsRtcServer — browser RTCPeerConnection via Emscripten JS bridge.
-        return nullptr;
+        return std::make_shared<JsRtcTransport>(std::move(options));
 #else
         return std::make_shared<DcRtcServer>(std::move(options));
 #endif
