@@ -6,46 +6,71 @@ filegroup(
     visibility = ["//visibility:private"],
 )
 
-# target for supporting boringssl as dependency instead of openssl
+# BoringSSL FindOpenSSL.cmake wrapper
+#
+# Replaces CMake's stock FindOpenSSL entirely. Directly creates GLOBAL imported
+# targets (OpenSSL::Crypto, OpenSSL::SSL) pointing at BoringSSL libraries.
+#
+# Why not delegate to the original FindOpenSSL.cmake?
+# 1. libdatachannel's Apple-specific block (CMakeLists.txt ~L447-456) runs BEFORE
+#    find_package(OpenSSL) and FORCE-overrides OPENSSL_SSL_LIBRARY / OPENSSL_CRYPTO_LIBRARY
+#    to standard names (libssl.a, libcrypto.a) without the _internal postfix that BoringSSL
+#    uses. This causes the original FindOpenSSL to fail the EXISTS check and never create
+#    the imported targets.
+# 2. The original creates non-GLOBAL imported targets, which can cause scope visibility
+#    issues when find_package is called from subdirectories (e.g. libsrtp).
 genrule(
     name = "FindOpenSSL",
     outs = ["cmake/FindOpenSSL.cmake"],
     cmd = """cat > $@ << 'EOF'
-message(STATUS "======== [BoringSSL-Wrapper] ========")
-message(STATUS "CMAKE_VERSION: $${CMAKE_VERSION}")
-message(STATUS "CMAKE_COMMAND: $${CMAKE_COMMAND}")
-message(STATUS "CMAKE_ROOT: $${CMAKE_ROOT}")
+message(STATUS ">>>>>>>> [BoringSSL-FindOpenSSL] >>>>>>>>")
 
-# 1. Сохраняем запрашиваемую версию (на всякий случай)
-set(_req_ver $${OpenSSL_FIND_VERSION})
+# 1. Force correct library paths for BoringSSL
+#    Override any prior CACHE FORCE from the consumer (e.g. libdatachannel Apple block)
+set(OPENSSL_CRYPTO_LIBRARY "$${OPENSSL_ROOT_DIR}/lib/libcrypto_internal.a" CACHE FILEPATH "" FORCE)
+set(OPENSSL_SSL_LIBRARY "$${OPENSSL_ROOT_DIR}/lib/libssl_internal.a" CACHE FILEPATH "" FORCE)
 
-# 2. СБРАСЫВАЕМ версию, чтобы оригинальный FindOpenSSL не упал при проверке
-unset(OpenSSL_FIND_VERSION)
-unset(OpenSSL_FIND_VERSION_MAJOR)
-unset(OpenSSL_FIND_VERSION_MINOR)
+# 2. Derived list variables
+set(OPENSSL_SSL_LIBRARIES "$${OPENSSL_SSL_LIBRARY}")
+set(OPENSSL_CRYPTO_LIBRARIES "$${OPENSSL_CRYPTO_LIBRARY}")
+set(OPENSSL_LIBRARIES "$${OPENSSL_SSL_LIBRARY};$${OPENSSL_CRYPTO_LIBRARY}")
 
-# 3. Ищем и подключаем оригинальный модуль
-foreach(_path $${CMAKE_ROOT}/Modules)
-    if(EXISTS "$${_path}/FindOpenSSL.cmake")
-        message(STATUS "Calling original FindOpenSSL: $${_path}/FindOpenSSL.cmake")
-        include("$${_path}/FindOpenSSL.cmake")
-        break()
-    endif()
-endforeach()
+# 3. BoringSSL is API-compatible with OpenSSL 1.1.1
+set(OpenSSL_VERSION "1.1.1")
+set(OPENSSL_VERSION "1.1.1")
+set(OPENSSL_VERSION_MAJOR 1)
+set(OPENSSL_VERSION_MINOR 1)
+set(OPENSSL_VERSION_FIX 1)
 
-# 4. Принудительно ставим BoringSSL-совместимую версию
-# ЭТО ОСНОВНАЯ ТОЧКА, ИСПРАВЛЯЮЩАЯ ПРОСТО deps = ["@boringssl//:ssl"], т.к. иначе find_package(OpenSSL 1.1.1 REQUIRED) валится
-set(OPENSSL_VERSION "1.1.1" CACHE STRING "" FORCE)
-set(OpenSSL_VERSION "1.1.1" CACHE STRING "" FORCE)
-
-# 5. Вручную подтверждаем, что всё найдено (если оригинальный скрипт нашел либы)
-if(OPENSSL_INCLUDE_DIR AND OPENSSL_LIBRARIES)
-    set(OPENSSL_FOUND TRUE)
-    set(OpenSSL_FOUND TRUE)
+# 4. Create GLOBAL imported targets so they are visible in all directory scopes
+if(NOT TARGET OpenSSL::Crypto)
+    add_library(OpenSSL::Crypto UNKNOWN IMPORTED GLOBAL)
+    set_target_properties(OpenSSL::Crypto PROPERTIES
+        INTERFACE_INCLUDE_DIRECTORIES "$${OPENSSL_INCLUDE_DIR}"
+        IMPORTED_LINK_INTERFACE_LANGUAGES "C"
+        IMPORTED_LOCATION "$${OPENSSL_CRYPTO_LIBRARY}")
 endif()
 
-message(STATUS "[BoringSSL-Wrapper] Forced version 1.1.1 (was requested: $${_req_ver})")
-# message(FATAL_ERROR "======== DEBUG BREAK ========")
+if(NOT TARGET OpenSSL::SSL)
+    add_library(OpenSSL::SSL UNKNOWN IMPORTED GLOBAL)
+    set_target_properties(OpenSSL::SSL PROPERTIES
+        INTERFACE_INCLUDE_DIRECTORIES "$${OPENSSL_INCLUDE_DIR}"
+        IMPORTED_LINK_INTERFACE_LANGUAGES "C"
+        IMPORTED_LOCATION "$${OPENSSL_SSL_LIBRARY}"
+        INTERFACE_LINK_LIBRARIES OpenSSL::Crypto)
+endif()
+
+# 5. Standard find_package result reporting
+include(FindPackageHandleStandardArgs)
+find_package_handle_standard_args(OpenSSL
+    REQUIRED_VARS OPENSSL_CRYPTO_LIBRARY OPENSSL_INCLUDE_DIR
+    VERSION_VAR OpenSSL_VERSION
+    HANDLE_VERSION_RANGE)
+
+message(STATUS "OPENSSL_INCLUDE_DIR=$${OPENSSL_INCLUDE_DIR}")
+message(STATUS "OPENSSL_SSL_LIBRARY=$${OPENSSL_SSL_LIBRARY}")
+message(STATUS "OPENSSL_CRYPTO_LIBRARY=$${OPENSSL_CRYPTO_LIBRARY}")
+message(STATUS "<<<<<<<< [BoringSSL-FindOpenSSL] <<<<<<<<")
 EOF
 """,
     visibility = ["//visibility:private"],
@@ -55,11 +80,17 @@ EOF
 cmake(
     name = "datachannel",
     cache_entries = {
-        # boringssl support
+        # BoringSSL support: point CMake at our wrapper FindOpenSSL.cmake
         "CMAKE_MODULE_PATH": "$$(dirname $(execpath :FindOpenSSL))",
+        "OPENSSL_ROOT_DIR": "$$EXT_BUILD_DEPS",
+        "OPENSSL_USE_STATIC_LIBS": "ON",
+        "OPENSSL_INCLUDE_DIR": "$$EXT_BUILD_DEPS/include",
+        # Library paths are FORCE-set inside the wrapper to counter libdatachannel's Apple override;
+        # seed them here so they exist even before the first find_package call.
+        "OPENSSL_CRYPTO_LIBRARY": "$$EXT_BUILD_DEPS/lib/libcrypto_internal.a",
+        "OPENSSL_SSL_LIBRARY": "$$EXT_BUILD_DEPS/lib/libssl_internal.a",
     },
     data = [
-        # boringssl support
         ":FindOpenSSL",
     ],
     env = {
