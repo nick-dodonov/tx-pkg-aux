@@ -26,5 +26,9 @@ namespace Rtt::Rtc
 
         /// Maximum send buffer size in bytes.
         std::size_t maxMessageSize = 65535;
+
+        /// Maximum number of simultaneous inbound connections accepted by this transport.
+        /// 0 = reject all inbound offers (pure offerer mode).
+        std::size_t maxInboundConnections = 4096;
     };
 }

@@ -8,6 +8,7 @@
 
 #include <emscripten/em_js.h>
 
+#include <format>
 #include <memory>
 #include <mutex>
 #include <string>
@@ -56,7 +57,7 @@ namespace Rtt::Rtc
             const sp = stackSave();
             _JsRtcPc_OnLocalCandidate(ctx,
                 stringToUTF8OnStack(e.candidate.candidate),
-                stringToUTF8OnStack(e.candidate.sdpMid || ''));
+                stringToUTF8OnStack(e.candidate.sdpMid || ""));
             stackRestore(sp);
         };
 
@@ -107,7 +108,7 @@ namespace Rtt::Rtc
             const sp = stackSave();
             _JsRtcPc_OnLocalCandidate(ctx,
                 stringToUTF8OnStack(e.candidate.candidate),
-                stringToUTF8OnStack(e.candidate.sdpMid || ''));
+                stringToUTF8OnStack(e.candidate.sdpMid || ""));
             stackRestore(sp);
         };
 
@@ -419,7 +420,14 @@ namespace Rtt::Rtc
         : ISigHandler
         , std::enable_shared_from_this<State>
     {
-        Log::Logger logger{"JsRtcTransport"};
+        explicit State(std::string_view localIdValue)
+            : _logName(std::format("JsRtc/{}", localIdValue))
+            , logger(_logName.c_str())
+        {}
+
+        // _logName must be declared before logger so the c_str() pointer stays valid.
+        std::string _logName;
+        Log::Logger logger;
 
         std::shared_ptr<ILinkAcceptor> acceptor;
         std::shared_ptr<ISigUser> sigUser;
@@ -428,11 +436,13 @@ namespace Rtt::Rtc
         PeerId remoteId; // non-empty → offerer; empty → answerer
         std::vector<std::string> iceServers;
         std::size_t maxMessageSize = 65535;
+        std::size_t maxInboundConnections = 4096;
 
-        // Answerer only: non-owning raw pointers to in-progress peer contexts.
+        // Non-owning raw pointers to in-progress peer contexts.
         // Entries removed when JsRtcLink::_onGone fires (after DC open) or on early error.
         std::mutex mutex;
         std::unordered_map<std::string, JsRtcPeerContext*> peers;
+        std::size_t inboundCount = 0; // protected by mutex; counts active inbound peer connections
 
         bool isOfferer() const { return !remoteId.value.empty(); }
 
@@ -448,9 +458,13 @@ namespace Rtt::Rtc
             const auto& fromId = msg.from;
 
             if (type == "offer") {
-                if (isOfferer()) {
-                    logger.Warn("offerer received unexpected offer from {}", fromId.value);
-                    return;
+                {
+                    std::lock_guard lock{mutex};
+                    if (maxInboundConnections == 0 || inboundCount >= maxInboundConnections) {
+                        logger.Warn("inbound limit reached, rejecting offer from {}", fromId.value);
+                        //TODO: notify the offerer of the rejection (e.g. with a specific error message) instead of silently dropping the offer
+                        return;
+                    }
                 }
                 const auto sdp = j.value("description", std::string{});
                 logger.Trace("offer from {}", fromId.value);
@@ -585,6 +599,9 @@ namespace Rtt::Rtc
                     if (auto ss = wself.lock()) {
                         std::lock_guard lock{ss->mutex};
                         ss->peers.erase(remId.value);
+                        if (ss->inboundCount > 0) {
+                            --ss->inboundCount;
+                        }
                     }
                 };
 
@@ -599,6 +616,7 @@ namespace Rtt::Rtc
             {
                 std::lock_guard lock{mutex};
                 peers[fromId.value] = ctx;
+                ++inboundCount;
             }
 
             logger.Debug("answering offer from {}", fromId.value);
@@ -618,12 +636,13 @@ namespace Rtt::Rtc
 
     void JsRtcTransport::Open(std::shared_ptr<ILinkAcceptor> acceptor)
     {
-        auto state = std::make_shared<State>();
+        auto state = std::make_shared<State>(_options.localId.value);
         state->acceptor = std::move(acceptor);
         state->localId = _options.localId;
         state->remoteId = _options.remoteId;
         state->iceServers = _options.iceServers;
         state->maxMessageSize = _options.maxMessageSize;
+        state->maxInboundConnections = _options.maxInboundConnections;
 
         _state = state;
 

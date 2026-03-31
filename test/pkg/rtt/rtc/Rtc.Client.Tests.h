@@ -160,7 +160,7 @@ protected:
         // concurrent test processes (e.g. --runs_per_test > 1).
         static const auto sProcToken = []() {
             std::mt19937 rng{std::random_device{}()};
-            return std::uniform_int_distribution<unsigned>(0, 0xFFFFFFu)(rng);
+            return std::uniform_int_distribution<unsigned>(0, 0xFFFFu)(rng);
         }();
         static std::atomic<int> sCounter{0};
         const int n = ++sCounter;
