@@ -41,9 +41,10 @@ namespace Rtt::Rtc
         void Send(const PeerId& to, std::string payload) override
         {
             if (!_ws || !_ws->isOpen()) {
-                Log::Warn("[{}] cannot send — socket closed", _id.value);
+                Log::Warn("[{}] cannot send to {} — socket closed", _id.value, to.value);
                 return;
             }
+            Log::Trace("[{}] -> [{}] send {} bytes", _id.value, to.value, payload.size());
             const json envelope = {{"id", to.value}, {"payload", std::move(payload)}};
             _ws->send(envelope.dump());
         }

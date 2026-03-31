@@ -24,6 +24,40 @@ import { server } from 'websocket';
 // Registry of currently connected peers: { peerId -> WebSocketConnection }
 const clients = {};
 
+// Pending messages for peers that are not yet connected.
+// { peerId -> [{ senderId, message }, ...] }
+// Each entry is cleared when the peer connects or when the TTL expires.
+const PENDING_TTL_MS = 10_000;
+const pending = {};
+
+function enqueuePending(targetId, senderId, message) {
+  if (!pending[targetId]) {
+    pending[targetId] = [];
+    // Auto-expire stale pending messages so we don't leak memory.
+    setTimeout(() => {
+      if (pending[targetId]) {
+        console.warn(`WS  pending TTL expired for [${targetId}], dropping ${pending[targetId].length} message(s)`);
+        delete pending[targetId];
+      }
+    }, PENDING_TTL_MS);
+  }
+  console.log(`WS  pending [${senderId}] -> [${targetId}] (queued, not connected yet)`);
+  pending[targetId].push({ senderId, message });
+}
+
+function flushPending(targetId, conn) {
+  const msgs = pending[targetId];
+  if (!msgs || msgs.length === 0) return;
+  delete pending[targetId];
+  console.log(`WS  pending flush [${targetId}]: delivering ${msgs.length} queued message(s)`);
+  for (const { senderId, message } of msgs) {
+    message.id = senderId;
+    const outgoing = JSON.stringify(message);
+    console.log(`WS  relay (flushed) [${senderId}] -> [${targetId}] >> ${outgoing}`);
+    conn.send(outgoing);
+  }
+}
+
 // ---------------------------------------------------------------------------
 // HTTP server — exists solely to give the WebSocket server an underlying
 // TCP listener. All plain HTTP requests are rejected with 404.
@@ -56,6 +90,9 @@ wsServer.on('request', (req) => {
   // Register this peer so others can send messages to it.
   clients[senderId] = conn;
 
+  // Deliver any messages that arrived before this peer connected.
+  flushPending(senderId, conn);
+
   // -------------------------------------------------------------------------
   // Relay incoming message to the target peer.
   // Expected format: { "id": "<targetPeerId>", ...signalingPayload }
@@ -70,7 +107,8 @@ wsServer.on('request', (req) => {
     const target   = clients[targetId];
 
     if (!target) {
-      console.error(`WS  relay FAILED: peer [${targetId}] not connected`);
+      console.error(`WS  relay FAILED: peer [${targetId}] not connected — queuing`);
+      enqueuePending(targetId, senderId, message);
       return;
     }
 
