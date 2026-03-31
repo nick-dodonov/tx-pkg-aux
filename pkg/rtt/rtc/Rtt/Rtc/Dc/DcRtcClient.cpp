@@ -157,6 +157,29 @@ namespace Rtt::Rtc
             const auto maxMsgSize = s->maxMessageSize;
             const auto localId = s->localId;
 
+            // Log gathering and connection state changes during ICE negotiation
+            // (before DcRtcLink is created). DcRtcLink::Create will override
+            // onStateChange once the data channel opens.
+            pc->onGatheringStateChange([localId, remoteId](rtc::PeerConnection::GatheringState st) {
+                using G = rtc::PeerConnection::GatheringState;
+                const std::string_view name = st == G::New         ? "New"
+                                            : st == G::InProgress  ? "InProgress"
+                                            : st == G::Complete    ? "Complete"
+                                                                   : "?";
+                Log::Trace("ICE gathering [{} -> {}]: {}", localId.value, remoteId.value, name);
+            });
+            pc->onStateChange([localId, remoteId](rtc::PeerConnection::State st) {
+                using S = rtc::PeerConnection::State;
+                const std::string_view name = st == S::New          ? "New"
+                                            : st == S::Connecting   ? "Connecting"
+                                            : st == S::Connected    ? "Connected"
+                                            : st == S::Disconnected ? "Disconnected"
+                                            : st == S::Failed       ? "Failed"
+                                            : st == S::Closed       ? "Closed"
+                                                                    : "?";
+                Log::Trace("PC state [{} -> {}]: {}", localId.value, remoteId.value, name);
+            });
+
             auto dc = pc->createDataChannel("data");
             s->dc = dc;
 

@@ -75,16 +75,27 @@ namespace Rtt::Rtc
         // state. This is later than DC close and ensures ICE/DTLS teardown is
         // complete — safe to create new PeerConnections for the next test.
         link->_pc->onStateChange([wlink, onClosed = std::move(onClosed), onFailed = std::move(onFailed)](rtc::PeerConnection::State st) {
-            if (st == rtc::PeerConnection::State::Closed || st == rtc::PeerConnection::State::Disconnected) {
+            using S = rtc::PeerConnection::State;
+            const std::string_view name = st == S::New          ? "New"
+                                        : st == S::Connecting   ? "Connecting"
+                                        : st == S::Connected    ? "Connected"
+                                        : st == S::Disconnected ? "Disconnected"
+                                        : st == S::Failed       ? "Failed"
+                                        : st == S::Closed       ? "Closed"
+                                                                : "?";
+            if (auto self = wlink.lock()) {
+                Log::Trace("PC state [{} -> {}]: {}", self->_localId.value, self->_remoteId.value, name);
+            }
+            if (st == S::Closed || st == S::Disconnected) {
                 if (onClosed) {
                     onClosed();
                 }
-            } else if (st == rtc::PeerConnection::State::Failed) {
+            } else if (st == S::Failed) {
                 if (onFailed) {
                     onFailed();
                 }
             }
-            if (st == rtc::PeerConnection::State::Closed || st == rtc::PeerConnection::State::Disconnected || st == rtc::PeerConnection::State::Failed) {
+            if (st == S::Closed || st == S::Disconnected || st == S::Failed) {
                 auto self = wlink.lock();
                 if (!self || self->_closedFired.exchange(true)) {
                     return;

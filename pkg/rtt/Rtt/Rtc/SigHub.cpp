@@ -58,9 +58,12 @@ public:
         std::lock_guard lock{_handlerMutex};
         _handler = handler;
         auto pending = std::move(_pending);
-        if (auto h = handler.lock()) {
-            for (auto& msg : pending) {
-                h->OnMessage(std::move(msg));
+        if (!pending.empty()) {
+            Log::Trace("[{}] replaying {} pending message(s)", _localId.value, pending.size());
+            if (auto h = handler.lock()) {
+                for (auto& msg : pending) {
+                    h->OnMessage(std::move(msg));
+                }
             }
         }
     }

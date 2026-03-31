@@ -47,6 +47,10 @@ multi_test(
         "host",
         "droid",
     ],
+    # "exclusive" forces serial execution so concurrent --runs_per_test instances
+    # don't race on shared OS resources (UDP sockets, thread pool) used by
+    # libdatachannel for loopback ICE connectivity checks.
+    tags = ["exclusive"],
     deps = [
         "//pkg/rtt",
         "//pkg/rtt/rtc",
