@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 """
-Integration test that runs HTTP client and server binaries.
+Integration test bridge: starts an external server, waits for it to be ready,
+runs a client binary, then shuts the server down.
 """
 
 import argparse
@@ -10,7 +11,7 @@ import subprocess
 import sys
 import threading
 import time
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from datetime import datetime
 from pathlib import Path
 from typing import Any, IO
@@ -34,6 +35,7 @@ class Options:
     client_binary: Path
     host: str = "localhost"
     port: int = 8080
+    health_path: str = "/health"
     timeout: int = 30
     client_args: list[str] | None = None
 
@@ -62,15 +64,14 @@ def _start_logged_process(command: list[str], log_prefix: str) -> subprocess.Pop
     command_str = subprocess.list2cmdline(command)
     _log(f"--- STARTING {log_prefix}{command_str}")
 
-    executable = None # Use default shell (%ComSpec%/cmd on Windows)
+    executable = None  # Use default shell (%ComSpec%/cmd on Windows)
     if sys.platform != "win32":
-        executable = 'bash' # TODO: make sh_wrapper.cmd working w/ `sh`
+        executable = "bash"  # TODO: make sh_wrapper.cmd working w/ `sh`
 
     process = subprocess.Popen(
         command_str,
         executable=executable,
         shell=True,
-
         stdout=subprocess.PIPE,
         stderr=subprocess.STDOUT,
         text=True,
@@ -118,7 +119,7 @@ def _wait_for_server(
     server_process: subprocess.Popen[str],
     timeout: int,
 ) -> bool:
-    """Wait for server to become ready."""
+    """Wait for server to become ready by polling its health endpoint."""
     start_time = time.time()
     while time.time() - start_time < timeout:
         if server_process.poll() is not None:
@@ -139,7 +140,7 @@ def _wait_for_server(
 def parse_args() -> Options:
     """Parse command line arguments."""
     parser = argparse.ArgumentParser(
-        description="HTTP integration test bridge",
+        description="Integration test bridge: manages server lifecycle around a client test run",
         formatter_class=argparse.ArgumentDefaultsHelpFormatter,
     )
     parser.add_argument("server_binary", help="Server binary path")
@@ -156,6 +157,11 @@ def parse_args() -> Options:
         help="Server port",
     )
     parser.add_argument(
+        "--health-path",
+        default="/health",
+        help="Server health check path",
+    )
+    parser.add_argument(
         "--timeout",
         type=int,
         default=30,
@@ -169,13 +175,14 @@ def parse_args() -> Options:
         client_binary=Path(args.client_binary),
         host=args.host,
         port=args.port,
+        health_path=args.health_path,
         timeout=args.timeout,
         client_args=unknown if unknown else None,
     )
 
 
 def main() -> int:
-    """Run integration tests for HTTP client and server."""
+    """Start server, run client tests, shut server down."""
     options = parse_args()
 
     if not options.server_binary.exists():
@@ -187,7 +194,7 @@ def main() -> int:
         return 1
 
     _log("=" * 30)
-    _log("HTTP Integration Test")
+    _log("Integration Test")
     _log("=" * 30)
 
     server_process: subprocess.Popen[str] | None = None
@@ -196,12 +203,9 @@ def main() -> int:
             [str(options.server_binary)], "[srv] "
         )
 
-        _log("Waiting for server to be ready...")
-        if not _wait_for_server(
-            f"{options.server_url}/health",
-            server_process,
-            options.timeout,
-        ):
+        health_url = f"{options.server_url}{options.health_path}"
+        _log(f"Waiting for server to be ready at {health_url}...")
+        if not _wait_for_server(health_url, server_process, options.timeout):
             return 1
         _log("Server is ready!")
 
@@ -225,7 +229,7 @@ def main() -> int:
         return 1
 
     finally:
-        _shutdown_process(server_process, "HTTP Server")
+        _shutdown_process(server_process, "Server")
 
 
 if __name__ == "__main__":

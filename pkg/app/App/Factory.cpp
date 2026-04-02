@@ -6,17 +6,24 @@
 
 namespace App
 {
+    using namespace std::chrono_literals;
+
     std::shared_ptr<RunLoop::IRunner> CreateDefaultRunner(std::shared_ptr<RunLoop::Handler> handler)
     {
 #if __EMSCRIPTEN__
-        return std::make_shared<WasmRunner>(std::move(handler), WasmRunner::Options{.Fps = 120});
+        return std::make_shared<WasmRunner>(std::move(handler), WasmRunner::Options{
+            .Fps = 120
+        });
 #else
-        return std::make_shared<TightRunner>(std::move(handler), true);
+        return std::make_shared<TightRunner>(std::move(handler), TightRunner::Options{
+            .wasmExitWorkaround = true, 
+            .sleepDuration = 10ms
+        });
 #endif
     }
 
     std::shared_ptr<RunLoop::IRunner> CreateTestRunner(std::shared_ptr<RunLoop::Handler> handler)
     {
-        return std::make_shared<TightRunner>(std::move(handler), false);
+        return std::make_shared<TightRunner>(std::move(handler), TightRunner::Options{});
     }
 }

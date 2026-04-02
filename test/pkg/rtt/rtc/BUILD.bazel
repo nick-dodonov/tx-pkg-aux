@@ -1,0 +1,109 @@
+load("@tx-kit-ext//rules:multi_app.bzl", "multi_app", "multi_test")
+load("//test/integration:integration.bzl", "integration_test")
+
+# Tests for libdatachannel websocket signalling client and server implementations (only host and droid, since wasm uses a different client implementation)
+multi_test(
+    name = "sig-dc-ws-in-process",
+    srcs = ["Sig.DcWs.InProcess.Test.cpp"],
+    cxxopts = ["-fexceptions"],
+    platforms = [
+        "host",
+        "droid",
+    ],
+    deps = [
+        "//pkg/rtt",
+        "//pkg/rtt/rtc",
+        "@googletest//:gtest_main",
+    ],
+)
+
+# WS signaling client — used only via integration tests (signaling server started automatically)
+multi_app(
+    name = "sig-ws-client",
+    srcs = ["Sig.Ws.Client.Integration.Test.cpp"],
+    cxxopts = ["-fexceptions"],
+    linkopts = select({
+        "@platforms//cpu:wasm32": ["-sASYNCIFY=1"],
+        "//conditions:default": [],
+    }),
+    deps = [
+        "//pkg/rtt/rtc",
+        "@googletest//:gtest_main",
+    ],
+)
+
+# Tests for webrtc client implementations via local signalling client.
+# On host/droid: uses DcRtcClient/DcRtcServer (libdatachannel).
+# On wasm: uses JsRtcTransport (browser RTCPeerConnection via JS bridge).
+multi_test(
+    name = "rtc-peers-local-sig",
+    srcs = [
+        "Rtc.LocalSig.Test.cpp",
+        "Rtc.Client.Tests.h",
+    ],
+    cxxopts = ["-fexceptions"],
+    linkopts = select({
+        "@platforms//cpu:wasm32": [
+            "-sASYNCIFY=1",
+            "--extern-pre-js",
+            "$(location :node-webrtc-polyfill.js)",
+        ],
+        "//conditions:default": [],
+    }),
+    additional_linker_inputs = select({
+        "@platforms//cpu:wasm32": [":node-webrtc-polyfill.js"],
+        "//conditions:default": [],
+    }),
+    # "exclusive" forces serial execution so concurrent --runs_per_test instances
+    # don't race on shared OS resources (UDP sockets, thread pool) used by
+    # libdatachannel for loopback ICE connectivity checks.
+    tags = ["exclusive"],
+    deps = [
+        "//pkg/rtt",
+        "//pkg/rtt/rtc",
+        "@googletest//:gtest_main",
+    ],
+)
+
+# WebRTC peers via WS signaling — used only via integration tests (signaling server started automatically)
+multi_app(
+    name = "rtc-peers-ws-sig",
+    srcs = [
+        "Rtc.WsSig.Integration.Test.cpp",
+        "Rtc.Client.Tests.h",
+    ],
+    cxxopts = ["-fexceptions"],
+    linkopts = select({
+        "@platforms//cpu:wasm32": [
+            "-sASYNCIFY=1",
+            "--extern-pre-js",
+            "$(location :node-webrtc-polyfill.js)",
+        ],
+        "//conditions:default": [],
+    }),
+    additional_linker_inputs = select({
+        "@platforms//cpu:wasm32": [":node-webrtc-polyfill.js"],
+        "//conditions:default": [],
+    }),
+    deps = [
+        "//pkg/rtt",
+        "//pkg/rtt/rtc",
+        "@googletest//:gtest_main",
+    ],
+)
+
+# === Integration tests — signaling server is started automatically ===
+
+integration_test(
+    name = "sig-ws-client-integration",
+    client = ":sig-ws-client",
+    server = "//demo/pkg/rtt/sig-service",
+    port = 8000,
+)
+
+integration_test(
+    name = "rtc-peers-ws-sig-integration",
+    client = ":rtc-peers-ws-sig",
+    server = "//demo/pkg/rtt/sig-service",
+    port = 8000,
+)

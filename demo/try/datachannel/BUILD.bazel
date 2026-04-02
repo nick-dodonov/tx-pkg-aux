@@ -1,0 +1,13 @@
+load("@tx-kit-ext//rules:multi_app.bzl", "multi_app")
+
+multi_app(
+    name = "datachannel",
+    srcs = ["copy-paste.cpp"],
+    platforms = [
+        "host",
+        "droid",
+    ],
+    deps = [
+        "@datachannel",
+    ],
+)

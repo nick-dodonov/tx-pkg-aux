@@ -5,17 +5,29 @@ module(
     version = "0.0.0",
 )
 
-#TODO: setup Renovate to auto-update https://github.com/renovatebot/renovate
 bazel_dep(name = "apple_support", version = "2.2.0")
 bazel_dep(name = "platforms", version = "1.0.0")
 bazel_dep(name = "rules_cc", version = "0.2.16")
 bazel_dep(name = "rules_foreign_cc", version = "0.15.1")
 bazel_dep(name = "bazel_skylib", version = "1.9.0")
-bazel_dep(name = "emsdk", version = "4.0.17-tx.1")  # private registry (custom version with C++23 support)
+bazel_dep(name = "emsdk", version = "5.0.4")
 bazel_dep(name = "rules_shell", version = "0.6.1")
 bazel_dep(name = "rules_python", version = "1.8.4")
 
 git_repository = use_repo_rule("@bazel_tools//tools/build_defs/repo:git.bzl", "git_repository")
+
+local_repository = use_repo_rule("@bazel_tools//tools/build_defs/repo:local.bzl", "local_repository")
+
+new_local_repository = use_repo_rule("@bazel_tools//tools/build_defs/repo:local.bzl", "new_local_repository")
+
+# emsdk - fixed 5.0.4 version (latest main changes w/o warnings and cmake issue)
+git_override(
+    module_name = "emsdk",
+    commit = "a491c4092412c9c12d26c572fd2e7ac792e8b733",  # tx/5.0.4
+    remote = "https://github.com/nick-dodonov/emsdk.git",
+    strip_prefix = "bazel",
+    # verbose = True,
+)
 
 # Hedron's Compile Commands Extractor for Bazel
 # - https://github.com/hedronvision/bazel-compile-commands-extractor
@@ -77,9 +89,41 @@ bazel_dep(name = "rules_android", version = "0.7.1")
 
 ################################################################
 bazel_dep(name = "concurrentqueue", version = "1.0.4")
+
 git_repository(
     name = "stdexec",
     build_file = "//repo:stdexec.BUILD.bazel",
     commit = "46ca0458a9806f63cde1c3bba76a2ec720974c00",
     remote = "https://github.com/NVIDIA/stdexec.git",
 )
+
+################################################################
+bazel_dep(name = "aspect_rules_js", version = "3.0.3")
+
+npm = use_extension("@aspect_rules_js//npm:extensions.bzl", "npm", dev_dependency = True)
+npm.npm_translate_lock(
+    name = "npm_sig",
+    data = [
+        "//demo/pkg/rtt/sig-service:package.json",
+        "//demo/pkg/rtt/sig-service:pnpm-workspace.yaml",
+    ],
+    pnpm_lock = "//demo/pkg/rtt/sig-service:pnpm-lock.yaml",
+)
+use_repo(npm, "npm_sig")
+
+# bazel_dep(name = "openssl", version = "3.5.5.bcr.1")
+bazel_dep(name = "nlohmann_json", version = "3.12.0.bcr.1")
+
+git_repository(
+    name = "datachannel",
+    build_file = "//repo:datachannel.BUILD.bazel",
+    commit = "cda01abdb914138b3e9226a90940c0aad01fd62f",  # origin/v0.24
+    init_submodules = True,
+    remote = "https://github.com/paullouisageneau/libdatachannel.git",
+    verbose = True,
+)
+# new_local_repository(
+#     name = "datachannel",
+#     path = "/Users/rix/p/t/gh/datachannel/libdatachannel",
+#     build_file = "//repo:datachannel.BUILD.bazel",
+# )

@@ -1,2 +1,0 @@
-# Export integration_bridge.py so it can be used by other test targets directly
-exports_files(["integration_bridge.py"])

@@ -1,0 +1,120 @@
+load("@rules_foreign_cc//foreign_cc:defs.bzl", "cmake")
+
+filegroup(
+    name = "all_srcs",
+    srcs = glob(["**"]),
+    visibility = ["//visibility:private"],
+)
+
+# BoringSSL FindOpenSSL.cmake wrapper
+#
+# Replaces CMake's stock FindOpenSSL entirely. Directly creates GLOBAL imported
+# targets (OpenSSL::Crypto, OpenSSL::SSL) pointing at BoringSSL libraries.
+#
+# Why not delegate to the original FindOpenSSL.cmake?
+# 1. libdatachannel's Apple-specific block (CMakeLists.txt ~L447-456) runs BEFORE
+#    find_package(OpenSSL) and FORCE-overrides OPENSSL_SSL_LIBRARY / OPENSSL_CRYPTO_LIBRARY
+#    to standard names (libssl.a, libcrypto.a) without the _internal postfix that BoringSSL
+#    uses. This causes the original FindOpenSSL to fail the EXISTS check and never create
+#    the imported targets.
+# 2. The original creates non-GLOBAL imported targets, which can cause scope visibility
+#    issues when find_package is called from subdirectories (e.g. libsrtp).
+genrule(
+    name = "FindOpenSSL",
+    outs = ["cmake/FindOpenSSL.cmake"],
+    cmd = """cat > $@ << 'EOF'
+message(STATUS ">>>>>>>> [BoringSSL-FindOpenSSL] >>>>>>>>")
+
+# 1. Force correct library paths for BoringSSL
+#    Override any prior CACHE FORCE from the consumer (e.g. libdatachannel Apple block)
+set(OPENSSL_CRYPTO_LIBRARY "$${OPENSSL_ROOT_DIR}/lib/libcrypto_internal.a" CACHE FILEPATH "" FORCE)
+set(OPENSSL_SSL_LIBRARY "$${OPENSSL_ROOT_DIR}/lib/libssl_internal.a" CACHE FILEPATH "" FORCE)
+
+# 2. Derived list variables
+set(OPENSSL_SSL_LIBRARIES "$${OPENSSL_SSL_LIBRARY}")
+set(OPENSSL_CRYPTO_LIBRARIES "$${OPENSSL_CRYPTO_LIBRARY}")
+set(OPENSSL_LIBRARIES "$${OPENSSL_SSL_LIBRARY};$${OPENSSL_CRYPTO_LIBRARY}")
+
+# 3. BoringSSL is API-compatible with OpenSSL 1.1.1
+set(OpenSSL_VERSION "1.1.1")
+set(OPENSSL_VERSION "1.1.1")
+set(OPENSSL_VERSION_MAJOR 1)
+set(OPENSSL_VERSION_MINOR 1)
+set(OPENSSL_VERSION_FIX 1)
+
+# 4. Create GLOBAL imported targets so they are visible in all directory scopes
+if(NOT TARGET OpenSSL::Crypto)
+    add_library(OpenSSL::Crypto UNKNOWN IMPORTED GLOBAL)
+    set_target_properties(OpenSSL::Crypto PROPERTIES
+        INTERFACE_INCLUDE_DIRECTORIES "$${OPENSSL_INCLUDE_DIR}"
+        IMPORTED_LINK_INTERFACE_LANGUAGES "C"
+        IMPORTED_LOCATION "$${OPENSSL_CRYPTO_LIBRARY}")
+endif()
+
+if(NOT TARGET OpenSSL::SSL)
+    add_library(OpenSSL::SSL UNKNOWN IMPORTED GLOBAL)
+    set_target_properties(OpenSSL::SSL PROPERTIES
+        INTERFACE_INCLUDE_DIRECTORIES "$${OPENSSL_INCLUDE_DIR}"
+        IMPORTED_LINK_INTERFACE_LANGUAGES "C"
+        IMPORTED_LOCATION "$${OPENSSL_SSL_LIBRARY}"
+        INTERFACE_LINK_LIBRARIES OpenSSL::Crypto)
+endif()
+
+# 5. Standard find_package result reporting
+include(FindPackageHandleStandardArgs)
+find_package_handle_standard_args(OpenSSL
+    REQUIRED_VARS OPENSSL_CRYPTO_LIBRARY OPENSSL_INCLUDE_DIR
+    VERSION_VAR OpenSSL_VERSION
+    HANDLE_VERSION_RANGE)
+
+message(STATUS "OPENSSL_INCLUDE_DIR=$${OPENSSL_INCLUDE_DIR}")
+message(STATUS "OPENSSL_SSL_LIBRARY=$${OPENSSL_SSL_LIBRARY}")
+message(STATUS "OPENSSL_CRYPTO_LIBRARY=$${OPENSSL_CRYPTO_LIBRARY}")
+message(STATUS "<<<<<<<< [BoringSSL-FindOpenSSL] <<<<<<<<")
+EOF
+""",
+    visibility = ["//visibility:private"],
+)
+
+# https://github.com/bazel-contrib/rules_foreign_cc/blob/main/docs/README.md#cmake
+cmake(
+    name = "datachannel",
+    cache_entries = {
+        # BoringSSL support: point CMake at our wrapper FindOpenSSL.cmake
+        "CMAKE_MODULE_PATH": "$$(dirname $(execpath :FindOpenSSL))",
+        "OPENSSL_ROOT_DIR": "$$EXT_BUILD_DEPS",
+        "OPENSSL_USE_STATIC_LIBS": "ON",
+        "OPENSSL_INCLUDE_DIR": "$$EXT_BUILD_DEPS/include",
+        # Library paths are FORCE-set inside the wrapper to counter libdatachannel's Apple override;
+        # seed them here so they exist even before the first find_package call.
+        "OPENSSL_CRYPTO_LIBRARY": "$$EXT_BUILD_DEPS/lib/libcrypto_internal.a",
+        "OPENSSL_SSL_LIBRARY": "$$EXT_BUILD_DEPS/lib/libssl_internal.a",
+    },
+    data = [
+        ":FindOpenSSL",
+    ],
+    env = {
+        #TODO: determine optimal value for parallel build
+        # Because default generator is -G 'Unix Makefiles' #TODO: try Ninja generator instead (it auto-detects nproc)
+        "CMAKE_BUILD_PARALLEL_LEVEL": "12",
+    },
+    generate_args = [
+        "-DBUILD_SHARED_LIBS=OFF",
+    ],
+    lib_source = ":all_srcs",
+    out_include_dir = "include",
+    out_static_libs = select({
+        "//conditions:default": [
+            "libdatachannel.a",
+            "libjuice.a",
+            "libsrtp2.a",
+            "libusrsctp.a",
+        ],
+    }),
+    targets = ["datachannel"],
+    visibility = ["//visibility:public"],
+    deps = [
+        # boringssl support
+        "@boringssl//:ssl",
+    ],
+)

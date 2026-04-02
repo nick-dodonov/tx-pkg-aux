@@ -1,0 +1,9 @@
+load("@tx-kit-ext//rules:exec_binary.bzl", "exec_binary")
+
+# Bridge binary pinned to the exec (host) platform — used as the default
+# bridge in integration_test() macros across the workspace.
+exec_binary(
+    name = "bridge.cmd",
+    binary = "//test/integration/bridge:bridge",
+    visibility = ["//visibility:public"],
+)

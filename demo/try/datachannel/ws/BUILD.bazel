@@ -1,0 +1,17 @@
+load("@tx-kit-ext//rules:multi_app.bzl", "multi_app")
+
+multi_app(
+    name = "ws",
+    srcs = ["wsclient.cpp"],
+    cxxopts = [
+        "-fexceptions",
+    ],
+    platforms = [
+        "host",
+        "droid",
+    ],
+    deps = [
+        "@datachannel",
+        "@nlohmann_json//:json",
+    ],
+)

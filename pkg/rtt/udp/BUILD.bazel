@@ -1,0 +1,18 @@
+load("@tx-kit-ext//rules:multi_lib.bzl", "multi_lib")
+
+multi_lib(
+    name = "udp",
+    srcs = glob(["**/*.cpp"]),
+    hdrs = glob(["**/*.h"]),
+    platforms = [
+        "host",
+        "droid",
+    ],
+    strip_include_prefix = ".",
+    visibility = ["//visibility:public"],
+    deps = [
+        "//pkg/asio:boost_asio_wrapped",
+        "//pkg/log",
+        "//pkg/rtt",
+    ],
+)

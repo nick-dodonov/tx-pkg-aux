@@ -1,0 +1,12 @@
+load("@tx-kit-ext//rules:multi_lib.bzl", "multi_lib")
+
+multi_lib(
+    name = "rtt",
+    srcs = glob(["**/*.cpp"]),
+    hdrs = glob(["**/*.h"]),
+    strip_include_prefix = ".",
+    visibility = ["//visibility:public"],
+    deps = [
+        "//pkg/log",
+    ],
+)
