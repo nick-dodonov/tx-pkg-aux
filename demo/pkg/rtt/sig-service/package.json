@@ -1,9 +1,10 @@
 {
-  "name": "signaling-node",
+  "name": "signaling-server",
   "version": "0.1.0",
+  "description": "WebRTC signaling relay server for demo/test integrations",
   "type": "module",
-  "description": "WS signaling server sample",
   "main": "signaling-server.js",
+  "packageManager": "pnpm@10.33.0",
   "scripts": {
     "start": "node signaling-server.js"
   },

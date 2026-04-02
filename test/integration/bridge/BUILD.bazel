@@ -1,0 +1,8 @@
+load("@rules_python//python:defs.bzl", "py_binary")
+
+py_binary(
+    name = "bridge",
+    srcs = ["integration_bridge.py"],
+    main = "integration_bridge.py",
+    visibility = ["//visibility:public"],
+)

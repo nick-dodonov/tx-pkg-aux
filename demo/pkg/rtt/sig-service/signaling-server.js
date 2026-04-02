@@ -14,26 +14,21 @@
 // always knows who sent the message:
 //   { "id": "<senderId>", ...payload }
 //
-// To run the server, execute "npm start" in this directory ("npm install" first).
+// To run the server, execute "npm start" or "bazel run //demo/pkg/rtt/sig-service".
 // By default it listens on localhost:8000, can be changed via PORT environment variable
 // to either a port number (e.g. "9000") or a host:port pair (e.g. "0.0.0.0:9000").
 
 import { createServer } from 'http';
 import { server } from 'websocket';
 
-// Registry of currently connected peers: { peerId -> WebSocketConnection }
 const clients = {};
 
-// Pending messages for peers that are not yet connected.
-// { peerId -> [{ senderId, message }, ...] }
-// Each entry is cleared when the peer connects or when the TTL expires.
 const PENDING_TTL_MS = 10_000;
 const pending = {};
 
 function enqueuePending(targetId, senderId, message) {
   if (!pending[targetId]) {
     pending[targetId] = [];
-    // Auto-expire stale pending messages so we don't leak memory.
     setTimeout(() => {
       if (pending[targetId]) {
         console.warn(`WS  pending TTL expired for [${targetId}], dropping ${pending[targetId].length} message(s)`);
@@ -58,11 +53,12 @@ function flushPending(targetId, conn) {
   }
 }
 
-// ---------------------------------------------------------------------------
-// HTTP server — exists solely to give the WebSocket server an underlying
-// TCP listener. All plain HTTP requests are rejected with 404.
-// ---------------------------------------------------------------------------
 const httpServer = createServer((req, res) => {
+  if (req.url === '/health') {
+    res.writeHead(200, {'Content-Type': 'text/plain', 'Access-Control-Allow-Origin': '*'});
+    res.end('OK');
+    return;
+  }
   console.log(`HTTP ${req.method.toUpperCase()} ${req.url}`);
   res.writeHead(404, {
     'Content-Type'                : 'text/plain',
@@ -71,34 +67,23 @@ const httpServer = createServer((req, res) => {
   res.end('Not Found');
 });
 
-// ---------------------------------------------------------------------------
-// WebSocket server — handles peer registration and message relay.
-// ---------------------------------------------------------------------------
 const wsServer = new server({httpServer});
 
 wsServer.on('request', (req) => {
-  // Extract the peer ID from the URL path: ws://host/peerId
   const pathSegments = req.resourceURL.path.split('/');
-  pathSegments.shift(); // remove leading empty string from '/'
+  pathSegments.shift();
   const senderId = pathSegments[0];
 
   console.log(`WS  connect  [${senderId}]  ${req.resource}`);
 
-  // Accept the connection regardless of subprotocol.
   const conn = req.accept(null, req.origin);
 
-  // Register this peer so others can send messages to it.
   clients[senderId] = conn;
 
-  // Deliver any messages that arrived before this peer connected.
   flushPending(senderId, conn);
 
-  // -------------------------------------------------------------------------
-  // Relay incoming message to the target peer.
-  // Expected format: { "id": "<targetPeerId>", ...signalingPayload }
-  // -------------------------------------------------------------------------
   conn.on('message', (raw) => {
-    if (raw.type !== 'utf8') return; // binary frames are not used
+    if (raw.type !== 'utf8') return;
 
     console.log(`WS  recv  [${senderId}] << ${raw.utf8Data}`);
 
@@ -112,7 +97,6 @@ wsServer.on('request', (req) => {
       return;
     }
 
-    // Replace destination ID with sender ID so the receiver knows the origin.
     message.id = senderId;
     const outgoing = JSON.stringify(message);
 
@@ -120,19 +104,12 @@ wsServer.on('request', (req) => {
     target.send(outgoing);
   });
 
-  // -------------------------------------------------------------------------
-  // Unregister the peer when the connection closes.
-  // -------------------------------------------------------------------------
   conn.on('close', () => {
     delete clients[senderId];
     console.log(`WS  disconnect [${senderId}]`);
   });
 });
 
-// ---------------------------------------------------------------------------
-// Startup — resolve listen address from the PORT environment variable.
-// Formats accepted: "8000" (port only) or "0.0.0.0:8000" (host:port).
-// ---------------------------------------------------------------------------
 const endpoint = process.env.PORT || '8000';
 const parts    = endpoint.split(':');
 const port     = parts.pop();

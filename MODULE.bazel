@@ -15,7 +15,9 @@ bazel_dep(name = "rules_shell", version = "0.6.1")
 bazel_dep(name = "rules_python", version = "1.8.4")
 
 git_repository = use_repo_rule("@bazel_tools//tools/build_defs/repo:git.bzl", "git_repository")
+
 local_repository = use_repo_rule("@bazel_tools//tools/build_defs/repo:local.bzl", "local_repository")
+
 new_local_repository = use_repo_rule("@bazel_tools//tools/build_defs/repo:local.bzl", "new_local_repository")
 
 # emsdk - fixed 5.0.4 version (latest main changes w/o warnings and cmake issue)
@@ -87,6 +89,7 @@ bazel_dep(name = "rules_android", version = "0.7.1")
 
 ################################################################
 bazel_dep(name = "concurrentqueue", version = "1.0.4")
+
 git_repository(
     name = "stdexec",
     build_file = "//repo:stdexec.BUILD.bazel",
@@ -94,14 +97,29 @@ git_repository(
     remote = "https://github.com/NVIDIA/stdexec.git",
 )
 
+################################################################
+bazel_dep(name = "aspect_rules_js", version = "3.0.3")
+
+npm = use_extension("@aspect_rules_js//npm:extensions.bzl", "npm", dev_dependency = True)
+npm.npm_translate_lock(
+    name = "npm_sig",
+    data = [
+        "//demo/pkg/rtt/sig-service:package.json",
+        "//demo/pkg/rtt/sig-service:pnpm-workspace.yaml",
+    ],
+    pnpm_lock = "//demo/pkg/rtt/sig-service:pnpm-lock.yaml",
+)
+use_repo(npm, "npm_sig")
+
 # bazel_dep(name = "openssl", version = "3.5.5.bcr.1")
 bazel_dep(name = "nlohmann_json", version = "3.12.0.bcr.1")
+
 git_repository(
     name = "datachannel",
     build_file = "//repo:datachannel.BUILD.bazel",
     commit = "cda01abdb914138b3e9226a90940c0aad01fd62f",  # origin/v0.24
-    remote = "https://github.com/paullouisageneau/libdatachannel.git",
     init_submodules = True,
+    remote = "https://github.com/paullouisageneau/libdatachannel.git",
     verbose = True,
 )
 # new_local_repository(

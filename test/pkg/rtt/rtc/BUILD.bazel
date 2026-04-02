@@ -1,4 +1,5 @@
-load("@tx-kit-ext//rules:multi_app.bzl", "multi_test")
+load("@tx-kit-ext//rules:multi_app.bzl", "multi_app", "multi_test")
+load("//test/integration:integration.bzl", "integration_test")
 
 # Tests for libdatachannel websocket signalling client and server implementations (only host and droid, since wasm uses a different client implementation)
 multi_test(
@@ -16,8 +17,8 @@ multi_test(
     ],
 )
 
-# Tests for websocket signalling client implementations (different depending on platform)
-multi_test(
+# WS signaling client — used only via integration tests (signaling server started automatically)
+multi_app(
     name = "sig-ws-client",
     srcs = ["Sig.Ws.Client.Integration.Test.cpp"],
     cxxopts = ["-fexceptions"],
@@ -25,10 +26,6 @@ multi_test(
         "@platforms//cpu:wasm32": ["-sASYNCIFY=1"],
         "//conditions:default": [],
     }),
-    # "exclusive" forces serial execution so concurrent --runs_per_test instances
-    # don't race on the shared external WS signaling server.
-    tags = ["exclusive"],
-    # tags = ["manual"],  # requires the server to be running
     deps = [
         "//pkg/rtt/rtc",
         "@googletest//:gtest_main",
@@ -39,7 +36,7 @@ multi_test(
 # On host/droid: uses DcRtcClient/DcRtcServer (libdatachannel).
 # On wasm: uses JsRtcTransport (browser RTCPeerConnection via JS bridge).
 multi_test(
-    name = "rtc-local-sig",
+    name = "rtc-peers-local-sig",
     srcs = [
         "Rtc.LocalSig.Test.cpp",
         "Rtc.Client.Tests.h",
@@ -68,11 +65,9 @@ multi_test(
     ],
 )
 
-# Tests for webrtc client implementations via websocket signalling client.
-# On host/droid: uses DcRtcClient/DcRtcServer (libdatachannel).
-# On wasm: uses JsRtcTransport (browser RTCPeerConnection via JS bridge) + JsWsSigClient.
-multi_test(
-    name = "rtc-ws-sig-integration",
+# WebRTC peers via WS signaling — used only via integration tests (signaling server started automatically)
+multi_app(
+    name = "rtc-peers-ws-sig",
     srcs = [
         "Rtc.WsSig.Integration.Test.cpp",
         "Rtc.Client.Tests.h",
@@ -90,13 +85,25 @@ multi_test(
         "@platforms//cpu:wasm32": [":node-webrtc-polyfill.js"],
         "//conditions:default": [],
     }),
-    # "exclusive" forces serial execution so concurrent --runs_per_test instances
-    # don't race on the shared external WS signaling server.
-    tags = ["exclusive"],
-    # tags = ["manual"],  # requires a running WS signaling server
     deps = [
         "//pkg/rtt",
         "//pkg/rtt/rtc",
         "@googletest//:gtest_main",
     ],
+)
+
+# === Integration tests — signaling server is started automatically ===
+
+integration_test(
+    name = "sig-ws-client-integration",
+    client = ":sig-ws-client",
+    server = "//demo/pkg/rtt/sig-service",
+    port = 8000,
+)
+
+integration_test(
+    name = "rtc-peers-ws-sig-integration",
+    client = ":rtc-peers-ws-sig",
+    server = "//demo/pkg/rtt/sig-service",
+    port = 8000,
 )
