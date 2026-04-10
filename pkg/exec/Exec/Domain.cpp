@@ -31,6 +31,7 @@ namespace Exec
         // observe stop_requested() correctly, then drain the frame queue so that
         // queued operations call set_stopped() before the op state is destroyed.
         if (const auto count = _scheduler.DrainQueue(); count > 0) {
+            //TODO: enable verbose logging later and make it configurable (too noisy for now), make summary instead
             Log::Trace("drained {} task(s)", count);
         }
         _opState.reset();
@@ -39,7 +40,8 @@ namespace Exec
     void Domain::Update(const RunLoop::UpdateCtx& ctx)
     {
         if (const auto count = _scheduler.DrainQueue(); count > 0) {
-            Log::Trace("drained {} task(s) on frame={}", count, ctx.frame.index);
+            //TODO: enable verbose logging later and make it configurable (too noisy for now), make summary instead
+            //Log::Trace("drained {} task(s) on frame={}", count, ctx.frame.index);
         }
     }
 

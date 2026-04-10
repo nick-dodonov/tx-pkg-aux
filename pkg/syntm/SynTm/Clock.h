@@ -29,6 +29,21 @@ namespace SynTm
         }
     };
 
+    /// Clock that returns nanoseconds elapsed since construction.
+    /// Produces human-friendly timestamps starting near zero.
+    class AppClock final : public IClock
+    {
+    public:
+        [[nodiscard]] Nanos Now() const noexcept override
+        {
+            auto elapsed = std::chrono::steady_clock::now() - _epoch;
+            return std::chrono::duration_cast<std::chrono::nanoseconds>(elapsed).count();
+        }
+
+    private:
+        std::chrono::steady_clock::time_point _epoch = std::chrono::steady_clock::now();
+    };
+
     /// Deterministic clock for testing. Time only advances when explicitly told.
     class FakeClock final : public IClock
     {

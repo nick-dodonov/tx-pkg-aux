@@ -62,7 +62,8 @@ namespace Rtt::Udp
 
         buf.resize(bytesWritten);
 
-        Log::Trace("send {} bytes {} -> {}", bytesWritten, _localId.value, _remoteId.value);
+        //TODO: enable verbose logging later and make it configurable (too noisy for now), make summary instead
+        //Log::Trace("sending {} bytes {} -> {}", bytesWritten, _localId.value, _remoteId.value);
 
         if (_ownedSocket) {
             // Connected mode: async_send on dedicated socket

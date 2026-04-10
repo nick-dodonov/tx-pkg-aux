@@ -223,7 +223,8 @@ namespace Rtt::Rtc
             return;
         }
 
-        _logger.Trace("send {} bytes {} -> {}", bytesWritten, _localId.value, _remoteId.value);
+        //TODO: enable verbose logging later and make it configurable (too noisy for now), make summary instead
+        //_logger.Trace("sending {} bytes {} -> {}", bytesWritten, _localId.value, _remoteId.value);
 
         rtc::binary payload(buf.begin(), buf.begin() + static_cast<std::ptrdiff_t>(bytesWritten));
         _dc->send(std::move(payload));

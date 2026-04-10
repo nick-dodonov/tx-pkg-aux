@@ -23,7 +23,7 @@ namespace Asio
         // }
         if (const auto count = _io.poll(); count > 0) {
             //TODO: enable verbose logging later and make it configurable (too noisy for now), make summary instead
-            Log::Trace("polled {} handler(s) on frame={}", count, ctx.frame.index);
+            //Log::Trace("polled {} handler(s) on frame={}", count, ctx.frame.index);
         }
     }
 }

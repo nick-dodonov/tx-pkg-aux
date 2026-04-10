@@ -1,0 +1,16 @@
+load("@tx-kit-ext//rules:multi_app.bzl", "multi_app")
+
+multi_app(
+    name = "rtt-syntm",
+    srcs = glob(["*.cpp", "*.h"]),
+    platforms = ["host"],
+    cxxopts = ["-fexceptions"],
+    deps = [
+        "//pkg/app",
+        "//pkg/exec",
+        "//pkg/log",
+        "//pkg/rtt",
+        "//pkg/rtt/rtc",
+        "//pkg/syntm",
+    ],
+)
