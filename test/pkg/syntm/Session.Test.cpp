@@ -313,3 +313,164 @@ TEST(Session, ResetClearsState)
     EXPECT_EQ(session.GetFilter().SampleCount(), 0u);
     EXPECT_FALSE(session.GetDriftModel().IsInitialized());
 }
+
+// ===========================================================================
+// Session — step resets filter and result count
+// ===========================================================================
+
+// A step correction must flush the filter window and zero the result count so
+// that post-step probes build a fresh estimate. Without this, stale pre-step
+// samples corrupt the drift rate and cause cascading re-steps.
+TEST(Session, StepResetsFilterAndResultCount)
+{
+    FakeClock clockA;
+    FakeClock clockB;
+    clockA.SetNow(1'000'000'000LL);
+    clockB.SetNow(1'000'000'000LL);
+
+    SessionConfig config;
+    config.minSamplesForSync = 2;
+    config.filterWindowSize = 4;
+    config.stepThreshold = 50'000'000; // 50ms
+
+    Session sessionA(clockA, config);
+    Session sessionB(clockB, config);
+
+    constexpr Nanos delay = 1'000'000;
+
+    // Converge to Synced.
+    for (int i = 0; i < 4; ++i) {
+        SimulateProbeRound(sessionA, clockA, sessionB, clockB, delay);
+        clockA.Advance(100'000'000);
+        clockB.Advance(100'000'000);
+    }
+    EXPECT_EQ(sessionA.State(), SessionState::Synced);
+
+    // Trigger a step: B jumps 200ms.
+    clockB.Advance(200'000'000);
+
+    bool gotStep = false;
+    for (int i = 0; i < 5; ++i) {
+        auto result = SimulateProbeRound(sessionA, clockA, sessionB, clockB, delay);
+        clockA.Advance(10'000'000);
+        clockB.Advance(10'000'000);
+        if (result.stepped) {
+            gotStep = true;
+            // Filter must be empty and resultCount reset after the step.
+            EXPECT_EQ(sessionA.GetFilter().SampleCount(), 0u);
+            break;
+        }
+    }
+    EXPECT_TRUE(gotStep);
+
+    // After the reset, a single further probe must NOT immediately transition
+    // to Synced (minSamplesForSync=2 requires 2 post-step results).
+    auto r = SimulateProbeRound(sessionA, clockA, sessionB, clockB, delay);
+    EXPECT_FALSE(r.stepped);
+    EXPECT_EQ(sessionA.State(), SessionState::Resyncing); // still waiting for 2nd result
+}
+
+// ===========================================================================
+// Session — large initial offset converges without infinite stepping
+// ===========================================================================
+
+// Nodes starting with a multi-second clock difference must converge to Synced
+// within a bounded number of probes and stop stepping once stable.
+TEST(Session, LargeOffset_ConvergesWithoutInfiniteStepping)
+{
+    FakeClock clockA;
+    FakeClock clockB;
+    clockA.SetNow(0LL);
+    clockB.SetNow(20'000'000'000LL); // B is 20s ahead.
+
+    SessionConfig config;
+    config.minSamplesForSync = 3;
+    config.filterWindowSize = 4;
+    config.stepThreshold = 100'000'000; // 100ms
+
+    Session sessionA(clockA, config);
+    Session sessionB(clockB, config);
+
+    constexpr Nanos delay = 5'000'000; // 5ms one-way.
+
+    // Run plenty of probes.
+    for (int i = 0; i < 40; ++i) {
+        SimulateProbeRound(sessionA, clockA, sessionB, clockB, delay);
+        clockA.Advance(100'000'000);
+        clockB.Advance(100'000'000);
+    }
+
+    EXPECT_EQ(sessionA.State(), SessionState::Synced);
+
+    // Once synced, no more stepping should occur.
+    int stepsAfterSync = 0;
+    for (int i = 0; i < 10; ++i) {
+        auto result = SimulateProbeRound(sessionA, clockA, sessionB, clockB, delay);
+        if (result.stepped) {
+            ++stepsAfterSync;
+        }
+        clockA.Advance(100'000'000);
+        clockB.Advance(100'000'000);
+    }
+    EXPECT_EQ(stepsAfterSync, 0);
+}
+
+// ===========================================================================
+// Session — enteredResyncing fires only on the first step of an episode
+// ===========================================================================
+
+TEST(Session, EnteredResyncing_OnlyOnFirstStepOfEpisode)
+{
+    FakeClock clockA;
+    FakeClock clockB;
+    clockA.SetNow(1'000'000'000LL);
+    clockB.SetNow(1'000'000'000LL);
+
+    SessionConfig config;
+    config.minSamplesForSync = 3;
+    config.filterWindowSize = 4;
+    config.stepThreshold = 50'000'000; // 50ms
+
+    Session sessionA(clockA, config);
+    Session sessionB(clockB, config);
+
+    constexpr Nanos delay = 1'000'000;
+
+    // Converge.
+    for (int i = 0; i < 5; ++i) {
+        SimulateProbeRound(sessionA, clockA, sessionB, clockB, delay);
+        clockA.Advance(100'000'000);
+        clockB.Advance(100'000'000);
+    }
+    EXPECT_EQ(sessionA.State(), SessionState::Synced);
+
+    // Jump B by 200ms to force a step.
+    clockB.Advance(200'000'000);
+
+    // Collect the first step.
+    Session::ProbeHandleResult firstStep;
+    for (int i = 0; i < 5; ++i) {
+        firstStep = SimulateProbeRound(sessionA, clockA, sessionB, clockB, delay);
+        clockA.Advance(10'000'000);
+        clockB.Advance(10'000'000);
+        if (firstStep.stepped) {
+            break;
+        }
+    }
+    ASSERT_TRUE(firstStep.stepped);
+    EXPECT_TRUE(firstStep.enteredResyncing); // First step of episode.
+
+    // Another jump while still in Resyncing — subsequent step must NOT set enteredResyncing.
+    clockB.Advance(200'000'000);
+    ASSERT_EQ(sessionA.State(), SessionState::Resyncing);
+
+    for (int i = 0; i < 5; ++i) {
+        auto r = SimulateProbeRound(sessionA, clockA, sessionB, clockB, delay);
+        clockA.Advance(10'000'000);
+        clockB.Advance(10'000'000);
+        if (r.stepped) {
+            EXPECT_FALSE(r.enteredResyncing); // Already in Resyncing.
+            break;
+        }
+    }
+}

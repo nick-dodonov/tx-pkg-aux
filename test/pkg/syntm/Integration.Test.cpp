@@ -492,3 +492,124 @@ TEST(Integration, TruncTimeCrossNode)
     // Within 5ms tolerance (1 quantum + sync error).
     EXPECT_LE(diff, 5'000'000);
 }
+
+// ===========================================================================
+// Two nodes with large initial clock offset (e.g. AppClock scenario)
+// ===========================================================================
+
+// Verifies that nodes starting with a multi-second clock difference converge
+// correctly and do NOT emit ResyncStarted events after the initial convergence.
+TEST(Integration, TwoNodeLargeOffset_ConvergesAndStabilizes)
+{
+    auto config = FastConfig();
+
+    // A starts at 0, B starts at 20s — simulates two processes each with
+    // their own AppClock that was started at different wall-clock moments.
+    SimNode nodeA("A", 0LL, ConsensusMode::Voter, config);
+    SimNode nodeB("B", 20'000'000'000LL, ConsensusMode::Voter, config);
+
+    nodeA.consensus.AddPeer("B");
+    nodeB.consensus.AddPeer("A");
+
+    constexpr Nanos delay = 5'000'000; // 5ms symmetric.
+    std::vector<SimNode*> all = {&nodeA, &nodeB};
+
+    // Run until both sides are Synced (up to 60 rounds).
+    int rounds = 0;
+    for (; rounds < 60; ++rounds) {
+        ProbeRound(nodeA, "B", nodeB, "A", delay, delay);
+        AdvanceAll(all, 100'000'000);
+        ProbeRound(nodeB, "A", nodeA, "B", delay, delay);
+        AdvanceAll(all, 100'000'000);
+        if (nodeA.consensus.IsSynced() && nodeB.consensus.IsSynced()) {
+            break;
+        }
+    }
+
+    EXPECT_TRUE(nodeA.consensus.IsSynced()) << "A not synced after " << rounds << " rounds";
+    EXPECT_TRUE(nodeB.consensus.IsSynced()) << "B not synced after " << rounds << " rounds";
+
+    // Clear event history and run 20 more rounds — no ResyncStarted should fire.
+    nodeA.events.clear();
+    nodeB.events.clear();
+
+    for (int i = 0; i < 20; ++i) {
+        ProbeRound(nodeA, "B", nodeB, "A", delay, delay);
+        AdvanceAll(all, 100'000'000);
+        ProbeRound(nodeB, "A", nodeA, "B", delay, delay);
+        AdvanceAll(all, 100'000'000);
+    }
+
+    auto hasResyncStarted = [](const std::vector<SyncEvent>& evts) {
+        for (auto e : evts) {
+            if (e == SyncEvent::ResyncStarted) {
+                return true;
+            }
+        }
+        return false;
+    };
+
+    EXPECT_FALSE(hasResyncStarted(nodeA.events)) << "A emitted spurious ResyncStarted after stable sync";
+    EXPECT_FALSE(hasResyncStarted(nodeB.events)) << "B emitted spurious ResyncStarted after stable sync";
+}
+
+// ===========================================================================
+// Resynced fires exactly once per resync episode, not per-step
+// ===========================================================================
+
+// Verifies that even if the filter produces multiple consecutive step-sized
+// corrections, Resynced is emitted only when the session first enters
+// Resyncing, not on every subsequent step within the same episode.
+TEST(Integration, Resynced_FiresOncePerEpisode)
+{
+    auto config = FastConfig();
+    config.stepThreshold = 50'000'000; // lower threshold to make steps easier to trigger
+
+    SimNode nodeA("A", 1'000'000'000LL, ConsensusMode::Voter, config);
+    SimNode nodeB("B", 1'000'000'000LL, ConsensusMode::Voter, config);
+
+    nodeA.consensus.AddPeer("B");
+    nodeB.consensus.AddPeer("A");
+
+    constexpr Nanos delay = 1'000'000;
+    std::vector<SimNode*> all = {&nodeA, &nodeB};
+
+    // Converge first (bidirectional).
+    for (int i = 0; i < 10; ++i) {
+        ProbeRound(nodeA, "B", nodeB, "A", delay, delay);
+        AdvanceAll(all, 50'000'000);
+        ProbeRound(nodeB, "A", nodeA, "B", delay, delay);
+        AdvanceAll(all, 50'000'000);
+    }
+    ASSERT_TRUE(nodeA.consensus.IsSynced());
+    ASSERT_TRUE(nodeB.consensus.IsSynced());
+
+    nodeA.events.clear();
+    nodeB.events.clear();
+
+    // Jump B by 200ms to force A into Resyncing.
+    nodeB.clock.Advance(200'000'000);
+
+    // Run a bunch of probes through the resync episode (bidirectional).
+    for (int i = 0; i < 20; ++i) {
+        ProbeRound(nodeA, "B", nodeB, "A", delay, delay);
+        AdvanceAll(all, 50'000'000);
+        ProbeRound(nodeB, "A", nodeA, "B", delay, delay);
+        AdvanceAll(all, 50'000'000);
+    }
+
+    // Count ResyncStarted and ResyncCompleted events on A: each should be exactly 1 per episode.
+    int resyncStartedCount = 0;
+    int resyncCompletedCount = 0;
+    for (auto e : nodeA.events) {
+        if (e == SyncEvent::ResyncStarted) {
+            ++resyncStartedCount;
+        } else if (e == SyncEvent::ResyncCompleted) {
+            ++resyncCompletedCount;
+        }
+    }
+    EXPECT_EQ(resyncStartedCount, 1)
+        << "ResyncStarted fired " << resyncStartedCount << " times for one resync episode";
+    EXPECT_EQ(resyncCompletedCount, 1)
+        << "ResyncCompleted fired " << resyncCompletedCount << " times for one resync episode";
+}

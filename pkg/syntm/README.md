@@ -133,10 +133,11 @@ if (parsed && parsed->request) {
 ```cpp
 syncClock.OnEvent([](SynTm::SyncEvent e) {
     switch (e) {
-        case SynTm::SyncEvent::SyncAcquired: /* first convergence */  break;
-        case SynTm::SyncEvent::EpochChanged: /* group merge */        break;
-        case SynTm::SyncEvent::Resynced:     /* step correction */    break;
-        case SynTm::SyncEvent::SyncLost:     /* all peers gone */     break;
+        case SynTm::SyncEvent::SyncAcquired:    /* first convergence */  break;
+        case SynTm::SyncEvent::EpochChanged:    /* group merge */        break;
+        case SynTm::SyncEvent::ResyncStarted:   /* time jumped */        break;
+        case SynTm::SyncEvent::ResyncCompleted: /* stable again */       break;
+        case SynTm::SyncEvent::SyncLost:        /* all peers gone */     break;
     }
 });
 ```

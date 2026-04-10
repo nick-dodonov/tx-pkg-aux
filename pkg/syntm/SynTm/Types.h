@@ -51,20 +51,22 @@ namespace SynTm
     /// Events emitted by the consensus layer on sync state transitions.
     enum class SyncEvent : std::uint8_t
     {
-        SyncAcquired, ///< Synchronization established for the first time (or re-established).
-        EpochChanged, ///< The sync epoch changed (group merge — this side adopted the other's epoch).
-        Resynced,     ///< A step correction was applied (time jumped).
-        SyncLost,     ///< Lost all synchronized peers.
+        SyncAcquired,    ///< Synchronization established for the first time (or re-established after SyncLost).
+        EpochChanged,    ///< The sync epoch changed (group merge — this side adopted the other's epoch).
+        ResyncStarted,   ///< A step correction was applied — time jumped, quality is uncertain until ResyncCompleted.
+        ResyncCompleted, ///< Resyncing converged — time estimate is stable again.
+        SyncLost,        ///< Lost all synchronized peers.
     };
 
     constexpr std::string_view SyncEventToString(SyncEvent e) noexcept
     {
         switch (e)
         {
-            case SyncEvent::SyncAcquired: return "SyncAcquired";
-            case SyncEvent::EpochChanged: return "EpochChanged";
-            case SyncEvent::Resynced:     return "Resynced";
-            case SyncEvent::SyncLost:     return "SyncLost";
+            case SyncEvent::SyncAcquired:    return "SyncAcquired";
+            case SyncEvent::EpochChanged:    return "EpochChanged";
+            case SyncEvent::ResyncStarted:   return "ResyncStarted";
+            case SyncEvent::ResyncCompleted: return "ResyncCompleted";
+            case SyncEvent::SyncLost:        return "SyncLost";
         }
         return "Unknown";
     }

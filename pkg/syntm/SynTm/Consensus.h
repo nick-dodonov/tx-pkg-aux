@@ -150,15 +150,19 @@ namespace SynTm
                 HandleRemoteEpoch(*remoteEpoch);
             }
 
-            // Handle step.
-            if (result.stepped) {
-                EmitEvent(SyncEvent::Resynced);
+            // Emit ResyncStarted only when the session first enters Resyncing —
+            // not on every individual step within the same episode.
+            if (result.enteredResyncing) {
+                EmitEvent(SyncEvent::ResyncStarted);
             }
 
-            // Check if we've just acquired sync.
+            // Check if we've just acquired sync for the first time (or after SyncLost).
             if (!_synced && HasAnySyncedPeer()) {
                 _synced = true;
                 EmitEvent(SyncEvent::SyncAcquired);
+            } else if (_synced && result.exitedResyncing) {
+                // Session returned to Synced after a resync episode.
+                EmitEvent(SyncEvent::ResyncCompleted);
             }
         }
 

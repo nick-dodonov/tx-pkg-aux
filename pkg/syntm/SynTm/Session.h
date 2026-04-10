@@ -83,12 +83,16 @@ namespace SynTm
         }
 
         /// Handle an incoming probe response.
-        /// Returns a FilterResult if the filter produced one, and indicates
-        /// whether a step correction occurred.
         struct ProbeHandleResult
         {
             std::optional<FilterResult> filterResult;
-            bool stepped = false; ///< True if a step (re-sync) occurred.
+            /// A step correction was applied to the drift model.
+            bool stepped = false;
+            /// The session just transitioned INTO Resyncing (first step of a new episode).
+            /// False if the session was already in Resyncing before this probe.
+            bool enteredResyncing = false;
+            /// The session just transitioned OUT OF Resyncing into Synced.
+            bool exitedResyncing = false;
         };
 
         [[nodiscard]] ProbeHandleResult HandleProbeResponse(const ProbeResponse& resp)
@@ -104,18 +108,31 @@ namespace SynTm
             ++_resultCount;
             bool stepped = _driftModel.Steer(t4, *filterResult);
 
+            bool enteredResyncing = false;
+            bool exitedResyncing = false;
+
             // Update state.
             if (stepped) {
+                enteredResyncing = (_state != SessionState::Resyncing);
                 _state = SessionState::Resyncing;
+                // Reset filter and sample count so post-step probes build a
+                // fresh window — stale pre-step samples corrupt the drift estimate
+                // and cause cascading re-steps.
+                _filter.Reset();
+                _resultCount = 0;
             } else if (_state == SessionState::Probing &&
                        _resultCount >= _config.minSamplesForSync) {
                 _state = SessionState::Synced;
             } else if (_state == SessionState::Resyncing &&
                        _resultCount >= _config.minSamplesForSync) {
+                exitedResyncing = true;
                 _state = SessionState::Synced;
             }
 
-            return {.filterResult = filterResult, .stepped = stepped};
+            return {.filterResult     = filterResult,
+                    .stepped          = stepped,
+                    .enteredResyncing = enteredResyncing,
+                    .exitedResyncing  = exitedResyncing};
         }
 
         /// Convert a local time to synchronized time using the current model.

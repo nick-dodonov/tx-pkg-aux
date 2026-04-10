@@ -55,10 +55,11 @@ TEST(Types, SyncQualityToString)
 
 TEST(Types, SyncEventToString)
 {
-    EXPECT_EQ(SyncEventToString(SyncEvent::SyncAcquired), "SyncAcquired");
-    EXPECT_EQ(SyncEventToString(SyncEvent::EpochChanged),  "EpochChanged");
-    EXPECT_EQ(SyncEventToString(SyncEvent::Resynced),      "Resynced");
-    EXPECT_EQ(SyncEventToString(SyncEvent::SyncLost),      "SyncLost");
+    EXPECT_EQ(SyncEventToString(SyncEvent::SyncAcquired),    "SyncAcquired");
+    EXPECT_EQ(SyncEventToString(SyncEvent::EpochChanged),     "EpochChanged");
+    EXPECT_EQ(SyncEventToString(SyncEvent::ResyncStarted),    "ResyncStarted");
+    EXPECT_EQ(SyncEventToString(SyncEvent::ResyncCompleted),  "ResyncCompleted");
+    EXPECT_EQ(SyncEventToString(SyncEvent::SyncLost),         "SyncLost");
 }
 
 // ===========================================================================
