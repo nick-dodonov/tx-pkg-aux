@@ -45,7 +45,6 @@ namespace Rtt::Rtc
         std::shared_ptr<ISigUser> sigUser;
 
         PeerId localId;
-        PeerId remoteId;
         rtc::Configuration config;
         std::size_t maxMessageSize = 65535;
         std::size_t maxInboundConnections = 4096;
@@ -53,8 +52,7 @@ namespace Rtt::Rtc
         std::mutex mutex;
         std::unordered_map<std::string, std::shared_ptr<DcRtcLink>> peers;
         std::size_t inboundCount = 0; // protected by mutex; counts active inbound peer connections
-
-        bool isOfferer() const { return !remoteId.value.empty(); }
+        std::vector<PeerId> pendingConnects; // connections queued before signaling is ready; protected by mutex
 
         // ISigHandler — routes SDP and ICE messages to the appropriate link.
         //
@@ -84,21 +82,19 @@ namespace Rtt::Rtc
                 logger.Trace("offer from {}", fromId.value);
                 HandleOffer(fromId, j);
             } else if (type == "answer") {
-                if (!isOfferer()) {
-                    logger.Warn("unexpected answer from {}", fromId.value);
-                    return;
-                }
                 const auto sdp = j.value("description", std::string{});
                 logger.Trace("answer from {}", fromId.value);
                 std::shared_ptr<DcRtcLink> link;
                 {
                     std::lock_guard lock{mutex};
-                    if (auto it = peers.find(remoteId.value); it != peers.end()) {
+                    if (auto it = peers.find(fromId.value); it != peers.end()) {
                         link = it->second;
                     }
                 }
                 if (link) {
                     link->SetRemoteDescription(sdp, rtc::Description::Type::Answer, fromId);
+                } else {
+                    logger.Warn("unexpected answer from {}: no matching offer found", fromId.value);
                 }
             } else if (type == "candidate") {
                 auto cand = j.value("candidate", std::string{});
@@ -125,9 +121,9 @@ namespace Rtt::Rtc
             }
         }
 
-        // Start the offerer flow: create a DcRtcLink, open a DataChannel.
-        // Called once after signaling join when remoteId is set.
-        void OpenOfferer()
+        // Start the offerer flow: create a DcRtcLink, open a DataChannel to remoteId.
+        // Called from DcRtcTransport::Connect() once signaling is ready.
+        void OpenOfferer(PeerId remoteId)
         {
             auto link = std::make_shared<DcRtcLink>(
                 config,
@@ -178,7 +174,7 @@ namespace Rtt::Rtc
                 l->SetHandler(std::move(handler));
             });
 
-            logger.Debug("starting offerer -> {}", remoteId.value);
+            logger.Debug("starting offerer -> {}", remId.value);
         }
 
         // Handle an incoming offer: create a DcRtcLink, answer the offer.
@@ -244,12 +240,11 @@ namespace Rtt::Rtc
 
     DcRtcTransport::~DcRtcTransport() = default;
 
-    void DcRtcTransport::Open(std::shared_ptr<ILinkAcceptor> acceptor)
+    std::shared_ptr<IConnector> DcRtcTransport::Open(std::shared_ptr<ILinkAcceptor> acceptor)
     {
         auto state = std::make_shared<State>(_options.localId.value);
         state->acceptor = std::move(acceptor);
         state->localId = _options.localId;
-        state->remoteId = _options.remoteId;
         state->config = BuildConfiguration(_options);
         state->maxMessageSize = _options.maxMessageSize;
         state->maxInboundConnections = _options.maxInboundConnections;
@@ -270,17 +265,38 @@ namespace Rtt::Rtc
             }
             s->sigUser = std::move(*result);
             s->logger.Debug("signaling ready");
-
-            if (s->isOfferer()) {
-                s->OpenOfferer();
+            // Flush any Connect() calls that arrived before signaling was ready.
+            std::vector<PeerId> pending;
+            {
+                std::lock_guard lock{s->mutex};
+                pending = std::move(s->pendingConnects);
             }
-            // Answerer: waits for OnMessage with type=="offer".
-
+            for (auto& id : pending) {
+                s->OpenOfferer(std::move(id));
+            }
+            // Answerer waits for OnMessage("offer").
             return std::weak_ptr<ISigHandler>{s};
         };
 
         state->logger.Debug("joining signaling as {}", _options.localId.value);
         _options.sigClient->Join(_options.localId, std::move(onJoined));
+
+        return std::shared_ptr<IConnector>(shared_from_this(), static_cast<IConnector*>(this));
+    }
+
+    void DcRtcTransport::Connect(PeerId remoteId)
+    {
+        if (!_state) {
+            return;
+        }
+        {
+            std::lock_guard lock{_state->mutex};
+            if (!_state->sigUser) {
+                _state->pendingConnects.push_back(std::move(remoteId));
+                return;
+            }
+        }
+        _state->OpenOfferer(std::move(remoteId));
     }
 }
 #endif

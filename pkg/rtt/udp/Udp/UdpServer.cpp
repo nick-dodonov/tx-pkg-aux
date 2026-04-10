@@ -95,7 +95,7 @@ namespace Rtt::Udp
         }
     }
 
-    void UdpServer::Open(std::shared_ptr<ILinkAcceptor> acceptor)
+    std::shared_ptr<IConnector> UdpServer::Open(std::shared_ptr<ILinkAcceptor> acceptor)
     {
         auto executor = _options.executor;
         auto port = _options.localPort;
@@ -108,7 +108,7 @@ namespace Rtt::Udp
         if (ec) {
             Log::Trace("socket open failed — {}", ec.message());
             acceptor->OnLink(std::unexpected(MapAsioError(ec)));
-            return;
+            return nullptr;
         }
 
         _ = socket->set_option(asio::socket_base::reuse_address(true), ec);
@@ -116,7 +116,7 @@ namespace Rtt::Udp
         if (ec) {
             Log::Trace("bind failed on port {} — {}", port, ec.message());
             acceptor->OnLink(std::unexpected(MapAsioError(ec)));
-            return;
+            return nullptr;
         }
 
         _localPort = socket->local_endpoint().port();
@@ -131,5 +131,6 @@ namespace Rtt::Udp
         _listenState->localId = EndpointToPeerId(_listenState->socket->local_endpoint());
 
         _listenState->StartReceive();
+        return nullptr;
     }
 }

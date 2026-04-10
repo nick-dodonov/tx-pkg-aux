@@ -9,7 +9,6 @@
 #include "Log/Log.h"
 #include "Rtt/Link.h"
 #include "Rtt/Rtc/RtcClient.h"
-#include "Rtt/Rtc/RtcServer.h"
 #include "Rtt/Transport.h"
 #include "RunLoop/CompositeHandler.h"
 #include "SynTm/Clock.h"
@@ -71,31 +70,19 @@ namespace Demo
 
             const auto sched = co_await stdexec::read_env(stdexec::get_scheduler);
 
-            // Each DcRtcTransport calls ISigClient::Join() once and registers under localId.
-            // Two transports with the same localId create two competing WS connections to the
-            // signaling server, so only the first-registered one ever receives routed messages.
-            //
-            // Rule: at most ONE transport may join the signaling channel per node.
-            //
-            //  - No targets:  create a pure answerer (RtcServer) — registers on signaling,
-            //                 accepts every inbound offer.
-            //  - Has targets: create one RtcClient per target — the client already accepts
-            //                 inbound offers (maxInboundConnections = 4096 by default), so
-            //                 no separate RtcServer is needed or allowed.
-            if (_config.connectTargets.empty()) {
-                auto server = Rtt::Rtc::RtcServer::MakeDefault({
-                    .sigClient = _sigClient,
-                    .localId = {_nodeId},
-                    .iceServers = _config.iceServers,
-                });
-                auto acceptor = std::make_shared<MultiBridgeAcceptor>(_mlb);
-                server->Open(acceptor);
-                _transports.push_back(std::move(server));
-                _log.Info("[LINK] server open, waiting for inbound connections");
-            } else {
-                for (const auto& target : _config.connectTargets) {
-                    ConnectTo(target);
-                }
+            // A single transport joins the signaling channel under localId, accepts
+            // inbound offers, and initiates outbound connections via Connect().
+            auto transport = Rtt::Rtc::RtcClient::MakeDefault({
+                .sigClient = _sigClient,
+                .localId = {_nodeId},
+                .iceServers = _config.iceServers,
+            });
+            auto acceptor = std::make_shared<MultiBridgeAcceptor>(_mlb);
+            _connector = transport->Open(acceptor);
+            _transports.push_back(std::move(transport));
+            for (const auto& target : _config.connectTargets) {
+                _log.Info("[LINK] connecting to {}", target);
+                _connector->Connect({target});
             }
 
             // Schedule first shot.
@@ -180,18 +167,10 @@ namespace Demo
         }
 
     private:
-        void ConnectTo(const std::string& target)
+        void HandleCommand(const CmdConnect& cmd)
         {
-            _log.Info("[LINK] connecting to {}", target);
-            auto client = Rtt::Rtc::RtcClient::MakeDefault({
-                .sigClient = _sigClient,
-                .localId = {_nodeId},
-                .remoteId = {target},
-                .iceServers = _config.iceServers,
-            });
-            auto acceptor = std::make_shared<MultiBridgeAcceptor>(_mlb);
-            client->Open(acceptor);
-            _transports.push_back(std::move(client));
+            _log.Info("[CMD] connect {}", cmd.peerId);
+            _connector->Connect({cmd.peerId});
         }
 
         void OnNewLink(const std::shared_ptr<Rtt::ILink>& link, std::shared_ptr<LinkBridge> bridge)
@@ -244,12 +223,6 @@ namespace Demo
                 }
                 std::visit([this](auto&& c) { HandleCommand(std::forward<decltype(c)>(c)); }, *cmd);
             });
-        }
-
-        void HandleCommand(const CmdConnect& cmd)
-        {
-            _log.Info("[CMD] connect {}", cmd.peerId);
-            ConnectTo(cmd.peerId);
         }
 
         void HandleCommand(const CmdDisconnect& cmd)
@@ -325,5 +298,6 @@ namespace Demo
 
         std::unordered_map<std::string, SyncAgent> _agents;
         std::vector<std::shared_ptr<Rtt::ITransport>> _transports;
+        std::shared_ptr<Rtt::IConnector> _connector;
     };
 }

@@ -433,7 +433,6 @@ namespace Rtt::Rtc
         std::shared_ptr<ISigUser> sigUser;
 
         PeerId localId;
-        PeerId remoteId; // non-empty → offerer; empty → answerer
         std::vector<std::string> iceServers;
         std::size_t maxMessageSize = 65535;
         std::size_t maxInboundConnections = 4096;
@@ -443,8 +442,7 @@ namespace Rtt::Rtc
         std::mutex mutex;
         std::unordered_map<std::string, JsRtcPeerContext*> peers;
         std::size_t inboundCount = 0; // protected by mutex; counts active inbound peer connections
-
-        bool isOfferer() const { return !remoteId.value.empty(); }
+        std::vector<PeerId> pendingConnects; // connections queued before signaling is ready; protected by mutex
 
         // ISigHandler — routes SDP/ICE to the appropriate PeerContext.
         void OnMessage(SigMessage&& msg) override
@@ -470,13 +468,8 @@ namespace Rtt::Rtc
                 logger.Trace("offer from {}", fromId.value);
                 HandleOffer(fromId, sdp);
             } else if (type == "answer") {
-                if (!isOfferer()) {
-                    logger.Warn("answerer received unexpected answer from {}", fromId.value);
-                    return;
-                }
                 const auto sdp = j.value("description", std::string{});
                 logger.Trace("answer from {}", fromId.value);
-                // For offerer there is exactly one peer context.
                 JsRtcPeerContext* ctx = nullptr;
                 {
                     std::lock_guard lock{mutex};
@@ -487,6 +480,8 @@ namespace Rtt::Rtc
                 }
                 if (ctx) {
                     JsRtcPc_SetRemoteAnswer(ctx, sdp.c_str());
+                } else {
+                    logger.Warn("unexpected answer from {}: no matching offer found", fromId.value);
                 }
             } else if (type == "candidate") {
                 const auto cand = j.value("candidate", std::string{});
@@ -516,7 +511,7 @@ namespace Rtt::Rtc
         }
 
         // Start offerer flow: allocate ctx, register in peers map, call JS.
-        void OpenOfferer()
+        void OpenOfferer(PeerId remoteId)
         {
             const std::string iceJson = BuildIceJson(iceServers);
 
@@ -634,12 +629,11 @@ namespace Rtt::Rtc
 
     JsRtcTransport::~JsRtcTransport() = default;
 
-    void JsRtcTransport::Open(std::shared_ptr<ILinkAcceptor> acceptor)
+    std::shared_ptr<IConnector> JsRtcTransport::Open(std::shared_ptr<ILinkAcceptor> acceptor)
     {
         auto state = std::make_shared<State>(_options.localId.value);
         state->acceptor = std::move(acceptor);
         state->localId = _options.localId;
-        state->remoteId = _options.remoteId;
         state->iceServers = _options.iceServers;
         state->maxMessageSize = _options.maxMessageSize;
         state->maxInboundConnections = _options.maxInboundConnections;
@@ -660,17 +654,38 @@ namespace Rtt::Rtc
             }
             s->sigUser = std::move(*result);
             s->logger.Debug("signaling ready as {}", s->localId.value);
-
-            if (s->isOfferer()) {
-                s->OpenOfferer();
+            // Flush any Connect() calls that arrived before signaling was ready.
+            std::vector<PeerId> pending;
+            {
+                std::lock_guard lock{s->mutex};
+                pending = std::move(s->pendingConnects);
             }
-            // Answerer: waits for OnMessage with type=="offer".
-
+            for (auto& id : pending) {
+                s->OpenOfferer(std::move(id));
+            }
+            // Answerer waits for OnMessage("offer").
             return std::weak_ptr<ISigHandler>{s};
         };
 
         state->logger.Debug("joining signaling as {}", _options.localId.value);
         _options.sigClient->Join(_options.localId, std::move(onJoined));
+
+        return std::shared_ptr<IConnector>(shared_from_this(), static_cast<IConnector*>(this));
+    }
+
+    void JsRtcTransport::Connect(PeerId remoteId)
+    {
+        if (!_state) {
+            return;
+        }
+        {
+            std::lock_guard lock{_state->mutex};
+            if (!_state->sigUser) {
+                _state->pendingConnects.push_back(std::move(remoteId));
+                return;
+            }
+        }
+        _state->OpenOfferer(std::move(remoteId));
     }
 }
 #endif

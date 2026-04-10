@@ -20,9 +20,10 @@ namespace Rtt::Testing
             std::shared_ptr<ILinkAcceptor> acceptor;
         };
 
-        void Open(std::shared_ptr<ILinkAcceptor> acceptor) override
+        std::shared_ptr<IConnector> Open(std::shared_ptr<ILinkAcceptor> acceptor) override
         {
             _pendingRequests.push_back({std::move(acceptor)});
+            return nullptr;
         }
 
         // --- Simulation helpers ---

@@ -35,7 +35,7 @@ namespace Rtt::Udp
         explicit UdpClient(Options options);
 
         // ITransport
-        void Open(std::shared_ptr<ILinkAcceptor> acceptor) override;
+        [[nodiscard]] std::shared_ptr<IConnector> Open(std::shared_ptr<ILinkAcceptor> acceptor) override;
 
     private:
         Options _options;

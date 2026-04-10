@@ -33,7 +33,7 @@ namespace Rtt::Udp
         ~UdpServer() override;
 
         // ITransport
-        void Open(std::shared_ptr<ILinkAcceptor> acceptor) override;
+        [[nodiscard]] std::shared_ptr<IConnector> Open(std::shared_ptr<ILinkAcceptor> acceptor) override;
 
         /// Returns the local port actually bound (useful when localPort=0).
         [[nodiscard]] std::uint16_t LocalPort() const noexcept { return _localPort; }

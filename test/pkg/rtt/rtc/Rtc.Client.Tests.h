@@ -116,6 +116,7 @@ protected:
     std::shared_ptr<TestLinkAcceptor> clientAcceptor;
     std::shared_ptr<ITransport> server;
     std::shared_ptr<ITransport> client;
+    std::shared_ptr<IConnector> _clientConnector;
     PeerId _clientId;
     PeerId _serverId;
 
@@ -176,11 +177,11 @@ protected:
         client = RtcClient::MakeDefault(RtcClient::Options{
             .sigClient = makeSigClient(),
             .localId = _clientId,
-            .remoteId = _serverId,
             .iceServers = iceServers(),
         });
-        server->Open(serverAcceptor);
-        client->Open(clientAcceptor);
+        [[maybe_unused]] auto _ = server->Open(serverAcceptor);
+        _clientConnector = client->Open(clientAcceptor);
+        _clientConnector->Connect(_serverId);
     }
 
     // -----------------------------------------------------------------------

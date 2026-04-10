@@ -16,7 +16,7 @@ namespace Rtt::Udp
         : _options(std::move(options))
     {}
 
-    void UdpClient::Open(std::shared_ptr<ILinkAcceptor> acceptor)
+    std::shared_ptr<IConnector> UdpClient::Open(std::shared_ptr<ILinkAcceptor> acceptor)
     {
         auto executor = _options.executor;
         auto host = _options.remoteHost;
@@ -59,5 +59,6 @@ namespace Rtt::Udp
                 auto handler = acceptor->OnLink(link);
                 link->StartReceive(std::move(handler));
             });
+        return nullptr;
     }
 }

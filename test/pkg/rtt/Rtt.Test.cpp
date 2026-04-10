@@ -85,7 +85,7 @@ TEST(Transport, OpenSuccess)
     MockTransport transport;
     auto acceptor = std::make_shared<TestAcceptor>();
 
-    transport.Open(acceptor);
+    [[maybe_unused]] auto _ = transport.Open(acceptor);
     ASSERT_EQ(transport.PendingRequests().size(), 1u);
 
     auto [link, handler] = transport.SimulateLink(
@@ -107,7 +107,7 @@ TEST(Transport, OpenError)
     MockTransport transport;
     auto acceptor = std::make_shared<TestAcceptor>();
 
-    transport.Open(acceptor);
+    [[maybe_unused]] auto _ = transport.Open(acceptor);
     transport.SimulateLinkError(0, Error::AddressInvalid);
 
     EXPECT_TRUE(acceptor->links.empty());
@@ -123,7 +123,7 @@ TEST(Transport, OpenMultipleLinks)
     MockTransport transport;
     auto acceptor = std::make_shared<TestAcceptor>();
 
-    transport.Open(acceptor);
+    [[maybe_unused]] auto _ = transport.Open(acceptor);
     ASSERT_EQ(transport.PendingRequests().size(), 1u);
 
     auto [link, handler] = transport.SimulateLink(
@@ -144,7 +144,7 @@ TEST(Transport, OpenTransportError)
     MockTransport transport;
     auto acceptor = std::make_shared<TestAcceptor>();
 
-    transport.Open(acceptor);
+    [[maybe_unused]] auto _ = transport.Open(acceptor);
     transport.SimulateLinkError(0, Error::TransportClosed);
 
     EXPECT_TRUE(acceptor->links.empty());
@@ -201,7 +201,7 @@ TEST(Link, ReceiveFlow)
     MockTransport transport;
     auto acceptor = std::make_shared<TestAcceptor>();
 
-    transport.Open(acceptor);
+    [[maybe_unused]] auto _ = transport.Open(acceptor);
     auto [link, handler] = transport.SimulateLink(
         0, PeerId{.value = "L"}, PeerId{.value = "R"});
 
@@ -222,7 +222,7 @@ TEST(Link, DisconnectNotification)
     MockTransport transport;
     auto acceptor = std::make_shared<TestAcceptor>();
 
-    transport.Open(acceptor);
+    [[maybe_unused]] auto _ = transport.Open(acceptor);
     auto [link, handler] = transport.SimulateLink(
         0, PeerId{.value = "L"}, PeerId{.value = "R"});
 

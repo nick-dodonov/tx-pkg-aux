@@ -9,16 +9,15 @@ namespace Rtt::Rtc
 {
     /// WebRTC transport for WASM/Emscripten using the browser's native RTCPeerConnection.
     ///
-    /// Serves as both offerer (RtcClient) and answerer (RtcServer) depending on RtcOptions:
-    ///   - options.remoteId non-empty → offerer: creates a DataChannel and sends an offer.
-    ///   - options.remoteId empty    → answerer: listens for offers and answers each one.
-    ///
     /// Uses EM_JS to call into browser JavaScript for all WebRTC operations.
     /// All C++ callbacks are exported via EMSCRIPTEN_KEEPALIVE.
     ///
     /// Only available on WASM platforms.
     /// Use RtcClient::MakeDefault() / RtcServer::MakeDefault() for platform-independent code.
-    class JsRtcTransport: public ITransport
+    class JsRtcTransport
+        : public ITransport
+        , public IConnector
+        , public std::enable_shared_from_this<JsRtcTransport>
     {
     public:
         using Options = RtcOptions;
@@ -27,7 +26,10 @@ namespace Rtt::Rtc
         ~JsRtcTransport() override;
 
         // ITransport
-        void Open(std::shared_ptr<ILinkAcceptor> acceptor) override;
+        [[nodiscard]] std::shared_ptr<IConnector> Open(std::shared_ptr<ILinkAcceptor> acceptor) override;
+
+        // IConnector
+        void Connect(PeerId remoteId) override;
 
     private:
         Options _options;
