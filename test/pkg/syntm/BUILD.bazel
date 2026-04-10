@@ -1,0 +1,12 @@
+load("@tx-kit-ext//rules:multi_app.bzl", "multi_test")
+
+multi_test(
+    name = "syntm",
+    srcs = glob([
+        "*.cpp",
+    ]),
+    deps = [
+        "//pkg/syntm",
+        "@googletest//:gtest_main",
+    ],
+)

@@ -1,0 +1,210 @@
+#pragma once
+#include "Clock.h"
+#include "DriftModel.h"
+#include "Filter.h"
+#include "Probe.h"
+#include "SessionConfig.h"
+#include "Types.h"
+
+#include <cstdint>
+#include <optional>
+
+namespace SynTm
+{
+    /// State of a per-link synchronization session.
+    enum class SessionState : std::uint8_t
+    {
+        Idle,      ///< No probes sent yet.
+        Probing,   ///< Collecting samples, not yet stable.
+        Synced,    ///< Stable synchronization achieved.
+        Resyncing, ///< Re-synchronizing after a disruption.
+    };
+
+    /// Per-link synchronization session.
+    ///
+    /// Manages the probe exchange protocol and offset/drift estimation
+    /// for a single link to a remote peer. The caller drives all I/O —
+    /// this class produces byte messages and consumes byte messages,
+    /// but never touches a socket or timer directly.
+    ///
+    /// Typical usage:
+    ///   1. Call ShouldProbe(now) periodically.
+    ///   2. When true, call MakeProbeRequest() and send the bytes.
+    ///   3. When a probe request arrives, call HandleProbeRequest() and send the response.
+    ///   4. When a probe response arrives, call HandleProbeResponse().
+    class Session
+    {
+    public:
+        explicit Session(IClock& clock, SessionConfig config = {})
+            : _clock(clock)
+            , _config(config)
+            , _filter(config.filterWindowSize)
+            , _driftModel(SteerPolicy{
+                  .stepThreshold = config.stepThreshold,
+                  .maxSlewRate   = config.maxSlewRate,
+              })
+        {
+        }
+
+        /// Whether it's time to send a new probe request.
+        [[nodiscard]] bool ShouldProbe() const noexcept
+        {
+            if (!_everProbed) {
+                return true;
+            }
+            Nanos now = _clock.Now();
+            return (now - _lastProbeSentAt) >= CurrentProbeInterval();
+        }
+
+        /// Create a probe request to send to the remote peer.
+        /// Records t1 internally for later matching.
+        [[nodiscard]] ProbeRequest MakeProbeRequest()
+        {
+            Nanos now = _clock.Now();
+            _lastProbeSentAt = now;
+            _pendingT1 = now;
+            _everProbed = true;
+            if (_state == SessionState::Idle) {
+                _state = SessionState::Probing;
+            }
+            return ProbeRequest{.t1 = now};
+        }
+
+        /// Handle an incoming probe request from a remote peer.
+        /// Returns a response to send back.
+        [[nodiscard]] ProbeResponse HandleProbeRequest(const ProbeRequest& req) const
+        {
+            Nanos now = _clock.Now();
+            return ProbeResponse{
+                .t1 = req.t1,
+                .t2 = now,
+                .t3 = _clock.Now(), // Capture tx time separately for accuracy.
+            };
+        }
+
+        /// Handle an incoming probe response.
+        /// Returns a FilterResult if the filter produced one, and indicates
+        /// whether a step correction occurred.
+        struct ProbeHandleResult
+        {
+            std::optional<FilterResult> filterResult;
+            bool stepped = false; ///< True if a step (re-sync) occurred.
+        };
+
+        [[nodiscard]] ProbeHandleResult HandleProbeResponse(const ProbeResponse& resp)
+        {
+            Nanos t4 = _clock.Now();
+            auto probe = ComputeProbeResult(resp.t1, resp.t2, resp.t3, t4);
+
+            auto filterResult = _filter.AddSample(t4, probe);
+            if (!filterResult) {
+                return {};
+            }
+
+            ++_resultCount;
+            bool stepped = _driftModel.Steer(t4, *filterResult);
+
+            // Update state.
+            if (stepped) {
+                _state = SessionState::Resyncing;
+            } else if (_state == SessionState::Probing &&
+                       _resultCount >= _config.minSamplesForSync) {
+                _state = SessionState::Synced;
+            } else if (_state == SessionState::Resyncing &&
+                       _resultCount >= _config.minSamplesForSync) {
+                _state = SessionState::Synced;
+            }
+
+            return {.filterResult = filterResult, .stepped = stepped};
+        }
+
+        /// Convert a local time to synchronized time using the current model.
+        [[nodiscard]] Nanos ToSyncedTime(Nanos localTime) const noexcept
+        {
+            return _driftModel.Convert(localTime);
+        }
+
+        /// Get the current synchronized time.
+        [[nodiscard]] Nanos SyncedNow() const noexcept
+        {
+            return ToSyncedTime(_clock.Now());
+        }
+
+        /// Current session state.
+        [[nodiscard]] SessionState State() const noexcept { return _state; }
+
+        /// Current sync quality derived from state and jitter.
+        [[nodiscard]] SyncQuality Quality() const noexcept
+        {
+            switch (_state)
+            {
+                case SessionState::Idle:
+                    return SyncQuality::None;
+                case SessionState::Probing:
+                    return SyncQuality::Low;
+                case SessionState::Resyncing:
+                    return SyncQuality::Low;
+                case SessionState::Synced:
+                    return SyncQuality::High;
+            }
+            return SyncQuality::None;
+        }
+
+        /// Access the underlying filter (for inspection/testing).
+        [[nodiscard]] const Filter& GetFilter() const noexcept { return _filter; }
+
+        /// Access the underlying drift model (for inspection/testing).
+        [[nodiscard]] const DriftModel& GetDriftModel() const noexcept { return _driftModel; }
+
+        /// Access config.
+        [[nodiscard]] const SessionConfig& Config() const noexcept { return _config; }
+
+        /// Reset the session (e.g., on epoch change).
+        void Reset()
+        {
+            _state          = SessionState::Idle;
+            _resultCount    = 0;
+            _lastProbeSentAt = 0;
+            _pendingT1      = 0;
+            _everProbed     = false;
+            _filter.Reset();
+            _driftModel.Reset();
+        }
+
+    private:
+        /// Adaptive probe interval: shorter when unsettled, longer when stable.
+        [[nodiscard]] Nanos CurrentProbeInterval() const noexcept
+        {
+            if (_state == SessionState::Idle || _state == SessionState::Probing) {
+                return _config.probeIntervalMin;
+            }
+
+            // Once synced, scale interval based on filter sample count.
+            // More samples → more stable → longer interval.
+            auto sampleCount = _filter.SampleCount();
+            if (sampleCount < _config.filterWindowSize / 2) {
+                return _config.probeIntervalMin;
+            }
+
+            // Linear interpolation between min and max based on fill ratio.
+            Nanos range = _config.probeIntervalMax - _config.probeIntervalMin;
+            auto ratio = static_cast<Nanos>(sampleCount * 2) /
+                         static_cast<Nanos>(_config.filterWindowSize);
+            if (ratio > 2) {
+                ratio = 2;
+            }
+            return _config.probeIntervalMin + (range * (ratio - 1)) / 1;
+        }
+
+        IClock& _clock;
+        SessionConfig _config;
+        Filter _filter;
+        DriftModel _driftModel;
+
+        SessionState _state = SessionState::Idle;
+        std::uint32_t _resultCount = 0;
+        Nanos _lastProbeSentAt = 0;
+        Nanos _pendingT1 = 0;
+        bool _everProbed = false;
+    };
+}
