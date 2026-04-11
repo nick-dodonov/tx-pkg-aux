@@ -133,7 +133,7 @@ namespace Demo
                     auto actual = _sim->shotActualTime.load(std::memory_order_relaxed);
                     auto delta = actual - nextShot;
                     _log.Info("[SHOT] scheduled={} actual={} delta={}ns",
-                        nextShot, actual, delta);
+                        Log::Sep{nextShot}, Log::Sep{actual}, Log::Sep{delta});
 
                     // Announce shot to peers.
                     for (auto& [_, agent] : _agents) {
@@ -149,7 +149,7 @@ namespace Demo
                 // Status dump.
                 if (now - lastStatus >= statusInterval) {
                     lastStatus = now;
-                    DumpStatus();
+                    Dump();
                 }
 
                 // Process commands.
@@ -238,12 +238,12 @@ namespace Demo
         {
             auto now = _syncClock.NowNanos();
             _sim->nextShotTime.store(now, std::memory_order_relaxed);
-            _log.Info("[CMD] manual shot at synced={}", now);
+            _log.Info("[CMD] manual shot at synced={}", Log::Sep{now});
         }
 
         void HandleCommand(const CmdStatus&)
         {
-            DumpStatus();
+            Dump();
         }
 
         void HandleCommand(const CmdSetSpeed& cmd)
@@ -258,7 +258,7 @@ namespace Demo
             _composite.Remove(*_sim);
         }
 
-        void DumpStatus()
+        void Dump()
         {
             auto syncNow = _syncClock.NowNanos();
             auto quality = _consensus.Quality();

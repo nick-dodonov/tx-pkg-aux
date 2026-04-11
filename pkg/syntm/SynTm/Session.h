@@ -7,6 +7,7 @@
 #include "Types.h"
 
 #include "Log/Log.h"
+#include "Log/Sep.h"
 
 #include <cassert>
 #include <cstdint>
@@ -116,14 +117,14 @@ namespace SynTm
             Nanos t4 = _clock.Now();
             auto probe = ComputeProbeResult(resp.t1, resp.t2, resp.t3, t4);
 
-            Log::Trace("probe offset={}ns rtt={}ns", probe.offset, probe.rtt);
+            Log::Trace("probe offset={}ns rtt={}ns", Log::Sep{probe.offset}, Log::Sep{probe.rtt});
 
             auto filterResult = _filter.AddSample(t4, probe);
             const auto sampleCount = filterResult.sampleCount;
 
             Log::Trace("filter: offset={}ns rate={}/{}({}) jitter={}ns minRtt={}ns sampleCount={}",
-                filterResult.offset, filterResult.rate.num, filterResult.rate.den, filterResult.rate.ToDouble(),
-                filterResult.jitter, filterResult.minRtt, sampleCount);
+                Log::Sep{filterResult.offset}, Log::Sep{filterResult.rate.num}, Log::Sep{filterResult.rate.den}, filterResult.rate.ToDouble(),
+                Log::Sep{filterResult.jitter}, Log::Sep{filterResult.minRtt}, sampleCount);
 
             bool stepped = _driftModel.Steer(t4, filterResult);
 

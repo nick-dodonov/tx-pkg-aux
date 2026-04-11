@@ -3,6 +3,7 @@
 #include "Types.h"
 
 #include "Log/Log.h"
+#include "Log/Sep.h"
 
 namespace SynTm
 {
@@ -39,7 +40,7 @@ namespace SynTm
             _rate = Rational{.num=1, .den=1};
             _initialized = true;
             Log::Trace("baseLocal={} baseSynced={} offset={}ns",
-                _baseLocal, _baseSynced, offset);
+                Log::Sep{_baseLocal}, Log::Sep{_baseSynced}, Log::Sep{offset});
         }
 
         /// Apply a filter result to steer the model.
@@ -59,7 +60,7 @@ namespace SynTm
 
             // Check step occurrence based on absolute correction magnitude.
             Log::Trace("correction={}ns threshold={}ns currentSynced={} targetSynced={}",
-                correction, _policy.stepThreshold, currentSynced, targetSynced);
+                Log::Sep{correction}, Log::Sep{_policy.stepThreshold}, Log::Sep{currentSynced}, Log::Sep{targetSynced});
 
             Nanos absCorrectionNs = correction < 0 ? -correction : correction;
             if (absCorrectionNs > _policy.stepThreshold) {
@@ -68,7 +69,7 @@ namespace SynTm
                 _baseSynced = targetSynced;
                 _rate = result.rate;
                 Log::Trace("STEP baseLocal={} baseSynced={} rate={}/{}({})",
-                    _baseLocal, _baseSynced, _rate.num, _rate.den, _rate.ToDouble());
+                    Log::Sep{_baseLocal}, Log::Sep{_baseSynced}, Log::Sep{_rate.num}, Log::Sep{_rate.den}, _rate.ToDouble());
                 return true; // Step occurred.
             }
 
@@ -88,7 +89,7 @@ namespace SynTm
             _baseLocal = localTime;
 
             Log::Trace("slew slewAmount={}ns newBaseSynced={} rate={}/{}({})",
-                slewAmount, _baseSynced, _rate.num, _rate.den, _rate.ToDouble());
+                Log::Sep{slewAmount}, Log::Sep{_baseSynced}, Log::Sep{_rate.num}, Log::Sep{_rate.den}, _rate.ToDouble());
 
             return false; // Smooth correction.
         }

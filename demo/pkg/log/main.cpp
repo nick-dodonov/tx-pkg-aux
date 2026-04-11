@@ -2,6 +2,7 @@
 
 #include "Log/Log.h"
 #include "Log/Scope.h"
+#include "Log/Sep.h"
 
 //TODO: add samples w/ Src modifiers (NoFunc)
 
@@ -13,7 +14,7 @@ static void FuncDemo()
     Log::Warn("func message (warning)");
     Log::Error("func message (error)");
     Log::Fatal("func message (fatal)");
-    Log::Debug("func formatted: '{}'", "demo");
+    Log::Debug("func formatted: '{}' {}", "demo", Log::Sep{-2286995118});
 }
 
 static void MacroDemo()
