@@ -26,7 +26,7 @@ namespace Rtt::Rtc
         ~JsRtcTransport() override;
 
         // ITransport
-        [[nodiscard]] std::shared_ptr<IConnector> Open(std::shared_ptr<ILinkAcceptor> acceptor) override;
+        std::shared_ptr<IConnector> Open(std::shared_ptr<ILinkAcceptor> acceptor) override;
 
         // IConnector
         void Connect(PeerId remoteId) override;

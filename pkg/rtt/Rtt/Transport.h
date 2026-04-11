@@ -51,7 +51,7 @@ namespace Rtt
         /// is kept alive by the transport's own shared ownership — callers
         /// do not need to hold it to keep the connector alive, but holding it
         /// prevents the transport from being destroyed prematurely.
-        [[nodiscard]] virtual std::shared_ptr<IConnector> Open(std::shared_ptr<ILinkAcceptor> acceptor) = 0;
+        virtual std::shared_ptr<IConnector> Open(std::shared_ptr<ILinkAcceptor> acceptor) = 0;
     };
 
     static_assert(TransportLike<ITransport>);

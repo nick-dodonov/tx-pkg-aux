@@ -32,7 +32,7 @@ namespace Rtt::Rtc
 
         // ITransport — activates signaling and starts accepting inbound connections.
         // Returns this transport as IConnector (for outbound use via Connect()).
-        [[nodiscard]] std::shared_ptr<IConnector> Open(std::shared_ptr<ILinkAcceptor> acceptor) override;
+        std::shared_ptr<IConnector> Open(std::shared_ptr<ILinkAcceptor> acceptor) override;
 
         // IConnector — initiates an outbound DataChannel to the given remote peer.
         // May be called multiple times with different remote IDs after Open().
