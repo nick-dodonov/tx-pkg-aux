@@ -18,38 +18,38 @@ namespace SynTm
     /// Contains t1: the local time at which the request was sent.
     struct ProbeRequest
     {
-        Nanos t1 = 0; ///< Origin timestamp (initiator's local time at send).
+        Ticks t1 = 0; ///< Origin timestamp (initiator's local time at send).
 
-        static constexpr std::size_t WireSize = sizeof(Nanos);
+        static constexpr std::size_t WireSize = sizeof(Ticks);
     };
 
     /// Sent by the responder after receiving a ProbeRequest.
     /// Contains t1 (echoed), t2 (responder's receive time), t3 (responder's send time).
     struct ProbeResponse
     {
-        Nanos t1 = 0; ///< Echoed origin timestamp from the request.
-        Nanos t2 = 0; ///< Responder's local time at request reception.
-        Nanos t3 = 0; ///< Responder's local time at response transmission.
+        Ticks t1 = 0; ///< Echoed origin timestamp from the request.
+        Ticks t2 = 0; ///< Responder's local time at request reception.
+        Ticks t3 = 0; ///< Responder's local time at response transmission.
 
-        static constexpr std::size_t WireSize = 3 * sizeof(Nanos);
+        static constexpr std::size_t WireSize = 3 * sizeof(Ticks);
     };
 
     /// Computed from the four timestamps (t1..t4) after the initiator receives
     /// the response. t4 is the initiator's local time at response reception.
     struct ProbeResult
     {
-        Nanos offset = 0; ///< Estimated clock offset: remote - local.
-        Nanos rtt    = 0; ///< Round-trip time.
+        Ticks offset = 0; ///< Estimated clock offset: remote - local.
+        Ticks rtt    = 0; ///< Round-trip time.
     };
 
     /// Compute the probe result from the four NTP-style timestamps.
     ///   offset = ((t2 - t1) + (t3 - t4)) / 2
     ///   rtt    = (t4 - t1) - (t3 - t2)
     [[nodiscard]] constexpr ProbeResult ComputeProbeResult(
-        Nanos t1, Nanos t2, Nanos t3, Nanos t4) noexcept
+        Ticks t1, Ticks t2, Ticks t3, Ticks t4) noexcept
     {
-        Nanos rtt    = (t4 - t1) - (t3 - t2);
-        Nanos offset = ((t2 - t1) + (t3 - t4)) / 2;
+        Ticks rtt    = (t4 - t1) - (t3 - t2);
+        Ticks offset = ((t2 - t1) + (t3 - t4)) / 2;
         return {.offset = offset, .rtt = rtt};
     }
 
@@ -59,7 +59,7 @@ namespace SynTm
 
     namespace Detail
     {
-        inline void WriteLE64(std::span<std::byte> buf, std::size_t pos, Nanos value) noexcept
+        inline void WriteLE64(std::span<std::byte> buf, std::size_t pos, Ticks value) noexcept
         {
             auto u = static_cast<std::uint64_t>(value);
             if constexpr (std::endian::native != std::endian::little) {
@@ -68,14 +68,14 @@ namespace SynTm
             std::memcpy(buf.data() + pos, &u, sizeof(u));
         }
 
-        [[nodiscard]] inline Nanos ReadLE64(std::span<const std::byte> buf, std::size_t pos) noexcept
+        [[nodiscard]] inline Ticks ReadLE64(std::span<const std::byte> buf, std::size_t pos) noexcept
         {
             std::uint64_t u = 0;
             std::memcpy(&u, buf.data() + pos, sizeof(u));
             if constexpr (std::endian::native != std::endian::little) {
                 u = std::byteswap(u);
             }
-            return static_cast<Nanos>(u);
+            return static_cast<Ticks>(u);
         }
     }
 

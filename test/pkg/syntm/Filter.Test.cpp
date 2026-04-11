@@ -32,11 +32,11 @@ TEST(Filter, ProducesResultAfterTwoSamples)
 TEST(Filter, ConvergesWithConsistentSamples)
 {
     Filter filter(8);
-    constexpr Nanos trueOffset = 5'000'000; // 5ms
+    constexpr Ticks trueOffset = 5'000'000; // 5ms
 
     FilterResult lastResult{};
     for (int i = 0; i < 8; ++i) {
-        Nanos localTime = static_cast<Nanos>(i) * 100'000'000; // 100ms apart
+        Ticks localTime = static_cast<Ticks>(i) * 100'000'000; // 100ms apart
         lastResult = filter.AddSample(localTime,
             ProbeResult{.offset = trueOffset, .rtt = 2'000'000}); // 2ms RTT
     }
@@ -64,7 +64,7 @@ TEST(Filter, OutlierRejection)
 
     // 6 good samples with 5ms offset and 2ms RTT.
     for (int i = 0; i < 6; ++i) {
-        filter.AddSample(static_cast<Nanos>(i) * 100'000'000,
+        filter.AddSample(static_cast<Ticks>(i) * 100'000'000,
             ProbeResult{.offset = 5'000'000, .rtt = 2'000'000});
     }
 
@@ -82,8 +82,8 @@ TEST(Filter, WindowEviction)
 {
     Filter filter(4);
     for (int i = 0; i < 10; ++i) {
-        filter.AddSample(static_cast<Nanos>(i) * 100'000'000,
-            ProbeResult{.offset = static_cast<Nanos>(i) * 1000, .rtt = 1'000'000});
+        filter.AddSample(static_cast<Ticks>(i) * 100'000'000,
+            ProbeResult{.offset = static_cast<Ticks>(i) * 1000, .rtt = 1'000'000});
     }
     // Window should only contain last 4 samples.
     EXPECT_EQ(filter.SampleCount(), 4u);
@@ -109,7 +109,7 @@ TEST(Filter, DetectsZeroDrift)
     Filter filter(8);
     // All offsets are constant → rate should be ~1.
     for (int i = 0; i < 8; ++i) {
-        filter.AddSample(static_cast<Nanos>(i) * 1'000'000'000LL,
+        filter.AddSample(static_cast<Ticks>(i) * 1'000'000'000LL,
             ProbeResult{.offset = 10'000'000, .rtt = 2'000'000});
     }
     auto result = filter.AddSample(8'000'000'000LL,
@@ -126,8 +126,8 @@ TEST(Filter, DetectsPositiveDrift)
     // offset(t) = 10ms + t * 100ppm = 10ms + t * 1e-4
     // At t = i seconds: offset = 10ms + i * 100'000 ns
     for (int i = 0; i < 8; ++i) {
-        Nanos localTime = static_cast<Nanos>(i) * 1'000'000'000LL;
-        Nanos offset = 10'000'000 + static_cast<Nanos>(i) * 100'000;
+        Ticks localTime = static_cast<Ticks>(i) * 1'000'000'000LL;
+        Ticks offset = 10'000'000 + static_cast<Ticks>(i) * 100'000;
         filter.AddSample(localTime, ProbeResult{.offset = offset, .rtt = 2'000'000});
     }
 
@@ -188,9 +188,9 @@ TEST(DriftModel, SteerSmallCorrection)
 
     // After steering, synced time at current local time should be
     // closer to localTime + 7ms than before.
-    Nanos synced = model.Convert(1'000'000'000LL);
-    Nanos target = 1'000'000'000LL + 7'000'000;
-    Nanos diff = synced - target;
+    Ticks synced = model.Convert(1'000'000'000LL);
+    Ticks target = 1'000'000'000LL + 7'000'000;
+    Ticks diff = synced - target;
     if (diff < 0) {
         diff = -diff;
     }
@@ -245,9 +245,9 @@ TEST(DriftModel, RateApplied)
     model.Steer(0, fr);
 
     // After 10 seconds with 100ppm drift, synced time should be ~1ms ahead.
-    Nanos synced = model.Convert(10'000'000'000LL);
-    Nanos expected = 10'001'000'000LL; // 10s + 1ms
-    Nanos diff = synced - expected;
+    Ticks synced = model.Convert(10'000'000'000LL);
+    Ticks expected = 10'001'000'000LL; // 10s + 1ms
+    Ticks diff = synced - expected;
     if (diff < 0) {
         diff = -diff;
     }

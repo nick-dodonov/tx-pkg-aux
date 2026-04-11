@@ -40,9 +40,9 @@ namespace SynTm
                 std::chrono::nanoseconds{ns}};
         }
 
-        /// Synchronized time in raw nanoseconds.
+        /// Synchronized time in raw ticks.
         /// Thread-safe (reads atomic snapshot).
-        [[nodiscard]] Nanos NowNanos() const noexcept
+        [[nodiscard]] Ticks NowNanos() const noexcept
         {
             return _cachedSyncedNow.load(std::memory_order_relaxed);
         }
@@ -55,9 +55,9 @@ namespace SynTm
                 NowNanos(), _consensus.Epoch().baseTime);
         }
 
-        /// Expand a truncated time to an absolute nanosecond value.
+        /// Expand a truncated time to an absolute tick value.
         template <typename TruncTimeT>
-        [[nodiscard]] Nanos Expand(TruncTimeT trunc) const noexcept
+        [[nodiscard]] Ticks Expand(TruncTimeT trunc) const noexcept
         {
             return SynTm::Expand(trunc, _consensus.Epoch().baseTime, NowNanos());
         }
@@ -90,6 +90,6 @@ namespace SynTm
 
     private:
         Consensus& _consensus;
-        std::atomic<Nanos> _cachedSyncedNow{0};
+        std::atomic<Ticks> _cachedSyncedNow{0};
     };
 }

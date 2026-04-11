@@ -1,6 +1,6 @@
 # SynTm — Distributed Time Synchronization
 
-Transport-agnostic time synchronization subsystem providing consensus-based synchronized steady clock across linked nodes. All hot-path computations use integer arithmetic (`int64_t` nanoseconds); no floating-point in production code.
+Transport-agnostic time synchronization subsystem providing consensus-based synchronized steady clock across linked nodes. All hot-path computations use integer arithmetic (`int64_t` ticks); no floating-point in production code.
 
 ## Architecture
 
@@ -27,7 +27,7 @@ Six layers, bottom-up:
 
 ## Key Design Decisions
 
-- **Integer arithmetic**: `Nanos = int64_t` nanoseconds. Drift rate modeled as `Rational{num, den}` with `__int128` to prevent overflow.
+- **Integer arithmetic**: `Ticks = int64_t` ticks (nanosecond resolution). Drift rate modeled as `Rational{num, den}` with `__int128` to prevent overflow.
 - **Transport-agnostic**: Provides serialization helpers (`Integrate.h`) for embedding sync data into existing message framing via `std::span<std::byte>`. Does NOT own transport — caller drives probe exchange.
 - **Truncated time**: `TruncTime<Bits, Quantum>` template for compact representations. E.g., `TruncTime16_1ms` = 16-bit index covering ~65s range.
 - **Consensus via epoch propagation**: Connected components share a `SyncEpoch` (id + base time + rate). When groups merge, the older/larger epoch wins. Losers receive an `EpochChanged` event.
@@ -37,7 +37,7 @@ Six layers, bottom-up:
 
 | File | Purpose |
 |------|---------|
-| `SynTm/Types.h` | `Nanos`, `Rational`, `SyncQuality`, `SyncEvent` |
+| `SynTm/Types.h` | `Ticks`, `Rational`, `SyncQuality`, `SyncEvent` |
 | `SynTm/Clock.h` | `IClock` interface, `SteadyClock`, `FakeClock` |
 | `SynTm/Probe.h` | NTP-style probe request/response, 4-timestamp computation |
 | `SynTm/TruncTime.h` | Compact truncated time template with wrap-around resolution |
@@ -91,7 +91,7 @@ consensus.HandleProbeResponse("peer-id", incomingResponse, remoteEpochInfo);
 syncClock.Update(); // Call periodically from your main loop.
 
 auto now = syncClock.Now();           // std::chrono::steady_clock::time_point
-auto ns  = syncClock.NowNanos();      // Raw int64_t nanoseconds
+auto ns  = syncClock.NowNanos();      // Raw int64_t ticks
 bool ok  = syncClock.IsSynced();      // Have we converged?
 auto q   = syncClock.Quality();       // SyncQuality::None/Low/High
 ```
@@ -104,7 +104,7 @@ auto trunc = syncClock.Truncate<SynTm::TruncTime16_1ms>();
 // Send trunc.index (2 bytes) over the wire.
 
 // Receiver
-SynTm::Nanos absolute = syncClock.Expand(trunc);
+SynTm::Ticks absolute = syncClock.Expand(trunc);
 ```
 
 ### 5. Wire format (Integrate.h)

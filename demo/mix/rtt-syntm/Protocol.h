@@ -22,7 +22,7 @@ namespace Demo
     /// StateUpdate payload (POD).
     struct StateUpdateMsg
     {
-        SynTm::Nanos syncTime; ///< Synced time when this update was created.
+        SynTm::Ticks syncTime; ///< Synced time when this update was created.
         float position;
         float velocity;
     };
@@ -31,15 +31,15 @@ namespace Demo
     /// ShotFired payload (POD).
     struct ShotFiredMsg
     {
-        SynTm::Nanos scheduledSyncTime; ///< The synced nanosecond at which the shot was fired.
+        SynTm::Ticks scheduledSyncTime; ///< The synced nanosecond at which the shot was fired.
     };
     static_assert(std::is_trivially_copyable_v<ShotFiredMsg>);
 
     /// ShotAck payload (POD).
     struct ShotAckMsg
     {
-        SynTm::Nanos scheduledSyncTime; ///< The originally scheduled shot time.
-        SynTm::Nanos receivedSyncTime;  ///< Synced time on the receiver when the shot was observed.
+        SynTm::Ticks scheduledSyncTime; ///< The originally scheduled shot time.
+        SynTm::Ticks receivedSyncTime;  ///< Synced time on the receiver when the shot was observed.
     };
     static_assert(std::is_trivially_copyable_v<ShotAckMsg>);
 

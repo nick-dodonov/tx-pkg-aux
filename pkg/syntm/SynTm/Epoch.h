@@ -16,8 +16,8 @@ namespace SynTm
         /// Unique identifier (e.g., hash of creator node ID + creation time).
         std::uint64_t id = 0;
 
-        /// Base synchronized time — the epoch's "origin" in nanoseconds.
-        Nanos baseTime = 0;
+        /// Base synchronized time — the epoch's "origin" in ticks.
+        Ticks baseTime = 0;
 
         /// Drift rate relative to some agreed reference (typically 1/1).
         Rational rate{.num=1, .den=1};
@@ -26,7 +26,7 @@ namespace SynTm
         std::uint32_t memberCount = 0;
 
         /// Creation timestamp in the creator's local time (for ordering).
-        Nanos createdAt = 0;
+        Ticks createdAt = 0;
 
         /// Whether this epoch has been initialized (non-default).
         [[nodiscard]] bool IsValid() const noexcept { return id != 0; }
@@ -54,11 +54,11 @@ namespace SynTm
     struct EpochInfo
     {
         std::uint64_t epochId = 0;
-        Nanos baseTime = 0;
-        Nanos createdAt = 0;
+        Ticks baseTime = 0;
+        Ticks createdAt = 0;
         std::uint32_t memberCount = 0;
 
-        static constexpr std::size_t WireSize = sizeof(std::uint64_t) + sizeof(Nanos) * 2 + sizeof(std::uint32_t);
+        static constexpr std::size_t WireSize = sizeof(std::uint64_t) + sizeof(Ticks) * 2 + sizeof(std::uint32_t);
     };
 
     /// Create an EpochInfo from a SyncEpoch.

@@ -217,7 +217,7 @@ namespace SynTm
         // -------------------------------------------------------------------
 
         /// Get the best estimate of synchronized time right now.
-        [[nodiscard]] Nanos SyncedNow() const noexcept
+        [[nodiscard]] Ticks SyncedNow() const noexcept
         {
             // Use the best peer session's synced time.
             const Session* bestSession = BestSyncedSession();
@@ -229,7 +229,7 @@ namespace SynTm
         }
 
         /// Convert a local time to synced time using the best available session.
-        [[nodiscard]] Nanos ToSyncedTime(Nanos localTime) const noexcept
+        [[nodiscard]] Ticks ToSyncedTime(Ticks localTime) const noexcept
         {
             const Session* bestSession = BestSyncedSession();
             if (bestSession) {
@@ -261,7 +261,7 @@ namespace SynTm
     private:
         void CreateEpoch()
         {
-            Nanos now = _clock.Now();
+            Ticks now = _clock.Now();
             // Simple epoch ID: hash of local time.
             _epoch = SyncEpoch{
                 .id          = static_cast<std::uint64_t>(now) ^ 0x5A5A5A5A'5A5A5A5AULL,

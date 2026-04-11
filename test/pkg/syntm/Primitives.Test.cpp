@@ -6,7 +6,6 @@
 #include <array>
 #include <cstddef>
 #include <gtest/gtest.h>
-#include <limits>
 
 using namespace SynTm;
 
@@ -16,28 +15,28 @@ using namespace SynTm;
 
 TEST(Rational, IdentityRate)
 {
-    Rational r{1, 1};
+    Rational r{.num=1, .den=1};
     EXPECT_EQ(r.Apply(1'000'000'000), 1'000'000'000);
 }
 
 TEST(Rational, ScaleUp)
 {
-    Rational r{3, 2}; // 1.5x
+    Rational r{.num=3, .den=2}; // 1.5x
     EXPECT_EQ(r.Apply(1'000'000'000), 1'500'000'000);
 }
 
 TEST(Rational, ScaleDown)
 {
-    Rational r{2, 3}; // ~0.667x
+    Rational r{.num=2, .den=3}; // ~0.667x
     EXPECT_EQ(r.Apply(3'000'000'000), 2'000'000'000);
 }
 
 TEST(Rational, LargeValuesNoOverflow)
 {
     // 100 seconds * rate close to 1.0 — should not overflow with __int128.
-    Rational r{1'000'001, 1'000'000}; // 1.000001x (1ppm drift)
-    Nanos hundred_sec = 100'000'000'000LL;
-    Nanos result = r.Apply(hundred_sec);
+    Rational r{.num=1'000'001, .den=1'000'000}; // 1.000001x (1ppm drift)
+    Ticks hundred_sec = 100'000'000'000LL;
+    Ticks result = r.Apply(hundred_sec);
     EXPECT_EQ(result, 100'000'100'000LL);
 }
 
@@ -108,8 +107,8 @@ TEST(SteadyClock, ReturnsPositive)
 TEST(SteadyClock, Monotonic)
 {
     SteadyClock clock;
-    Nanos a = clock.Now();
-    Nanos b = clock.Now();
+    Ticks a = clock.Now();
+    Ticks b = clock.Now();
     EXPECT_GE(b, a);
 }
 
@@ -121,7 +120,7 @@ TEST(Probe, ComputeResultSymmetric)
 {
     // Symmetric delay: 10ms each way, zero offset.
     //   t1=0, t2=10ms, t3=10ms, t4=20ms
-    constexpr Nanos ms = 1'000'000;
+    constexpr Ticks ms = 1'000'000;
     auto result = ComputeProbeResult(0, 10 * ms, 10 * ms, 20 * ms);
     EXPECT_EQ(result.offset, 0);
     EXPECT_EQ(result.rtt, 20 * ms);
@@ -132,7 +131,7 @@ TEST(Probe, ComputeResultWithOffset)
     // Remote clock is 5ms ahead, symmetric 10ms RTT.
     //   t1=0, t2=15ms, t3=15ms, t4=20ms
     //   offset = ((15-0) + (15-20)) / 2 = (15 + (-5)) / 2 = 5ms
-    constexpr Nanos ms = 1'000'000;
+    constexpr Ticks ms = 1'000'000;
     auto result = ComputeProbeResult(0, 15 * ms, 15 * ms, 20 * ms);
     EXPECT_EQ(result.offset, 5 * ms);
     EXPECT_EQ(result.rtt, 20 * ms);
@@ -143,7 +142,7 @@ TEST(Probe, ComputeResultWithNegativeOffset)
     // Remote clock is 5ms behind, symmetric 10ms RTT.
     //   t1=0, t2=5ms, t3=5ms, t4=20ms
     //   offset = ((5-0) + (5-20)) / 2 = (5 + (-15)) / 2 = -5ms
-    constexpr Nanos ms = 1'000'000;
+    constexpr Ticks ms = 1'000'000;
     auto result = ComputeProbeResult(0, 5 * ms, 5 * ms, 20 * ms);
     EXPECT_EQ(result.offset, -5 * ms);
     EXPECT_EQ(result.rtt, 20 * ms);
@@ -154,7 +153,7 @@ TEST(Probe, ComputeResultAsymmetric)
     // Asymmetric delay: forward 5ms, return 15ms. Zero real offset.
     //   t1=0, t2=5ms, t3=5ms, t4=20ms
     //   True offset = 0, but estimated offset = -5ms (NTP asymmetry bias).
-    constexpr Nanos ms = 1'000'000;
+    constexpr Ticks ms = 1'000'000;
     auto result = ComputeProbeResult(0, 5 * ms, 5 * ms, 20 * ms);
     // RTT = (20-0) - (5-5) = 20ms
     EXPECT_EQ(result.rtt, 20 * ms);
@@ -168,7 +167,7 @@ TEST(Probe, ComputeResultWithProcessingDelay)
     //   t1=0, t2=10ms, t3=12ms, t4=22ms
     //   rtt = (22-0) - (12-10) = 20ms
     //   offset = ((10-0) + (12-22)) / 2 = (10 - 10) / 2 = 0
-    constexpr Nanos ms = 1'000'000;
+    constexpr Ticks ms = 1'000'000;
     auto result = ComputeProbeResult(0, 10 * ms, 12 * ms, 22 * ms);
     EXPECT_EQ(result.rtt, 20 * ms);
     EXPECT_EQ(result.offset, 0);
@@ -242,46 +241,46 @@ TEST(ProbeSerialization, NegativeValues)
 
 TEST(TruncTime, BasicTruncateExpand)
 {
-    constexpr Nanos epoch = 1'000'000'000'000LL; // 1 second
-    constexpr Nanos time  = epoch + 500'000;      // +500µs
-    constexpr Nanos quantum = 100'000;             // 100µs
+    constexpr Ticks epoch = 1'000'000'000'000LL; // 1 second
+    constexpr Ticks time = epoch + 500'000; // +500µs
+    constexpr Ticks quantum = 100'000; // 100µs
 
     auto trunc = Truncate<16, quantum>(time, epoch);
     EXPECT_EQ(trunc.index, 5u); // 500'000 / 100'000 = 5
 
-    Nanos expanded = Expand(trunc, epoch, time);
+    Ticks expanded = Expand(trunc, epoch, time);
     EXPECT_EQ(expanded, epoch + 5 * quantum); // Exact quantum boundary.
 }
 
 TEST(TruncTime, WrapAround)
 {
-    constexpr Nanos epoch = 0;
+    constexpr Ticks epoch = 0;
 
     // Time is at 300ms → wraps around (300 mod 256 = 44).
-    constexpr Nanos time = 300'000'000;
+    constexpr Ticks time = 300'000'000;
     auto trunc = Truncate<8, 1'000'000>(time, epoch);
     EXPECT_EQ(trunc.index, 44u);
 
     // Expand with hint near 300ms should give back ~300ms.
-    Nanos expanded = Expand(trunc, epoch, 295'000'000);
+    Ticks expanded = Expand(trunc, epoch, 295'000'000);
     EXPECT_EQ(expanded, 300'000'000);
 }
 
 TEST(TruncTime, ExpandChoosesClosestToHint)
 {
-    constexpr Nanos epoch = 0;
+    constexpr Ticks epoch = 0;
 
     // Index 10 → within first cycle: 10ms.
     TruncTime<8, 1'000'000> trunc{.index = 10};
 
     // Hint near 10ms → should expand to 10ms.
-    EXPECT_EQ(Expand(trunc, epoch, Nanos{8'000'000}), 10'000'000);
+    EXPECT_EQ(Expand(trunc, epoch, Ticks{8'000'000}), 10'000'000);
 
     // Hint near 266ms (= 256 + 10) → should expand to 266ms.
-    EXPECT_EQ(Expand(trunc, epoch, Nanos{264'000'000}), 266'000'000);
+    EXPECT_EQ(Expand(trunc, epoch, Ticks{264'000'000}), 266'000'000);
 
     // Hint near 522ms (= 512 + 10) → should expand to 522ms.
-    EXPECT_EQ(Expand(trunc, epoch, Nanos{520'000'000}), 522'000'000);
+    EXPECT_EQ(Expand(trunc, epoch, Ticks{520'000'000}), 522'000'000);
 }
 
 TEST(TruncTime, Presets)
@@ -297,13 +296,13 @@ TEST(TruncTime, Presets)
 TEST(TruncTime, ExactRoundTrip)
 {
     // If time is exactly on a quantum boundary, Truncate+Expand is identity.
-    constexpr Nanos epoch   = 5'000'000'000LL;
-    constexpr Nanos quantum = 100'000;
+    constexpr Ticks epoch   = 5'000'000'000LL;
+    constexpr Ticks quantum = 100'000;
 
     for (int i = 0; i < 1000; ++i) {
-        Nanos time = epoch + static_cast<Nanos>(i) * quantum;
+        Ticks time = epoch + static_cast<Ticks>(i) * quantum;
         auto trunc = Truncate<16, quantum>(time, epoch);
-        Nanos expanded = Expand(trunc, epoch, time);
+        Ticks expanded = Expand(trunc, epoch, time);
         EXPECT_EQ(expanded, time);
     }
 }

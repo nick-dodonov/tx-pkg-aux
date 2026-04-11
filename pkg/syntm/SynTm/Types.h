@@ -4,9 +4,9 @@
 
 namespace SynTm
 {
-    /// Nanoseconds as a signed 64-bit integer.
+    /// Ticks as a signed 64-bit integer (nanosecond resolution).
     /// Range: ~±292 years — sufficient for any realistic synchronization window.
-    using Nanos = std::int64_t;
+    using Ticks = std::int64_t;
 
     /// Rational number for drift rate representation.
     /// Enables purely integer arithmetic in the hot path.
@@ -17,11 +17,11 @@ namespace SynTm
         std::int64_t den = 1;
 
         /// Apply this rate to a duration: (value * num) / den.
-        [[nodiscard]] constexpr Nanos Apply(Nanos value) const noexcept
+        [[nodiscard]] constexpr Ticks Apply(Ticks value) const noexcept
         {
             // Use __int128 to avoid overflow on large values.
             auto wide = static_cast<__int128>(value) * num;
-            return static_cast<Nanos>(wide / den);
+            return static_cast<Ticks>(wide / den);
         }
 
         /// Convert to double for logging/debugging (not used in hot path).

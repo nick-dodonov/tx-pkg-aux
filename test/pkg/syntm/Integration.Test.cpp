@@ -38,7 +38,7 @@ namespace
         /// Drift rate applied per AdvanceAll. 1.0 means perfect clock.
         double driftFactor = 1.0;
 
-        SimNode(std::string nodeId, Nanos startTime,
+        SimNode(std::string nodeId, Ticks startTime,
                 ConsensusMode mode, SessionConfig config, double drift = 1.0)
             : id(std::move(nodeId))
             , consensus(clock, mode, config)
@@ -54,14 +54,14 @@ namespace
     {
         std::string nodeA;
         std::string nodeB;
-        Nanos delayAtoB;
-        Nanos delayBtoA;
+        Ticks delayAtoB;
+        Ticks delayBtoA;
     };
 
     /// Helper: simulate a bidirectional probe round between two SimNodes.
     void ProbeRound(SimNode& a, const std::string& peerOnA,
                     SimNode& b, const std::string& peerOnB,
-                    Nanos delayAtoB, Nanos delayBtoA)
+                    Ticks delayAtoB, Ticks delayBtoA)
     {
         // A → B.
         auto req = a.consensus.MakeProbeRequest(peerOnA);
@@ -82,10 +82,10 @@ namespace
     }
 
     /// Advance all node clocks, applying per-node drift factor.
-    void AdvanceAll(std::vector<SimNode*>& nodes, Nanos dt)
+    void AdvanceAll(std::vector<SimNode*>& nodes, Ticks dt)
     {
         for (auto* n : nodes) {
-            auto actual = static_cast<Nanos>(
+            auto actual = static_cast<Ticks>(
                 static_cast<double>(dt) * n->driftFactor);
             n->clock.Advance(actual);
         }
@@ -118,7 +118,7 @@ TEST(Integration, TwoNodeOffset)
     nodeA.consensus.AddPeer("B");
     nodeB.consensus.AddPeer("A");
 
-    constexpr Nanos delay = 5'000'000; // 5ms symmetric.
+    constexpr Ticks delay = 5'000'000; // 5ms symmetric.
     std::vector<SimNode*> all = {&nodeA, &nodeB};
 
     for (int i = 0; i < 8; ++i) {
@@ -138,18 +138,18 @@ TEST(Integration, TwoNodeOffset)
     nodeB.syncClock.Update();
 
     // Verify A's synced time is close to B's local time.
-    Nanos aSynced = nodeA.syncClock.NowNanos();
-    Nanos bLocal  = nodeB.clock.Now();
-    Nanos diffA = aSynced - bLocal;
+    Ticks aSynced = nodeA.syncClock.NowNanos();
+    Ticks bLocal  = nodeB.clock.Now();
+    Ticks diffA = aSynced - bLocal;
     if (diffA < 0) {
         diffA = -diffA;
     }
     EXPECT_LE(diffA, 5'000'000); // Within 5ms of B's local time.
 
     // Verify B's synced time is close to A's local time.
-    Nanos bSynced = nodeB.syncClock.NowNanos();
-    Nanos aLocal  = nodeA.clock.Now();
-    Nanos diffB = bSynced - aLocal;
+    Ticks bSynced = nodeB.syncClock.NowNanos();
+    Ticks aLocal  = nodeA.clock.Now();
+    Ticks diffB = bSynced - aLocal;
     if (diffB < 0) {
         diffB = -diffB;
     }
@@ -174,7 +174,7 @@ TEST(Integration, ThreeNodeChain)
     nodeB.consensus.AddPeer("C");
     nodeC.consensus.AddPeer("B");
 
-    constexpr Nanos delay = 3'000'000;
+    constexpr Ticks delay = 3'000'000;
     std::vector<SimNode*> all = {&nodeA, &nodeB, &nodeC};
 
     for (int i = 0; i < 10; ++i) {
@@ -217,7 +217,7 @@ TEST(Integration, GroupMerge)
     nodeC.consensus.AddPeer("D");
     nodeD.consensus.AddPeer("C");
 
-    constexpr Nanos delay = 2'000'000;
+    constexpr Ticks delay = 2'000'000;
 
     // Sync each group internally.
     std::vector<SimNode*> group1 = {&nodeA, &nodeB};
@@ -293,7 +293,7 @@ TEST(Integration, ViewerTracksVoter)
     voter.consensus.AddPeer("W");
     viewer.consensus.AddPeer("V");
 
-    constexpr Nanos delay = 5'000'000;
+    constexpr Ticks delay = 5'000'000;
     std::vector<SimNode*> all = {&voter, &viewer};
 
     for (int i = 0; i < 6; ++i) {
@@ -325,7 +325,7 @@ TEST(Integration, WireFormatEndToEnd)
     nodeA.consensus.AddPeer("B");
     nodeB.consensus.AddPeer("A");
 
-    constexpr Nanos delay = 3'000'000;
+    constexpr Ticks delay = 3'000'000;
     std::vector<SimNode*> all = {&nodeA, &nodeB};
 
     // Simulate probe exchange using wire-format serialization.
@@ -391,7 +391,7 @@ TEST(Integration, DriftCompensation)
     nodeA.consensus.AddPeer("B");
     nodeB.consensus.AddPeer("A");
 
-    constexpr Nanos delay = 3'000'000;
+    constexpr Ticks delay = 3'000'000;
     std::vector<SimNode*> all = {&nodeA, &nodeB};
 
     for (int i = 0; i < 12; ++i) {
@@ -408,7 +408,7 @@ TEST(Integration, DriftCompensation)
     nodeA.syncClock.Update();
     nodeB.syncClock.Update();
 
-    Nanos diff = nodeA.syncClock.NowNanos() - nodeB.syncClock.NowNanos();
+    Ticks diff = nodeA.syncClock.NowNanos() - nodeB.syncClock.NowNanos();
     if (diff < 0) {
         diff = -diff;
     }
@@ -430,7 +430,7 @@ TEST(Integration, SyncAcquiredEvent)
     nodeA.consensus.AddPeer("B");
     nodeB.consensus.AddPeer("A");
 
-    constexpr Nanos delay = 5'000'000;
+    constexpr Ticks delay = 5'000'000;
     std::vector<SimNode*> all = {&nodeA, &nodeB};
 
     for (int i = 0; i < 6; ++i) {
@@ -465,7 +465,7 @@ TEST(Integration, TruncTimeCrossNode)
     nodeA.consensus.AddPeer("B");
     nodeB.consensus.AddPeer("A");
 
-    constexpr Nanos delay = 2'000'000;
+    constexpr Ticks delay = 2'000'000;
     std::vector<SimNode*> all = {&nodeA, &nodeB};
 
     for (int i = 0; i < 6; ++i) {
@@ -482,10 +482,10 @@ TEST(Integration, TruncTimeCrossNode)
     auto trunc = nodeA.syncClock.Truncate<TruncTime16_1ms>();
 
     // B expands it.
-    Nanos expanded = nodeB.syncClock.Expand(trunc);
-    Nanos original = nodeA.syncClock.NowNanos();
+    Ticks expanded = nodeB.syncClock.Expand(trunc);
+    Ticks original = nodeA.syncClock.NowNanos();
 
-    Nanos diff = expanded - original;
+    Ticks diff = expanded - original;
     if (diff < 0) {
         diff = -diff;
     }
@@ -511,7 +511,7 @@ TEST(Integration, TwoNodeLargeOffset_ConvergesAndStabilizes)
     nodeA.consensus.AddPeer("B");
     nodeB.consensus.AddPeer("A");
 
-    constexpr Nanos delay = 5'000'000; // 5ms symmetric.
+    constexpr Ticks delay = 5'000'000; // 5ms symmetric.
     std::vector<SimNode*> all = {&nodeA, &nodeB};
 
     // Run until both sides are Synced (up to 60 rounds).
@@ -571,7 +571,7 @@ TEST(Integration, Resynced_FiresOncePerEpisode)
     nodeA.consensus.AddPeer("B");
     nodeB.consensus.AddPeer("A");
 
-    constexpr Nanos delay = 1'000'000;
+    constexpr Ticks delay = 1'000'000;
     std::vector<SimNode*> all = {&nodeA, &nodeB};
 
     // Converge first (bidirectional).

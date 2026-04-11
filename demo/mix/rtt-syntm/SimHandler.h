@@ -29,13 +29,13 @@ namespace Demo
         float speedMultiplier = 1.0f;
 
         /// Set by DemoNode when a coordinated shot is scheduled.
-        std::atomic<SynTm::Nanos> nextShotTime{0};
+        std::atomic<SynTm::Ticks> nextShotTime{0};
 
         /// Set to true by Update when the shot fires. DemoNode reads & clears.
         std::atomic<bool> shotFired{false};
 
         /// Actual synced time when the shot was detected.
-        std::atomic<SynTm::Nanos> shotActualTime{0};
+        std::atomic<SynTm::Ticks> shotActualTime{0};
 
         // -- Handler interface --
 

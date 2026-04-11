@@ -20,7 +20,7 @@ namespace
     void SimulateConsensusProbeRound(
         Consensus& nodeA, FakeClock& clockA, const std::string& peerIdOnA,
         Consensus& nodeB, FakeClock& clockB, const std::string& peerIdOnB,
-        Nanos oneWayDelay)
+        Ticks oneWayDelay)
     {
         // A probes B.
         auto reqOpt = nodeA.MakeProbeRequest(peerIdOnA);
@@ -134,7 +134,7 @@ TEST(Consensus, TwoNodeConvergence)
     nodeA.AddPeer("B");
     nodeB.AddPeer("A");
 
-    constexpr Nanos delay = 5'000'000;
+    constexpr Ticks delay = 5'000'000;
 
     for (int i = 0; i < 6; ++i) {
         // A probes B.
@@ -178,7 +178,7 @@ TEST(Consensus, ThreeNodeChainPropagation)
     nodeB.AddPeer("C");
     nodeC.AddPeer("B");
 
-    constexpr Nanos delay = 5'000'000;
+    constexpr Ticks delay = 5'000'000;
 
     for (int i = 0; i < 8; ++i) {
         // A ↔ B probes.
@@ -291,7 +291,7 @@ TEST(Consensus, EmitsSyncLostOnLastPeerRemoved)
     nodeA.AddPeer("B");
     nodeB.AddPeer("A");
 
-    constexpr Nanos delay = 2'000'000;
+    constexpr Ticks delay = 2'000'000;
 
     // Converge.
     for (int i = 0; i < 5; ++i) {

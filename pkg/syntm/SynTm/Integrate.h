@@ -57,7 +57,7 @@ namespace SynTm
 
         buf[0] = static_cast<std::byte>(SyncHeader::CurrentVersion);
         buf[1] = static_cast<std::byte>(SyncMessageType::ProbeRequest);
-        Detail::WriteLE64(buf, 2, static_cast<Nanos>(epoch.epochId));
+        Detail::WriteLE64(buf, 2, static_cast<Ticks>(epoch.epochId));
         Detail::WriteLE64(buf, 10, epoch.baseTime);
         Detail::WriteLE64(buf, 18, epoch.createdAt);
 
@@ -82,7 +82,7 @@ namespace SynTm
 
         buf[0] = static_cast<std::byte>(SyncHeader::CurrentVersion);
         buf[1] = static_cast<std::byte>(SyncMessageType::ProbeResponse);
-        Detail::WriteLE64(buf, 2, static_cast<Nanos>(epoch.epochId));
+        Detail::WriteLE64(buf, 2, static_cast<Ticks>(epoch.epochId));
         Detail::WriteLE64(buf, 10, epoch.baseTime);
         Detail::WriteLE64(buf, 18, epoch.createdAt);
 

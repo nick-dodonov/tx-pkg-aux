@@ -20,7 +20,7 @@ namespace
     Session::ProbeHandleResult SimulateProbeRound(
         Session& initiator, FakeClock& initiatorClock,
         Session& responder, FakeClock& responderClock,
-        Nanos oneWayDelay)
+        Ticks oneWayDelay)
     {
         // Step 1: Initiator creates request.
         auto req = initiator.MakeProbeRequest();
@@ -103,7 +103,7 @@ TEST(Session, ConvergesWithZeroOffset)
     Session sessionA(clockA, config);
     Session sessionB(clockB, config);
 
-    constexpr Nanos delay = 5'000'000; // 5ms one-way.
+    constexpr Ticks delay = 5'000'000; // 5ms one-way.
 
     for (int i = 0; i < 5; ++i) {
         SimulateProbeRound(sessionA, clockA, sessionB, clockB, delay);
@@ -116,9 +116,9 @@ TEST(Session, ConvergesWithZeroOffset)
     EXPECT_EQ(sessionA.State(), SessionState::Synced);
 
     // Synced time should be very close to local time (zero offset).
-    Nanos synced = sessionA.SyncedNow();
-    Nanos local  = clockA.Now();
-    Nanos diff   = synced - local;
+    Ticks synced = sessionA.SyncedNow();
+    Ticks local  = clockA.Now();
+    Ticks diff   = synced - local;
     if (diff < 0) {
         diff = -diff;
     }
@@ -143,7 +143,7 @@ TEST(Session, ConvergesWithOffset)
     Session sessionA(clockA, config);
     Session sessionB(clockB, config);
 
-    constexpr Nanos delay = 5'000'000; // 5ms one-way.
+    constexpr Ticks delay = 5'000'000; // 5ms one-way.
 
     for (int i = 0; i < 5; ++i) {
         SimulateProbeRound(sessionA, clockA, sessionB, clockB, delay);
@@ -155,9 +155,9 @@ TEST(Session, ConvergesWithOffset)
 
     // Session A's synced time should reflect B's offset.
     // syncedTime ≈ localTimeA + 50ms
-    Nanos synced = sessionA.SyncedNow();
-    Nanos expected = clockA.Now() + 50'000'000;
-    Nanos diff = synced - expected;
+    Ticks synced = sessionA.SyncedNow();
+    Ticks expected = clockA.Now() + 50'000'000;
+    Ticks diff = synced - expected;
     if (diff < 0) {
         diff = -diff;
     }
@@ -182,7 +182,7 @@ TEST(Session, HandlesPacketLoss)
     Session sessionA(clockA, config);
     Session sessionB(clockB, config);
 
-    constexpr Nanos delay = 5'000'000;
+    constexpr Ticks delay = 5'000'000;
 
     // Send 2 good probes.
     SimulateProbeRound(sessionA, clockA, sessionB, clockB, delay);
@@ -225,7 +225,7 @@ TEST(Session, CompensatesDrift)
     Session sessionA(clockA, config);
     Session sessionB(clockB, config);
 
-    constexpr Nanos delay = 5'000'000;
+    constexpr Ticks delay = 5'000'000;
 
     // B drifts +100ppm relative to A.
     // After each 100ms interval, B advances 100ms + 10µs.
@@ -240,8 +240,8 @@ TEST(Session, CompensatesDrift)
     // The drift model should track B's drift.
     // After 10 rounds of 100ms + 2×5ms delay = ~1.1s, B has drifted ~110µs.
     // The session should have partially compensated for this.
-    Nanos synced = sessionA.SyncedNow();
-    Nanos local  = clockA.Now();
+    Ticks synced = sessionA.SyncedNow();
+    Ticks local  = clockA.Now();
     // With drift compensation, the offset should be tracked.
     // We just verify the model is initialized and producing reasonable output.
     EXPECT_TRUE(sessionA.GetDriftModel().IsInitialized());
@@ -267,7 +267,7 @@ TEST(Session, DetectsStep)
     Session sessionA(clockA, config);
     Session sessionB(clockB, config);
 
-    constexpr Nanos delay = 1'000'000;
+    constexpr Ticks delay = 1'000'000;
 
     // Converge first.
     for (int i = 0; i < 4; ++i) {
@@ -335,7 +335,7 @@ TEST(Session, StepResetsFilterAndResultCount)
     Session sessionA(clockA, config);
     Session sessionB(clockB, config);
 
-    constexpr Nanos delay = 1'000'000;
+    constexpr Ticks delay = 1'000'000;
 
     // Converge to Synced.
     for (int i = 0; i < 4; ++i) {
@@ -390,7 +390,7 @@ TEST(Session, LargeOffset_ConvergesWithoutInfiniteStepping)
     Session sessionA(clockA, config);
     Session sessionB(clockB, config);
 
-    constexpr Nanos delay = 5'000'000; // 5ms one-way.
+    constexpr Ticks delay = 5'000'000; // 5ms one-way.
 
     // Run plenty of probes.
     for (int i = 0; i < 40; ++i) {
@@ -433,7 +433,7 @@ TEST(Session, EnteredResyncing_OnlyOnFirstStepOfEpisode)
     Session sessionA(clockA, config);
     Session sessionB(clockB, config);
 
-    constexpr Nanos delay = 1'000'000;
+    constexpr Ticks delay = 1'000'000;
 
     // Converge.
     for (int i = 0; i < 5; ++i) {
@@ -494,7 +494,7 @@ TEST(Filter, DriftRate_NoOverflowWhenWindowSpansSeconds)
     // Samples 1-7 are fast-probe results (~120ms apart, offset ~-4910ms).
     // Sample 8 is the first 2-second-gap probe with a +44ms outlier offset.
     // The resulting window spans ~5s (localTime delta ≈ 5054ms).
-    struct S { Nanos localTime; Nanos offset; };
+    struct S { Ticks localTime; Ticks offset; };
     constexpr std::array<S, 8> samples = {{
         { .localTime=5'118'360'000LL, .offset=-4'911'739'872LL },
         { .localTime=5'233'884'000LL, .offset=-4'907'421'709LL },

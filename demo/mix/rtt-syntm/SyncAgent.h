@@ -90,21 +90,21 @@ namespace Demo
         }
 
         /// Broadcast local simulation state to this peer.
-        void SendStateUpdate(float pos, float vel, SynTm::Nanos syncTime)
+        void SendStateUpdate(float pos, float vel, SynTm::Ticks syncTime)
         {
             auto msg = SerializeStateUpdate({.syncTime = syncTime, .position = pos, .velocity = vel});
             SendBytes(msg);
         }
 
         /// Send a shot-fired announcement.
-        void SendShotFired(SynTm::Nanos scheduledTime)
+        void SendShotFired(SynTm::Ticks scheduledTime)
         {
             auto msg = SerializeShotFired({.scheduledSyncTime = scheduledTime});
             SendBytes(msg);
         }
 
         /// Send a shot acknowledgment.
-        void SendShotAck(SynTm::Nanos scheduledTime, SynTm::Nanos receivedTime)
+        void SendShotAck(SynTm::Ticks scheduledTime, SynTm::Ticks receivedTime)
         {
             auto msg = SerializeShotAck({.scheduledSyncTime = scheduledTime, .receivedSyncTime = receivedTime});
             SendBytes(msg);

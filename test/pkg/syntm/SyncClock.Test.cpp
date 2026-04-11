@@ -2,7 +2,6 @@
 #include "SynTm/Consensus.h"
 #include "SynTm/Integrate.h"
 #include "SynTm/Probe.h"
-#include "SynTm/Session.h"
 #include "SynTm/SessionConfig.h"
 #include "SynTm/SyncClock.h"
 #include "SynTm/TruncTime.h"
@@ -25,7 +24,7 @@ namespace
     void SimulateRound(
         Consensus& nodeA, FakeClock& clockA, const std::string& peerIdOnA,
         Consensus& nodeB, FakeClock& clockB, const std::string& peerIdOnB,
-        Nanos delay)
+        Ticks delay)
     {
         auto req = nodeA.MakeProbeRequest(peerIdOnA);
         ASSERT_TRUE(req.has_value());
@@ -114,7 +113,7 @@ TEST(SyncClock, TruncTimeRoundTrip)
     nodeA.AddPeer("B");
     nodeB.AddPeer("A");
 
-    constexpr Nanos delay = 2'000'000;
+    constexpr Ticks delay = 2'000'000;
     for (int i = 0; i < 4; ++i) {
         SimulateRound(nodeA, clockA, "B", nodeB, clockB, "A", delay);
         clockA.Advance(100'000'000);
@@ -130,10 +129,10 @@ TEST(SyncClock, TruncTimeRoundTrip)
     auto trunc = clockSyncA.Truncate<TruncTime16_1ms>();
 
     // Expand on B's side — should give approximately the same time.
-    Nanos expandedB = clockSyncB.Expand(trunc);
-    Nanos originalA = clockSyncA.NowNanos();
+    Ticks expandedB = clockSyncB.Expand(trunc);
+    Ticks originalA = clockSyncA.NowNanos();
 
-    Nanos diff = expandedB - originalA;
+    Ticks diff = expandedB - originalA;
     if (diff < 0) {
         diff = -diff;
     }

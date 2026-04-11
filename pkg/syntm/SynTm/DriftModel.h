@@ -10,12 +10,12 @@ namespace SynTm
     /// Policy controlling how the DriftModel steers corrections.
     struct SteerPolicy
     {
-        /// If the absolute correction exceeds this threshold (nanos),
+        /// If the absolute correction exceeds this threshold (ticks),
         /// apply a step correction instead of slewing.
         /// Default: 100ms — corrections larger than this cause a time jump.
-        Nanos stepThreshold = 100'000'000;
+        Ticks stepThreshold = 100'000'000;
 
-        /// Maximum slew rate: how fast to adjust (nanos per nanos of local time).
+        /// Maximum slew rate: how fast to adjust (ticks per tick of local time).
         /// Expressed as Rational. Default: 500ppm — ±0.5ms per second.
         Rational maxSlewRate{.num=500, .den=1'000'000};
     };
@@ -33,7 +33,7 @@ namespace SynTm
 
         /// Initialize the model at a given local time with a known offset.
         /// Called once when the first filter result arrives.
-        void Initialize(Nanos localTime, Nanos offset)
+        void Initialize(Ticks localTime, Ticks offset)
         {
             _baseLocal = localTime;
             _baseSynced = localTime + offset;
@@ -45,7 +45,7 @@ namespace SynTm
 
         /// Apply a filter result to steer the model.
         /// Returns true if a step correction was applied (re-sync event).
-        bool Steer(Nanos localTime, FilterResult result)
+        bool Steer(Ticks localTime, FilterResult result)
         {
             if (!_initialized) {
                 Initialize(localTime, result.offset);
@@ -53,16 +53,16 @@ namespace SynTm
             }
 
             // Current synced time estimate at this local time.
-            Nanos currentSynced = Convert(localTime);
+            Ticks currentSynced = Convert(localTime);
             // Target synced time from the filter.
-            Nanos targetSynced = localTime + result.offset;
-            Nanos correction = targetSynced - currentSynced;
+            Ticks targetSynced = localTime + result.offset;
+            Ticks correction = targetSynced - currentSynced;
 
             // Check step occurrence based on absolute correction magnitude.
             Log::Trace("correction={}ns threshold={}ns currentSynced={} targetSynced={}",
                 Log::Sep{correction}, Log::Sep{_policy.stepThreshold}, Log::Sep{currentSynced}, Log::Sep{targetSynced});
 
-            Nanos absCorrectionNs = correction < 0 ? -correction : correction;
+            Ticks absCorrectionNs = correction < 0 ? -correction : correction;
             if (absCorrectionNs > _policy.stepThreshold) {
                 // Step: jump directly.
                 _baseLocal = localTime;
@@ -82,7 +82,7 @@ namespace SynTm
             // to the correction magnitude / max slew rate.
             // For simplicity, apply 50% of the correction immediately
             // to baseSynced and let the rate handle the rest.
-            Nanos slewAmount = correction / 2;
+            Ticks slewAmount = correction / 2;
 
             // Re-base to current time.
             _baseSynced = currentSynced + slewAmount;
@@ -97,10 +97,10 @@ namespace SynTm
         /// Convert a local time to synchronized time.
         /// Before initialization the default field values (_baseLocal=0,
         /// _baseSynced=0, _rate=1/1) produce passthrough: Convert(t) == t.
-        [[nodiscard]] Nanos Convert(Nanos localTime) const noexcept
+        [[nodiscard]] Ticks Convert(Ticks localTime) const noexcept
         {
-            Nanos elapsed = localTime - _baseLocal;
-            Nanos scaledElapsed = _rate.Apply(elapsed);
+            Ticks elapsed = localTime - _baseLocal;
+            Ticks scaledElapsed = _rate.Apply(elapsed);
             return _baseSynced + scaledElapsed;
         }
 
@@ -125,8 +125,8 @@ namespace SynTm
     private:
         SteerPolicy _policy;
         bool _initialized = false;
-        Nanos _baseLocal = 0;
-        Nanos _baseSynced = 0;
+        Ticks _baseLocal = 0;
+        Ticks _baseSynced = 0;
         Rational _rate{.num=1, .den=1};
     };
 }

@@ -10,9 +10,9 @@ namespace SynTm
     /// Truncated time representation for compact wire encoding.
     ///
     /// Stores a `Bits`-wide unsigned index representing time quantized
-    /// at `Quantum` nanoseconds from an epoch base. Useful for tagging
+    /// at `Quantum` ticks from an epoch base. Useful for tagging
     /// data objects with a timestamp that occupies fewer bytes than a full
-    /// 64-bit nanosecond value.
+    /// 64-bit tick value.
     ///
     /// Example: TruncTime<16, 100'000> (16-bit, 100µs quantum)
     ///   Range:  65536 × 100µs = ~6.55 seconds before wrap-around.
@@ -21,7 +21,7 @@ namespace SynTm
     /// The receiver, knowing the shared epoch base and an approximate
     /// hint of the current time, can reconstruct the full absolute time
     /// via Expand().
-    template <int Bits, Nanos Quantum>
+    template <int Bits, Ticks Quantum>
         requires (Bits > 0 && Bits <= 64 && Quantum > 0)
     struct TruncTime
     {
@@ -37,51 +37,51 @@ namespace SynTm
 
         StorageType index = 0;
 
-        static constexpr Nanos QuantumNs = Quantum;
+        static constexpr Ticks QuantumNs = Quantum;
         static constexpr int BitWidth    = Bits;
         static constexpr StorageType MaxIndex =
             (Bits == 64) ? std::numeric_limits<StorageType>::max()
                          : static_cast<StorageType>((StorageType{1} << Bits) - 1);
 
-        /// Total range in nanoseconds before wrap-around.
-        static constexpr Nanos Range = static_cast<Nanos>(MaxIndex + 1) * Quantum;
+        /// Total range in ticks before wrap-around.
+        static constexpr Ticks Range = static_cast<Ticks>(MaxIndex + 1) * Quantum;
 
         auto operator<=>(const TruncTime&) const = default;
     };
 
-    /// Truncate an absolute nanosecond time relative to an epoch base.
-    template <int Bits, Nanos Quantum>
+    /// Truncate an absolute tick time relative to an epoch base.
+    template <int Bits, Ticks Quantum>
     [[nodiscard]] constexpr TruncTime<Bits, Quantum> Truncate(
-        Nanos absolute, Nanos epochBase) noexcept
+        Ticks absolute, Ticks epochBase) noexcept
     {
         using TT = TruncTime<Bits, Quantum>;
-        Nanos delta = absolute - epochBase;
+        Ticks delta = absolute - epochBase;
         auto idx = static_cast<typename TT::StorageType>(
             (static_cast<std::uint64_t>(delta) / Quantum) & TT::MaxIndex);
         return TT{.index = idx};
     }
 
-    /// Expand a truncated time back to an absolute nanosecond value.
+    /// Expand a truncated time back to an absolute tick value.
     ///
     /// `hint` is an approximate absolute time (e.g., the current synced time)
     /// used to resolve wrap-around ambiguity. The result is the unique absolute
     /// time that, when truncated, produces the given index AND is closest to
     /// the hint.
-    template <int Bits, Nanos Quantum>
-    [[nodiscard]] constexpr Nanos Expand(
-        TruncTime<Bits, Quantum> trunc, Nanos epochBase, Nanos hint) noexcept
+    template <int Bits, Ticks Quantum>
+    [[nodiscard]] constexpr Ticks Expand(
+        TruncTime<Bits, Quantum> trunc, Ticks epochBase, Ticks hint) noexcept
     {
         using TT = TruncTime<Bits, Quantum>;
-        constexpr Nanos range = TT::Range;
-        constexpr Nanos halfRange = range / 2;
+        constexpr Ticks range = TT::Range;
+        constexpr Ticks halfRange = range / 2;
 
         // Candidate: the absolute time for this index in the same "cycle" as the hint.
-        Nanos hintDelta = hint - epochBase;
-        Nanos hintCycle = (hintDelta / range) * range;
-        Nanos candidate = epochBase + hintCycle + static_cast<Nanos>(trunc.index) * Quantum;
+        Ticks hintDelta = hint - epochBase;
+        Ticks hintCycle = (hintDelta / range) * range;
+        Ticks candidate = epochBase + hintCycle + static_cast<Ticks>(trunc.index) * Quantum;
 
         // Pick the candidate closest to hint (might be ±1 cycle away).
-        Nanos diff = candidate - hint;
+        Ticks diff = candidate - hint;
         if (diff > halfRange) {
             candidate -= range;
         } else if (diff < -halfRange) {

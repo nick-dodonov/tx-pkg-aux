@@ -12,10 +12,10 @@ namespace SynTm
     /// Result produced by the Filter after processing enough samples.
     struct FilterResult
     {
-        Nanos offset = 0; ///< Best estimate of clock offset (remote - local).
+        Ticks offset = 0; ///< Best estimate of clock offset (remote - local).
         Rational rate{.num=1, .den=1}; ///< Estimated drift rate (local → remote).
-        Nanos jitter = 0; ///< Dispersion measure (interquartile range of offsets).
-        Nanos minRtt = 0; ///< Minimum RTT seen in the current window.
+        Ticks jitter = 0; ///< Dispersion measure (interquartile range of offsets).
+        Ticks minRtt = 0; ///< Minimum RTT seen in the current window.
         std::size_t sampleCount = 0; ///< Number of samples in the window that produced this result.
     };
 
@@ -34,9 +34,9 @@ namespace SynTm
     public:
         struct Sample
         {
-            Nanos localTime = 0; ///< Local time when the sample was taken.
-            Nanos offset = 0; ///< Measured offset from probe.
-            Nanos rtt = 0; ///< Measured RTT from probe.
+            Ticks localTime = 0; ///< Local time when the sample was taken.
+            Ticks offset = 0; ///< Measured offset from probe.
+            Ticks rtt = 0; ///< Measured RTT from probe.
         };
 
         explicit Filter(std::size_t windowSize = 8) : _windowSize(windowSize)
@@ -48,7 +48,7 @@ namespace SynTm
         /// Always returns a FilterResult; inspect sampleCount to determine
         /// confidence: drift rate is only estimated once sampleCount >= 3,
         /// otherwise defaults to 1/1.
-        FilterResult AddSample(Nanos localTime, ProbeResult probe)
+        FilterResult AddSample(Ticks localTime, ProbeResult probe)
         {
             _samples.push_back(Sample{
                 .localTime = localTime,
@@ -85,9 +85,9 @@ namespace SynTm
             return result;
         }
 
-        [[nodiscard]] Nanos ComputeMinRtt() const noexcept
+        [[nodiscard]] Ticks ComputeMinRtt() const noexcept
         {
-            Nanos minRtt = _samples.front().rtt;
+            Ticks minRtt = _samples.front().rtt;
             for (const auto& s : _samples) {
                 minRtt = std::min(s.rtt, minRtt);
             }
@@ -97,11 +97,11 @@ namespace SynTm
         /// Weighted median of offsets. Weight = 1 / max(rtt, 1).
         /// We use an integer approximation: sort by offset, accumulate
         /// weight until we reach half the total weight.
-        [[nodiscard]] Nanos ComputeWeightedMedianOffset() const
+        [[nodiscard]] Ticks ComputeWeightedMedianOffset() const
         {
             struct WeightedOffset
             {
-                Nanos offset;
+                Ticks offset;
                 std::int64_t weight;
             };
 
@@ -113,7 +113,7 @@ namespace SynTm
                 // Weight inversely proportional to RTT. Use 1/max(rtt,1) scaled.
                 // Scale factor: use the minRtt-based relative weight.
                 // Simple: weight = 1'000'000 / max(rtt_ns / 1000, 1) — microsecond-scale RTT.
-                Nanos rttUs = std::max(s.rtt / 1000, Nanos{1});
+                Ticks rttUs = std::max(s.rtt / 1000, Ticks{1});
                 auto w = static_cast<std::int64_t>(1'000'000 / rttUs);
                 w = std::max(w, std::int64_t{1});
                 sorted.push_back({s.offset, w});
@@ -149,7 +149,7 @@ namespace SynTm
             const auto n = static_cast<std::int64_t>(_samples.size());
 
             // Use first sample's localTime as reference to keep values small.
-            Nanos t0 = _samples.front().localTime;
+            Ticks t0 = _samples.front().localTime;
 
             // Scale time and offset from nanoseconds to microseconds before
             // computing sums. The rate ratio (sumXX + sumXY) / sumXX is
@@ -212,7 +212,7 @@ namespace SynTm
         }
 
         /// Jitter: interquartile range of offsets.
-        [[nodiscard]] Nanos ComputeJitter() const
+        [[nodiscard]] Ticks ComputeJitter() const
         {
             if (_samples.size() < 4) {
                 // Fallback: range for small windows.
@@ -221,7 +221,7 @@ namespace SynTm
                 return maxIt->offset - minIt->offset;
             }
 
-            std::vector<Nanos> offsets;
+            std::vector<Ticks> offsets;
             offsets.reserve(_samples.size());
             for (const auto& s : _samples) {
                 offsets.push_back(s.offset);

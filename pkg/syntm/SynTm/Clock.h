@@ -12,15 +12,15 @@ namespace SynTm
     public:
         virtual ~IClock() = default;
 
-        /// Current time in nanoseconds since an arbitrary epoch.
-        [[nodiscard]] virtual Nanos Now() const noexcept = 0;
+        /// Current time in ticks since an arbitrary epoch.
+        [[nodiscard]] virtual Ticks Now() const noexcept = 0;
     };
 
     /// Production clock wrapping std::chrono::steady_clock.
     class SteadyClock final : public IClock
     {
     public:
-        [[nodiscard]] Nanos Now() const noexcept override
+        [[nodiscard]] Ticks Now() const noexcept override
         {
             auto tp = std::chrono::steady_clock::now();
             return std::chrono::duration_cast<std::chrono::nanoseconds>(
@@ -29,12 +29,12 @@ namespace SynTm
         }
     };
 
-    /// Clock that returns nanoseconds elapsed since construction.
+    /// Clock that returns ticks elapsed since construction.
     /// Produces human-friendly timestamps starting near zero.
     class AppClock final : public IClock
     {
     public:
-        [[nodiscard]] Nanos Now() const noexcept override
+        [[nodiscard]] Ticks Now() const noexcept override
         {
             auto elapsed = std::chrono::steady_clock::now() - _epoch;
             return std::chrono::duration_cast<std::chrono::nanoseconds>(elapsed).count();
@@ -48,13 +48,13 @@ namespace SynTm
     class FakeClock final : public IClock
     {
     public:
-        [[nodiscard]] Nanos Now() const noexcept override { return _now; }
+        [[nodiscard]] Ticks Now() const noexcept override { return _now; }
 
-        void SetNow(Nanos value) noexcept { _now = value; }
+        void SetNow(Ticks value) noexcept { _now = value; }
 
-        void Advance(Nanos delta) noexcept { _now += delta; }
+        void Advance(Ticks delta) noexcept { _now += delta; }
 
     private:
-        Nanos _now = 0;
+        Ticks _now = 0;
     };
 }

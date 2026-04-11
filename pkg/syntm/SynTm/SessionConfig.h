@@ -8,26 +8,26 @@ namespace SynTm
     /// Tunable parameters for a sync Session.
     struct SessionConfig
     {
-        /// Minimum interval between probes (nanoseconds).
+        /// Minimum interval between probes (ticks).
         /// Used when the session is unsettled (high jitter).
-        Nanos probeIntervalMin = 100'000'000; // 100ms
+        Ticks probeIntervalMin = 100'000'000; // 100ms
 
-        /// Maximum interval between probes (nanoseconds).
+        /// Maximum interval between probes (ticks).
         /// Used when the session is stable (low jitter).
-        Nanos probeIntervalMax = 2'000'000'000; // 2s
+        Ticks probeIntervalMax = 2'000'000'000; // 2s
 
         /// Number of samples in the filter sliding window.
         std::size_t filterWindowSize = 8;
 
         /// Step threshold: corrections larger than this cause a time jump.
-        Nanos stepThreshold = 100'000'000; // 100ms
+        Ticks stepThreshold = 100'000'000; // 100ms
 
         /// Maximum slew rate (rational).
         Rational maxSlewRate{.num=500, .den=1'000'000}; // 500ppm
 
         /// Jitter threshold below which the session is considered stable.
         /// When jitter < this, probe interval increases toward probeIntervalMax.
-        Nanos jitterStableThreshold = 1'000'000; // 1ms
+        Ticks jitterStableThreshold = 1'000'000; // 1ms
 
         /// Number of consecutive filter results required before
         /// the session transitions from Probing to Synced.

@@ -69,7 +69,7 @@ namespace SynTm
             if (!_everProbed) {
                 return true;
             }
-            Nanos now = _clock.Now();
+            Ticks now = _clock.Now();
             return (now - _lastProbeSentAt) >= CurrentProbeInterval();
         }
 
@@ -77,7 +77,7 @@ namespace SynTm
         /// Records t1 internally for later matching.
         [[nodiscard]] ProbeRequest MakeProbeRequest()
         {
-            Nanos now = _clock.Now();
+            Ticks now = _clock.Now();
             _lastProbeSentAt = now;
             _pendingT1 = now;
             _everProbed = true;
@@ -91,7 +91,7 @@ namespace SynTm
         /// Returns a response to send back.
         [[nodiscard]] ProbeResponse HandleProbeRequest(const ProbeRequest& req) const
         {
-            Nanos now = _clock.Now();
+            Ticks now = _clock.Now();
             return ProbeResponse{
                 .t1 = req.t1,
                 .t2 = now,
@@ -114,7 +114,7 @@ namespace SynTm
 
         [[nodiscard]] ProbeHandleResult HandleProbeResponse(const ProbeResponse& resp)
         {
-            Nanos t4 = _clock.Now();
+            Ticks t4 = _clock.Now();
             auto probe = ComputeProbeResult(resp.t1, resp.t2, resp.t3, t4);
 
             Log::Trace("probe offset={}ns rtt={}ns", Log::Sep{probe.offset}, Log::Sep{probe.rtt});
@@ -158,13 +158,13 @@ namespace SynTm
         }
 
         /// Convert a local time to synchronized time using the current model.
-        [[nodiscard]] Nanos ToSyncedTime(Nanos localTime) const noexcept
+        [[nodiscard]] Ticks ToSyncedTime(Ticks localTime) const noexcept
         {
             return _driftModel.Convert(localTime);
         }
 
         /// Get the current synchronized time.
-        [[nodiscard]] Nanos SyncedNow() const noexcept
+        [[nodiscard]] Ticks SyncedNow() const noexcept
         {
             return ToSyncedTime(_clock.Now());
         }
@@ -210,7 +210,7 @@ namespace SynTm
 
     private:
         /// Adaptive probe interval: shorter when unsettled, longer when stable.
-        [[nodiscard]] Nanos CurrentProbeInterval() const noexcept
+        [[nodiscard]] Ticks CurrentProbeInterval() const noexcept
         {
             if (_state == SessionState::Idle || _state == SessionState::Probing) {
                 return _config.probeIntervalMin;
@@ -224,9 +224,9 @@ namespace SynTm
             }
 
             // Linear interpolation between min and max based on fill ratio.
-            Nanos range = _config.probeIntervalMax - _config.probeIntervalMin;
-            auto ratio = static_cast<Nanos>(sampleCount * 2) /
-                         static_cast<Nanos>(_config.filterWindowSize);
+            Ticks range = _config.probeIntervalMax - _config.probeIntervalMin;
+            auto ratio = static_cast<Ticks>(sampleCount * 2) /
+                         static_cast<Ticks>(_config.filterWindowSize);
             if (ratio > 2) { //NOLINT(readability-use-std-min-max)
                 ratio = 2;
             }
@@ -239,8 +239,8 @@ namespace SynTm
         DriftModel _driftModel;
 
         SessionState _state = SessionState::Idle;
-        Nanos _lastProbeSentAt = 0;
-        Nanos _pendingT1 = 0;
+        Ticks _lastProbeSentAt = 0;
+        Ticks _pendingT1 = 0;
         bool _everProbed = false;
     };
 }

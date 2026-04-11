@@ -13,21 +13,21 @@ namespace Demo
         // Simulation state (from StateUpdate messages)
         float lastPosition = 0.0f;
         float lastVelocity = 0.0f;
-        SynTm::Nanos lastUpdateSyncTime = 0;
+        SynTm::Ticks lastUpdateSyncTime = 0;
 
         // Sync metrics (from Consensus session)
-        SynTm::Nanos offset = 0;
-        SynTm::Nanos rtt = 0;
-        SynTm::Nanos jitter = 0;
+        SynTm::Ticks offset = 0;
+        SynTm::Ticks rtt = 0;
+        SynTm::Ticks jitter = 0;
         SynTm::SyncQuality syncQuality = SynTm::SyncQuality::None;
 
         // Shot accuracy
-        SynTm::Nanos lastShotError = 0;
+        SynTm::Ticks lastShotError = 0;
         int shotCount = 0;
-        SynTm::Nanos totalShotError = 0;
+        SynTm::Ticks totalShotError = 0;
 
         /// Extrapolate position at the given synced time based on last known state.
-        [[nodiscard]] float EstimatePosition(SynTm::Nanos currentSyncTime) const noexcept
+        [[nodiscard]] float EstimatePosition(SynTm::Ticks currentSyncTime) const noexcept
         {
             if (lastUpdateSyncTime == 0) {
                 return lastPosition;
@@ -37,7 +37,7 @@ namespace Demo
         }
 
         /// Seconds since last state update.
-        [[nodiscard]] float TimeSinceLastUpdate(SynTm::Nanos currentSyncTime) const noexcept
+        [[nodiscard]] float TimeSinceLastUpdate(SynTm::Ticks currentSyncTime) const noexcept
         {
             if (lastUpdateSyncTime == 0) {
                 return 0.0f;
