@@ -23,7 +23,7 @@ namespace SynTm
         Nanos stepThreshold = 100'000'000; // 100ms
 
         /// Maximum slew rate (rational).
-        Rational maxSlewRate{500, 1'000'000}; // 500ppm
+        Rational maxSlewRate{.num=500, .den=1'000'000}; // 500ppm
 
         /// Jitter threshold below which the session is considered stable.
         /// When jitter < this, probe interval increases toward probeIntervalMax.
@@ -42,7 +42,7 @@ namespace SynTm
             .probeIntervalMax     = 2'000'000'000, // 2s
             .filterWindowSize     = 8,
             .stepThreshold        = 100'000'000,   // 100ms
-            .maxSlewRate          = {500, 1'000'000},
+            .maxSlewRate          = {.num=500, .den=1'000'000},
             .jitterStableThreshold = 1'000'000,    // 1ms
             .minSamplesForSync    = 4,
         };
@@ -56,7 +56,7 @@ namespace SynTm
             .probeIntervalMax     = 10'000'000'000LL, // 10s
             .filterWindowSize     = 16,
             .stepThreshold        = 500'000'000,    // 500ms
-            .maxSlewRate          = {200, 1'000'000},
+            .maxSlewRate          = {.num=200, .den=1'000'000},
             .jitterStableThreshold = 10'000'000,   // 10ms
             .minSamplesForSync    = 6,
         };

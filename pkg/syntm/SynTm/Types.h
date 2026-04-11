@@ -24,6 +24,12 @@ namespace SynTm
             return static_cast<Nanos>(wide / den);
         }
 
+        /// Convert to double for logging/debugging (not used in hot path).
+        [[nodiscard]] constexpr double ToDouble() const noexcept
+        {
+            return static_cast<double>(num) / static_cast<double>(den);
+        }
+
         auto operator<=>(const Rational&) const = default;
     };
 
@@ -32,7 +38,6 @@ namespace SynTm
     {
         None,   ///< No synchronization data yet.
         Low,    ///< Few samples, high jitter.
-        Medium, ///< Converging, moderate jitter.
         High,   ///< Stable offset and drift estimates.
     };
 
@@ -42,7 +47,6 @@ namespace SynTm
         {
             case SyncQuality::None:   return "None";
             case SyncQuality::Low:    return "Low";
-            case SyncQuality::Medium: return "Medium";
             case SyncQuality::High:   return "High";
         }
         return "Unknown";

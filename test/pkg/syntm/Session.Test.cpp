@@ -474,3 +474,51 @@ TEST(Session, EnteredResyncing_OnlyOnFirstStepOfEpisode)
         }
     }
 }
+
+// ===========================================================================
+// Filter drift-rate regression — int64 overflow with long probe intervals
+// ===========================================================================
+//
+// Reproduces an integer overflow bug in ComputeDriftRate(). When the sample
+// window spans several seconds (e.g. 8 samples including one at a 2s gap),
+// squared time differences reach ~1.4e21, which overflows int64 max (9.2e18).
+// The final cast `static_cast<int64_t>(sumXX / n)` wraps to a garbage value,
+// producing rates like 0.52 instead of ~1.0. DriftModel then accumulates ~1s
+// of error over 2s and triggers a cascading step (ResyncStarted) loop.
+//
+// Sample values are reproduced from real p0 logs where this was observed.
+
+TEST(Filter, DriftRate_NoOverflowWhenWindowSpansSeconds)
+{
+    // Eight samples from the real p0 log trace (approximate localTimes
+    // reconstructed from wall-clock timestamps; offsets taken verbatim).
+    // Samples 1-7 are fast-probe results (~120ms apart, offset ~-4910ms).
+    // Sample 8 is the first 2-second-gap probe with a +44ms outlier offset.
+    // The resulting window spans ~5s (localTime delta ≈ 5054ms).
+    struct S { Nanos localTime; Nanos offset; };
+    constexpr std::array<S, 8> samples = {{
+        { 5'118'360'000LL, -4'911'739'872LL },
+        { 5'233'884'000LL, -4'907'421'709LL },
+        { 5'353'914'000LL, -4'907'789'371LL },
+        { 5'476'340'000LL, -4'908'687'968LL },
+        { 5'720'116'000LL, -4'912'144'349LL },
+        { 5'836'254'000LL, -4'911'507'230LL },
+        { 5'956'149'000LL, -4'910'067'616LL },
+        {10'172'818'000LL, -4'866'559'264LL }, // 2s-gap probe: 44ms outlier
+    }};
+
+    Filter filter(8);
+    std::optional<FilterResult> result;
+    for (const auto& s : samples) {
+        result = filter.AddSample(s.localTime, ProbeResult{.offset = s.offset, .rtt = 60'000'000LL});
+    }
+    ASSERT_TRUE(result.has_value());
+
+    double rate = static_cast<double>(result->rate.num) / static_cast<double>(result->rate.den);
+
+    // With the overflow bug the rate was ~0.521; the DriftModel then diverges
+    // by ~960ms over the next 2s probe interval, triggering a step.
+    EXPECT_NEAR(rate, 1.0, 0.01)
+        << "computed rate=" << result->rate.num << "/" << result->rate.den
+        << " (" << rate << ") — likely int64 overflow in ComputeDriftRate";
+}

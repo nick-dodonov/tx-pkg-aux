@@ -13,10 +13,11 @@ namespace SynTm
     /// Result produced by the Filter after processing enough samples.
     struct FilterResult
     {
-        Nanos offset = 0;    ///< Best estimate of clock offset (remote - local).
-        Rational rate{1, 1}; ///< Estimated drift rate (local → remote).
-        Nanos jitter = 0;    ///< Dispersion measure (interquartile range of offsets).
-        Nanos minRtt = 0;    ///< Minimum RTT seen in the current window.
+        Nanos offset = 0; ///< Best estimate of clock offset (remote - local).
+        Rational rate{.num=1, .den=1}; ///< Estimated drift rate (local → remote).
+        Nanos jitter = 0; ///< Dispersion measure (interquartile range of offsets).
+        Nanos minRtt = 0; ///< Minimum RTT seen in the current window.
+        std::size_t sampleCount = 0; ///< Number of samples in the window that produced this result.
     };
 
     /// Sliding-window filter that estimates clock offset and drift from
@@ -35,8 +36,8 @@ namespace SynTm
         struct Sample
         {
             Nanos localTime = 0; ///< Local time when the sample was taken.
-            Nanos offset    = 0; ///< Measured offset from probe.
-            Nanos rtt       = 0; ///< Measured RTT from probe.
+            Nanos offset = 0; ///< Measured offset from probe.
+            Nanos rtt = 0; ///< Measured RTT from probe.
         };
 
         explicit Filter(std::size_t windowSize = 8) : _windowSize(windowSize)
@@ -50,8 +51,8 @@ namespace SynTm
         {
             _samples.push_back(Sample{
                 .localTime = localTime,
-                .offset    = probe.offset,
-                .rtt       = probe.rtt,
+                .offset = probe.offset,
+                .rtt = probe.rtt,
             });
 
             // Evict oldest if over window size.
@@ -80,6 +81,7 @@ namespace SynTm
         [[nodiscard]] FilterResult Compute() const
         {
             FilterResult result;
+            result.sampleCount = _samples.size();
             result.minRtt = ComputeMinRtt();
             result.offset = ComputeWeightedMedianOffset();
             result.rate   = ComputeDriftRate();
@@ -91,9 +93,7 @@ namespace SynTm
         {
             Nanos minRtt = _samples.front().rtt;
             for (const auto& s : _samples) {
-                if (s.rtt < minRtt) {
-                    minRtt = s.rtt;
-                }
+                minRtt = std::min(s.rtt, minRtt);
             }
             return minRtt;
         }
@@ -147,7 +147,7 @@ namespace SynTm
         [[nodiscard]] Rational ComputeDriftRate() const
         {
             if (_samples.size() < 3) {
-                return Rational{1, 1}; // Not enough data for drift.
+                return Rational{.num=1, .den=1}; // Not enough data for drift.
             }
 
             const auto n = static_cast<std::int64_t>(_samples.size());
@@ -155,29 +155,38 @@ namespace SynTm
             // Use first sample's localTime as reference to keep values small.
             Nanos t0 = _samples.front().localTime;
 
+            // Scale time and offset from nanoseconds to microseconds before
+            // computing sums. The rate ratio (sumXX + sumXY) / sumXX is
+            // dimensionless, so dividing both axes by the same constant (1000)
+            // preserves it exactly. Without this scaling, (localTime - t0)
+            // reaches ~14e9 ns for an 8-sample window at 2s probe intervals,
+            // causing dxn² ~ 1.4e21 and sumXX/n ~ 1.7e20 — beyond int64 max
+            // (9.2e18) — and the cast below silently wraps to garbage.
+            constexpr std::int64_t kScale = 1'000;
+
             // Compute means (integer division is fine for regression).
             std::int64_t sumDx = 0;
             std::int64_t sumDy = 0;
             for (const auto& s : _samples) {
-                sumDx += (s.localTime - t0);
-                sumDy += s.offset;
+                sumDx += (s.localTime - t0) / kScale;
+                sumDy += s.offset / kScale;
             }
             // meanDx and meanDy in fixed-point (* n to avoid division).
-            // dx_centered = (localTime - t0) * n - sumDx
-            // dy_centered = offset * n - sumDy
+            // dx_centered = (localTime - t0) / kScale * n - sumDx
+            // dy_centered = offset / kScale * n - sumDy
 
             // Compute Σ(dx_centered · dy_centered) and Σ(dx_centered²).
             __int128 sumXY = 0;
             __int128 sumXX = 0;
             for (const auto& s : _samples) {
-                auto dxn = static_cast<__int128>((s.localTime - t0) * n - sumDx);
-                auto dyn = static_cast<__int128>(s.offset * n - sumDy);
+                auto dxn = static_cast<__int128>((s.localTime - t0) / kScale * n - sumDx);
+                auto dyn = static_cast<__int128>(s.offset / kScale * n - sumDy);
                 sumXY += dxn * dyn;
                 sumXX += dxn * dxn;
             }
 
             if (sumXX == 0) {
-                return Rational{1, 1};
+                return Rational{.num=1, .den=1};
             }
 
             // beta = sumXY / sumXX (drift rate in offset-nanos per local-nanos).
@@ -187,7 +196,7 @@ namespace SynTm
             auto den = static_cast<std::int64_t>(sumXX / static_cast<__int128>(n));
 
             if (den == 0) {
-                return Rational{1, 1};
+                return Rational{.num=1, .den=1};
             }
 
             // Simplify by GCD for smaller numbers.
@@ -203,7 +212,7 @@ namespace SynTm
                 den = -den;
             }
 
-            return Rational{num, den};
+            return Rational{.num=num, .den=den};
         }
 
         /// Jitter: interquartile range of offsets.

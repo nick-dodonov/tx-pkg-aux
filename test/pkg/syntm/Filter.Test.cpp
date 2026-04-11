@@ -3,8 +3,6 @@
 #include "SynTm/Probe.h"
 #include "SynTm/Types.h"
 
-#include <cmath>
-#include <cstdint>
 #include <gtest/gtest.h>
 #include <optional>
 
@@ -244,7 +242,7 @@ TEST(DriftModel, RateApplied)
 
     FilterResult fr{
         .offset = 0,
-        .rate   = Rational{1'000'100, 1'000'000},
+        .rate   = Rational{.num=1'000'100, .den=1'000'000},
         .jitter = 100'000,
         .minRtt = 2'000'000,
     };

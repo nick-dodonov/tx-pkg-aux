@@ -2,7 +2,7 @@
 #include "Filter.h"
 #include "Types.h"
 
-#include <cstdint>
+#include "Log/Log.h"
 
 namespace SynTm
 {
@@ -16,7 +16,7 @@ namespace SynTm
 
         /// Maximum slew rate: how fast to adjust (nanos per nanos of local time).
         /// Expressed as Rational. Default: 500ppm — ±0.5ms per second.
-        Rational maxSlewRate{500, 1'000'000};
+        Rational maxSlewRate{.num=500, .den=1'000'000};
     };
 
     /// Tracks the mapping from local time to synchronized time,
@@ -34,10 +34,12 @@ namespace SynTm
         /// Called once when the first filter result arrives.
         void Initialize(Nanos localTime, Nanos offset)
         {
-            _baseLocal  = localTime;
+            _baseLocal = localTime;
             _baseSynced = localTime + offset;
-            _rate       = Rational{1, 1};
+            _rate = Rational{.num=1, .den=1};
             _initialized = true;
+            Log::Trace("baseLocal={} baseSynced={} offset={}ns",
+                _baseLocal, _baseSynced, offset);
         }
 
         /// Apply a filter result to steer the model.
@@ -55,14 +57,18 @@ namespace SynTm
             Nanos targetSynced = localTime + result.offset;
             Nanos correction = targetSynced - currentSynced;
 
-            // Absolute correction magnitude.
-            Nanos absCorrectionNs = correction < 0 ? -correction : correction;
+            // Check step occurrence based on absolute correction magnitude.
+            Log::Trace("correction={}ns threshold={}ns currentSynced={} targetSynced={}",
+                correction, _policy.stepThreshold, currentSynced, targetSynced);
 
+            Nanos absCorrectionNs = correction < 0 ? -correction : correction;
             if (absCorrectionNs > _policy.stepThreshold) {
                 // Step: jump directly.
-                _baseLocal  = localTime;
+                _baseLocal = localTime;
                 _baseSynced = targetSynced;
-                _rate       = result.rate;
+                _rate = result.rate;
+                Log::Trace("STEP baseLocal={} baseSynced={} rate={}/{}({})",
+                    _baseLocal, _baseSynced, _rate.num, _rate.den, _rate.ToDouble());
                 return true; // Step occurred.
             }
 
@@ -79,17 +85,19 @@ namespace SynTm
 
             // Re-base to current time.
             _baseSynced = currentSynced + slewAmount;
-            _baseLocal  = localTime;
+            _baseLocal = localTime;
+
+            Log::Trace("slew slewAmount={}ns newBaseSynced={} rate={}/{}({})",
+                slewAmount, _baseSynced, _rate.num, _rate.den, _rate.ToDouble());
 
             return false; // Smooth correction.
         }
 
         /// Convert a local time to synchronized time.
+        /// Before initialization the default field values (_baseLocal=0,
+        /// _baseSynced=0, _rate=1/1) produce passthrough: Convert(t) == t.
         [[nodiscard]] Nanos Convert(Nanos localTime) const noexcept
         {
-            if (!_initialized) {
-                return localTime; // Passthrough before initialization.
-            }
             Nanos elapsed = localTime - _baseLocal;
             Nanos scaledElapsed = _rate.Apply(elapsed);
             return _baseSynced + scaledElapsed;
@@ -105,9 +113,9 @@ namespace SynTm
         void Reset() noexcept
         {
             _initialized = false;
-            _baseLocal   = 0;
-            _baseSynced  = 0;
-            _rate        = Rational{1, 1};
+            _baseLocal = 0;
+            _baseSynced = 0;
+            _rate = Rational{.num=1, .den=1};
         }
 
         /// Read current policy.
@@ -116,8 +124,8 @@ namespace SynTm
     private:
         SteerPolicy _policy;
         bool _initialized = false;
-        Nanos _baseLocal   = 0;
-        Nanos _baseSynced  = 0;
-        Rational _rate{1, 1};
+        Nanos _baseLocal = 0;
+        Nanos _baseSynced = 0;
+        Rational _rate{.num=1, .den=1};
     };
 }

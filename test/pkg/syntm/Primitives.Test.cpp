@@ -49,7 +49,6 @@ TEST(Types, SyncQualityToString)
 {
     EXPECT_EQ(SyncQualityToString(SyncQuality::None),   "None");
     EXPECT_EQ(SyncQualityToString(SyncQuality::Low),    "Low");
-    EXPECT_EQ(SyncQualityToString(SyncQuality::Medium), "Medium");
     EXPECT_EQ(SyncQualityToString(SyncQuality::High),   "High");
 }
 

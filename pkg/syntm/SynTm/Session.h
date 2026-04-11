@@ -6,6 +6,9 @@
 #include "SessionConfig.h"
 #include "Types.h"
 
+#include "Log/Log.h"
+
+#include <cassert>
 #include <cstdint>
 #include <optional>
 
@@ -44,6 +47,8 @@ namespace SynTm
                   .maxSlewRate   = config.maxSlewRate,
               })
         {
+            assert(config.filterWindowSize >= config.minSamplesForSync &&
+                   "filterWindowSize must be >= minSamplesForSync");
         }
 
         /// Whether it's time to send a new probe request.
@@ -99,40 +104,53 @@ namespace SynTm
         {
             Nanos t4 = _clock.Now();
             auto probe = ComputeProbeResult(resp.t1, resp.t2, resp.t3, t4);
+            Log::Trace("probe offset={}ns rtt={}ns", probe.offset, probe.rtt);
 
             auto filterResult = _filter.AddSample(t4, probe);
             if (!filterResult) {
+                Log::Trace("filter: waiting for more samples (need 2)");
                 return {};
             }
 
-            ++_resultCount;
+            Log::Trace("filter: offset={}ns rate={}/{}({}) jitter={}ns minRtt={}ns sampleCount={}",
+                filterResult->offset, filterResult->rate.num, filterResult->rate.den, filterResult->rate.ToDouble(),
+                filterResult->jitter, filterResult->minRtt, filterResult->sampleCount);
+
             bool stepped = _driftModel.Steer(t4, *filterResult);
 
             bool enteredResyncing = false;
             bool exitedResyncing = false;
 
+            const auto sampleCount = filterResult->sampleCount;
+
             // Update state.
             if (stepped) {
                 enteredResyncing = (_state != SessionState::Resyncing);
                 _state = SessionState::Resyncing;
-                // Reset filter and sample count so post-step probes build a
-                // fresh window — stale pre-step samples corrupt the drift estimate
-                // and cause cascading re-steps.
+                // Reset filter so post-step probes build a fresh window —
+                // stale pre-step samples corrupt the drift estimate and cause
+                // cascading re-steps.
                 _filter.Reset();
-                _resultCount = 0;
+                Log::Trace("state: STEPPED -> Resyncing (enteredResyncing={}) filter reset",
+                    enteredResyncing);
             } else if (_state == SessionState::Probing &&
-                       _resultCount >= _config.minSamplesForSync) {
+                       sampleCount >= _config.minSamplesForSync) {
                 _state = SessionState::Synced;
+                Log::Trace("state: Probing -> Synced (sampleCount={})", sampleCount);
             } else if (_state == SessionState::Resyncing &&
-                       _resultCount >= _config.minSamplesForSync) {
+                       sampleCount >= _config.minSamplesForSync) {
                 exitedResyncing = true;
                 _state = SessionState::Synced;
+                Log::Trace("state: Resyncing -> Synced (sampleCount={})", sampleCount);
+            } else {
+                Log::Trace("state: {} sampleCount={} minSamplesForSync={}",
+                    static_cast<int>(_state), sampleCount, _config.minSamplesForSync);
             }
 
-            return {.filterResult     = filterResult,
-                    .stepped          = stepped,
+            return {.filterResult = filterResult,
+                    .stepped = stepped,
                     .enteredResyncing = enteredResyncing,
-                    .exitedResyncing  = exitedResyncing};
+                    .exitedResyncing = exitedResyncing};
         }
 
         /// Convert a local time to synchronized time using the current model.
@@ -158,7 +176,6 @@ namespace SynTm
                 case SessionState::Idle:
                     return SyncQuality::None;
                 case SessionState::Probing:
-                    return SyncQuality::Low;
                 case SessionState::Resyncing:
                     return SyncQuality::Low;
                 case SessionState::Synced:
@@ -179,11 +196,10 @@ namespace SynTm
         /// Reset the session (e.g., on epoch change).
         void Reset()
         {
-            _state          = SessionState::Idle;
-            _resultCount    = 0;
+            _state = SessionState::Idle;
             _lastProbeSentAt = 0;
-            _pendingT1      = 0;
-            _everProbed     = false;
+            _pendingT1 = 0;
+            _everProbed = false;
             _filter.Reset();
             _driftModel.Reset();
         }
@@ -207,7 +223,7 @@ namespace SynTm
             Nanos range = _config.probeIntervalMax - _config.probeIntervalMin;
             auto ratio = static_cast<Nanos>(sampleCount * 2) /
                          static_cast<Nanos>(_config.filterWindowSize);
-            if (ratio > 2) {
+            if (ratio > 2) { //NOLINT(readability-use-std-min-max)
                 ratio = 2;
             }
             return _config.probeIntervalMin + (range * (ratio - 1)) / 1;
@@ -219,7 +235,6 @@ namespace SynTm
         DriftModel _driftModel;
 
         SessionState _state = SessionState::Idle;
-        std::uint32_t _resultCount = 0;
         Nanos _lastProbeSentAt = 0;
         Nanos _pendingT1 = 0;
         bool _everProbed = false;

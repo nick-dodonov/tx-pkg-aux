@@ -93,7 +93,7 @@ syncClock.Update(); // Call periodically from your main loop.
 auto now = syncClock.Now();           // std::chrono::steady_clock::time_point
 auto ns  = syncClock.NowNanos();      // Raw int64_t nanoseconds
 bool ok  = syncClock.IsSynced();      // Have we converged?
-auto q   = syncClock.Quality();       // SyncQuality::None/Low/Medium/High
+auto q   = syncClock.Quality();       // SyncQuality::None/Low/High
 ```
 
 ### 4. Use truncated time for compact transmission
