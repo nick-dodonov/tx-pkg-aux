@@ -5,7 +5,6 @@
 #include <algorithm>
 #include <cstddef>
 #include <cstdint>
-#include <optional>
 #include <vector>
 
 namespace SynTm
@@ -46,8 +45,10 @@ namespace SynTm
         }
 
         /// Add a new probe result sample taken at the given local time.
-        /// Returns a FilterResult once enough samples are available.
-        std::optional<FilterResult> AddSample(Nanos localTime, ProbeResult probe)
+        /// Always returns a FilterResult; inspect sampleCount to determine
+        /// confidence: drift rate is only estimated once sampleCount >= 3,
+        /// otherwise defaults to 1/1.
+        FilterResult AddSample(Nanos localTime, ProbeResult probe)
         {
             _samples.push_back(Sample{
                 .localTime = localTime,
@@ -58,11 +59,6 @@ namespace SynTm
             // Evict oldest if over window size.
             if (_samples.size() > _windowSize) {
                 _samples.erase(_samples.begin());
-            }
-
-            // Need at least 2 samples to estimate drift.
-            if (_samples.size() < 2) {
-                return std::nullopt;
             }
 
             return Compute();

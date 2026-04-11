@@ -10,7 +10,6 @@
 
 #include <cassert>
 #include <cstdint>
-#include <optional>
 
 namespace SynTm
 {
@@ -22,6 +21,18 @@ namespace SynTm
         Synced,    ///< Stable synchronization achieved.
         Resyncing, ///< Re-synchronizing after a disruption.
     };
+
+    constexpr std::string_view SessionStateToString(SessionState s) noexcept
+    {
+        switch (s)
+        {
+            case SessionState::Idle:      return "Idle";
+            case SessionState::Probing:   return "Probing";
+            case SessionState::Synced:    return "Synced";
+            case SessionState::Resyncing: return "Resyncing";
+        }
+        return "Unknown";
+    }
 
     /// Per-link synchronization session.
     ///
@@ -90,7 +101,7 @@ namespace SynTm
         /// Handle an incoming probe response.
         struct ProbeHandleResult
         {
-            std::optional<FilterResult> filterResult;
+            FilterResult filterResult;
             /// A step correction was applied to the drift model.
             bool stepped = false;
             /// The session just transitioned INTO Resyncing (first step of a new episode).
@@ -104,24 +115,20 @@ namespace SynTm
         {
             Nanos t4 = _clock.Now();
             auto probe = ComputeProbeResult(resp.t1, resp.t2, resp.t3, t4);
+
             Log::Trace("probe offset={}ns rtt={}ns", probe.offset, probe.rtt);
 
             auto filterResult = _filter.AddSample(t4, probe);
-            if (!filterResult) {
-                Log::Trace("filter: waiting for more samples (need 2)");
-                return {};
-            }
+            const auto sampleCount = filterResult.sampleCount;
 
             Log::Trace("filter: offset={}ns rate={}/{}({}) jitter={}ns minRtt={}ns sampleCount={}",
-                filterResult->offset, filterResult->rate.num, filterResult->rate.den, filterResult->rate.ToDouble(),
-                filterResult->jitter, filterResult->minRtt, filterResult->sampleCount);
+                filterResult.offset, filterResult.rate.num, filterResult.rate.den, filterResult.rate.ToDouble(),
+                filterResult.jitter, filterResult.minRtt, sampleCount);
 
-            bool stepped = _driftModel.Steer(t4, *filterResult);
+            bool stepped = _driftModel.Steer(t4, filterResult);
 
             bool enteredResyncing = false;
             bool exitedResyncing = false;
-
-            const auto sampleCount = filterResult->sampleCount;
 
             // Update state.
             if (stepped) {
@@ -131,20 +138,16 @@ namespace SynTm
                 // stale pre-step samples corrupt the drift estimate and cause
                 // cascading re-steps.
                 _filter.Reset();
-                Log::Trace("state: STEPPED -> Resyncing (enteredResyncing={}) filter reset",
-                    enteredResyncing);
-            } else if (_state == SessionState::Probing &&
-                       sampleCount >= _config.minSamplesForSync) {
+                Log::Trace("state: STEPPED -> Resyncing (enteredResyncing={}) filter reset", enteredResyncing);
+            } else if (_state == SessionState::Probing && sampleCount >= _config.minSamplesForSync) {
                 _state = SessionState::Synced;
                 Log::Trace("state: Probing -> Synced (sampleCount={})", sampleCount);
-            } else if (_state == SessionState::Resyncing &&
-                       sampleCount >= _config.minSamplesForSync) {
+            } else if (_state == SessionState::Resyncing && sampleCount >= _config.minSamplesForSync) {
                 exitedResyncing = true;
                 _state = SessionState::Synced;
                 Log::Trace("state: Resyncing -> Synced (sampleCount={})", sampleCount);
             } else {
-                Log::Trace("state: {} sampleCount={} minSamplesForSync={}",
-                    static_cast<int>(_state), sampleCount, _config.minSamplesForSync);
+                Log::Trace("state: {} sampleCount={}/{}", SessionStateToString(_state), sampleCount, _config.minSamplesForSync);
             }
 
             return {.filterResult = filterResult,

@@ -4,7 +4,6 @@
 #include "SynTm/SessionConfig.h"
 #include "SynTm/Types.h"
 
-#include <cstdint>
 #include <gtest/gtest.h>
 
 using namespace SynTm;
@@ -497,28 +496,27 @@ TEST(Filter, DriftRate_NoOverflowWhenWindowSpansSeconds)
     // The resulting window spans ~5s (localTime delta ≈ 5054ms).
     struct S { Nanos localTime; Nanos offset; };
     constexpr std::array<S, 8> samples = {{
-        { 5'118'360'000LL, -4'911'739'872LL },
-        { 5'233'884'000LL, -4'907'421'709LL },
-        { 5'353'914'000LL, -4'907'789'371LL },
-        { 5'476'340'000LL, -4'908'687'968LL },
-        { 5'720'116'000LL, -4'912'144'349LL },
-        { 5'836'254'000LL, -4'911'507'230LL },
-        { 5'956'149'000LL, -4'910'067'616LL },
-        {10'172'818'000LL, -4'866'559'264LL }, // 2s-gap probe: 44ms outlier
+        { .localTime=5'118'360'000LL, .offset=-4'911'739'872LL },
+        { .localTime=5'233'884'000LL, .offset=-4'907'421'709LL },
+        { .localTime=5'353'914'000LL, .offset=-4'907'789'371LL },
+        { .localTime=5'476'340'000LL, .offset=-4'908'687'968LL },
+        { .localTime=5'720'116'000LL, .offset=-4'912'144'349LL },
+        { .localTime=5'836'254'000LL, .offset=-4'911'507'230LL },
+        { .localTime=5'956'149'000LL, .offset=-4'910'067'616LL },
+        {.localTime=10'172'818'000LL, .offset=-4'866'559'264LL }, // 2s-gap probe: 44ms outlier
     }};
 
     Filter filter(8);
-    std::optional<FilterResult> result;
+    FilterResult result{};
     for (const auto& s : samples) {
         result = filter.AddSample(s.localTime, ProbeResult{.offset = s.offset, .rtt = 60'000'000LL});
     }
-    ASSERT_TRUE(result.has_value());
 
-    double rate = static_cast<double>(result->rate.num) / static_cast<double>(result->rate.den);
+    double rate = static_cast<double>(result.rate.num) / static_cast<double>(result.rate.den);
 
     // With the overflow bug the rate was ~0.521; the DriftModel then diverges
     // by ~960ms over the next 2s probe interval, triggering a step.
     EXPECT_NEAR(rate, 1.0, 0.01)
-        << "computed rate=" << result->rate.num << "/" << result->rate.den
+        << "computed rate=" << result.rate.num << "/" << result.rate.den
         << " (" << rate << ") — likely int64 overflow in ComputeDriftRate";
 }

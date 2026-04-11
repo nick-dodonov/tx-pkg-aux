@@ -4,7 +4,6 @@
 #include "SynTm/Types.h"
 
 #include <gtest/gtest.h>
-#include <optional>
 
 using namespace SynTm;
 
@@ -12,11 +11,12 @@ using namespace SynTm;
 // Filter — offset estimation
 // ===========================================================================
 
-TEST(Filter, NeedsTwoSamples)
+TEST(Filter, OneSampleGivesValidResult)
 {
     Filter filter(8);
     auto result = filter.AddSample(0, ProbeResult{.offset = 1000, .rtt = 10000});
-    EXPECT_FALSE(result.has_value());
+    EXPECT_EQ(result.sampleCount, 1u);
+    EXPECT_EQ(result.offset, 1000);
     EXPECT_EQ(filter.SampleCount(), 1u);
 }
 
@@ -25,8 +25,8 @@ TEST(Filter, ProducesResultAfterTwoSamples)
     Filter filter(8);
     filter.AddSample(0, ProbeResult{.offset = 1000, .rtt = 10000});
     auto result = filter.AddSample(1'000'000, ProbeResult{.offset = 1000, .rtt = 10000});
-    ASSERT_TRUE(result.has_value());
-    EXPECT_EQ(result->offset, 1000);
+    EXPECT_EQ(result.sampleCount, 2u);
+    EXPECT_EQ(result.offset, 1000);
 }
 
 TEST(Filter, ConvergesWithConsistentSamples)
@@ -34,16 +34,15 @@ TEST(Filter, ConvergesWithConsistentSamples)
     Filter filter(8);
     constexpr Nanos trueOffset = 5'000'000; // 5ms
 
-    std::optional<FilterResult> lastResult;
+    FilterResult lastResult{};
     for (int i = 0; i < 8; ++i) {
         Nanos localTime = static_cast<Nanos>(i) * 100'000'000; // 100ms apart
         lastResult = filter.AddSample(localTime,
             ProbeResult{.offset = trueOffset, .rtt = 2'000'000}); // 2ms RTT
     }
 
-    ASSERT_TRUE(lastResult.has_value());
-    EXPECT_EQ(lastResult->offset, trueOffset);
-    EXPECT_LE(lastResult->jitter, 0); // Zero jitter with identical offsets.
+    EXPECT_EQ(lastResult.offset, trueOffset);
+    EXPECT_LE(lastResult.jitter, 0); // Zero jitter with identical offsets.
 }
 
 TEST(Filter, MinRttTracked)
@@ -55,8 +54,7 @@ TEST(Filter, MinRttTracked)
     auto result = filter.AddSample(300'000'000,
         ProbeResult{.offset = 1000, .rtt = 12'000'000});
 
-    ASSERT_TRUE(result.has_value());
-    EXPECT_EQ(result->minRtt, 5'000'000);
+    EXPECT_EQ(result.minRtt, 5'000'000);
 }
 
 TEST(Filter, OutlierRejection)
@@ -76,9 +74,8 @@ TEST(Filter, OutlierRejection)
     auto result = filter.AddSample(700'000'000,
         ProbeResult{.offset = 50'000'000, .rtt = 200'000'000});
 
-    ASSERT_TRUE(result.has_value());
     // Weighted median should still be near 5ms, not 50ms.
-    EXPECT_EQ(result->offset, 5'000'000);
+    EXPECT_EQ(result.offset, 5'000'000);
 }
 
 TEST(Filter, WindowEviction)
@@ -118,9 +115,8 @@ TEST(Filter, DetectsZeroDrift)
     auto result = filter.AddSample(8'000'000'000LL,
         ProbeResult{.offset = 10'000'000, .rtt = 2'000'000});
 
-    ASSERT_TRUE(result.has_value());
     // Rate should be 1/1 (no drift).
-    EXPECT_EQ(result->rate.num, result->rate.den);
+    EXPECT_EQ(result.rate.num, result.rate.den);
 }
 
 TEST(Filter, DetectsPositiveDrift)
@@ -142,10 +138,9 @@ TEST(Filter, DetectsPositiveDrift)
     // Feed one more to trigger a fresh result.
     auto fr = filter.AddSample(8'000'000'000LL,
         ProbeResult{.offset = 10'000'000 + 800'000, .rtt = 2'000'000});
-    ASSERT_TRUE(fr.has_value());
 
     // Rate num > den (remote is faster).
-    double rate = static_cast<double>(fr->rate.num) / static_cast<double>(fr->rate.den);
+    double rate = static_cast<double>(fr.rate.num) / static_cast<double>(fr.rate.den);
     EXPECT_GT(rate, 1.0);
     EXPECT_LT(rate, 1.01); // Should be in the ballpark of 100ppm (1.0001).
 }
