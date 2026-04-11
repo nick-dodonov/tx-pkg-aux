@@ -36,8 +36,7 @@ namespace SynTm
         [[nodiscard]] std::chrono::steady_clock::time_point Now() const noexcept
         {
             auto ns = _cachedSyncedNow.load(std::memory_order_relaxed);
-            return std::chrono::steady_clock::time_point{
-                std::chrono::nanoseconds{ns}};
+            return std::chrono::steady_clock::time_point{ns};
         }
 
         /// Synchronized time in raw ticks.
@@ -68,8 +67,7 @@ namespace SynTm
             TruncTimeT trunc) const noexcept
         {
             auto ns = Expand(trunc);
-            return std::chrono::steady_clock::time_point{
-                std::chrono::nanoseconds{ns}};
+            return std::chrono::steady_clock::time_point{ns};
         }
 
         /// Whether the system is synchronized.
@@ -90,6 +88,6 @@ namespace SynTm
 
     private:
         Consensus& _consensus;
-        std::atomic<Ticks> _cachedSyncedNow{0};
+        std::atomic<Ticks> _cachedSyncedNow{Ticks{}};
     };
 }

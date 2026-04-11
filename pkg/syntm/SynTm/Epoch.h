@@ -17,7 +17,7 @@ namespace SynTm
         std::uint64_t id = 0;
 
         /// Base synchronized time — the epoch's "origin" in ticks.
-        Ticks baseTime = 0;
+        Ticks baseTime{};
 
         /// Drift rate relative to some agreed reference (typically 1/1).
         Rational rate{.num=1, .den=1};
@@ -26,7 +26,7 @@ namespace SynTm
         std::uint32_t memberCount = 0;
 
         /// Creation timestamp in the creator's local time (for ordering).
-        Ticks createdAt = 0;
+        Ticks createdAt{};
 
         /// Whether this epoch has been initialized (non-default).
         [[nodiscard]] bool IsValid() const noexcept { return id != 0; }
@@ -54,8 +54,8 @@ namespace SynTm
     struct EpochInfo
     {
         std::uint64_t epochId = 0;
-        Ticks baseTime = 0;
-        Ticks createdAt = 0;
+        Ticks baseTime{};
+        Ticks createdAt{};
         std::uint32_t memberCount = 0;
 
         static constexpr std::size_t WireSize = sizeof(std::uint64_t) + sizeof(Ticks) * 2 + sizeof(std::uint32_t);

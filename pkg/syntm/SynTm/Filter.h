@@ -12,10 +12,10 @@ namespace SynTm
     /// Result produced by the Filter after processing enough samples.
     struct FilterResult
     {
-        Ticks offset = 0; ///< Best estimate of clock offset (remote - local).
+        Ticks offset{}; ///< Best estimate of clock offset (remote - local).
         Rational rate{.num=1, .den=1}; ///< Estimated drift rate (local → remote).
-        Ticks jitter = 0; ///< Dispersion measure (interquartile range of offsets).
-        Ticks minRtt = 0; ///< Minimum RTT seen in the current window.
+        Ticks jitter{}; ///< Dispersion measure (interquartile range of offsets).
+        Ticks minRtt{}; ///< Minimum RTT seen in the current window.
         std::size_t sampleCount = 0; ///< Number of samples in the window that produced this result.
     };
 
@@ -34,9 +34,9 @@ namespace SynTm
     public:
         struct Sample
         {
-            Ticks localTime = 0; ///< Local time when the sample was taken.
-            Ticks offset = 0; ///< Measured offset from probe.
-            Ticks rtt = 0; ///< Measured RTT from probe.
+            Ticks localTime{}; ///< Local time when the sample was taken.
+            Ticks offset{};    ///< Measured offset from probe.
+            Ticks rtt{};       ///< Measured RTT from probe.
         };
 
         explicit Filter(std::size_t windowSize = 8) : _windowSize(windowSize)
@@ -110,10 +110,10 @@ namespace SynTm
             std::int64_t totalWeight = 0;
 
             for (const auto& s : _samples) {
-                // Weight inversely proportional to RTT. Use 1/max(rtt,1) scaled.
-                // Scale factor: use the minRtt-based relative weight.
-                // Simple: weight = 1'000'000 / max(rtt_ns / 1000, 1) — microsecond-scale RTT.
-                Ticks rttUs = std::max(s.rtt / 1000, Ticks{1});
+                // Weight inversely proportional to RTT (microsecond-scale).
+                auto rttUs = std::max(
+                    std::chrono::duration_cast<std::chrono::microseconds>(s.rtt).count(),
+                    std::int64_t{1});
                 auto w = static_cast<std::int64_t>(1'000'000 / rttUs);
                 w = std::max(w, std::int64_t{1});
                 sorted.push_back({s.offset, w});
@@ -151,21 +151,21 @@ namespace SynTm
             // Use first sample's localTime as reference to keep values small.
             Ticks t0 = _samples.front().localTime;
 
-            // Scale time and offset from nanoseconds to microseconds before
-            // computing sums. The rate ratio (sumXX + sumXY) / sumXX is
-            // dimensionless, so dividing both axes by the same constant (1000)
-            // preserves it exactly. Without this scaling, (localTime - t0)
-            // reaches ~14e9 ns for an 8-sample window at 2s probe intervals,
-            // causing dxn² ~ 1.4e21 and sumXX/n ~ 1.7e20 — beyond int64 max
-            // (9.2e18) — and the cast below silently wraps to garbage.
-            constexpr std::int64_t kScale = 1'000;
+            // Scale .count() values to microseconds before computing sums.
+            // The rate ratio is dimensionless, so dividing both axes by the
+            // same constant preserves it exactly. Without this scaling,
+            // (localTime - t0).count() can reach ~14e9 for an 8-sample window
+            // at 2s probe intervals, causing dxn² ~ 1.4e21 and sumXX/n ~
+            // 1.7e20 — beyond int64 max (9.2e18) — wrapping to garbage.
+            constexpr std::int64_t kScale =
+                std::chrono::duration_cast<Ticks>(std::chrono::microseconds{1}).count();
 
             // Compute means (integer division is fine for regression).
             std::int64_t sumDx = 0;
             std::int64_t sumDy = 0;
             for (const auto& s : _samples) {
-                sumDx += (s.localTime - t0) / kScale;
-                sumDy += s.offset / kScale;
+                sumDx += (s.localTime - t0).count() / kScale;
+                sumDy += s.offset.count() / kScale;
             }
             // meanDx and meanDy in fixed-point (* n to avoid division).
             // dx_centered = (localTime - t0) / kScale * n - sumDx
@@ -175,8 +175,8 @@ namespace SynTm
             __int128 sumXY = 0;
             __int128 sumXX = 0;
             for (const auto& s : _samples) {
-                auto dxn = static_cast<__int128>((s.localTime - t0) / kScale * n - sumDx);
-                auto dyn = static_cast<__int128>(s.offset / kScale * n - sumDy);
+                auto dxn = static_cast<__int128>((s.localTime - t0).count() / kScale * n - sumDx);
+                auto dyn = static_cast<__int128>(s.offset.count() / kScale * n - sumDy);
                 sumXY += dxn * dyn;
                 sumXX += dxn * dxn;
             }

@@ -21,7 +21,7 @@ namespace SynTm
     /// The receiver, knowing the shared epoch base and an approximate
     /// hint of the current time, can reconstruct the full absolute time
     /// via Expand().
-    template <int Bits, Ticks Quantum>
+    template <int Bits, std::int64_t Quantum>
         requires (Bits > 0 && Bits <= 64 && Quantum > 0)
     struct TruncTime
     {
@@ -37,27 +37,27 @@ namespace SynTm
 
         StorageType index = 0;
 
-        static constexpr Ticks QuantumNs = Quantum;
+        static constexpr std::int64_t QuantumNs = Quantum;
         static constexpr int BitWidth    = Bits;
         static constexpr StorageType MaxIndex =
             (Bits == 64) ? std::numeric_limits<StorageType>::max()
                          : static_cast<StorageType>((StorageType{1} << Bits) - 1);
 
         /// Total range in ticks before wrap-around.
-        static constexpr Ticks Range = static_cast<Ticks>(MaxIndex + 1) * Quantum;
+        static constexpr Ticks Range = Ticks{static_cast<std::int64_t>(MaxIndex + 1) * Quantum};
 
         auto operator<=>(const TruncTime&) const = default;
     };
 
     /// Truncate an absolute tick time relative to an epoch base.
-    template <int Bits, Ticks Quantum>
+    template <int Bits, std::int64_t Quantum>
     [[nodiscard]] constexpr TruncTime<Bits, Quantum> Truncate(
         Ticks absolute, Ticks epochBase) noexcept
     {
         using TT = TruncTime<Bits, Quantum>;
         Ticks delta = absolute - epochBase;
         auto idx = static_cast<typename TT::StorageType>(
-            (static_cast<std::uint64_t>(delta) / Quantum) & TT::MaxIndex);
+            (static_cast<std::uint64_t>(delta.count()) / static_cast<std::uint64_t>(Quantum)) & TT::MaxIndex);
         return TT{.index = idx};
     }
 
@@ -67,7 +67,7 @@ namespace SynTm
     /// used to resolve wrap-around ambiguity. The result is the unique absolute
     /// time that, when truncated, produces the given index AND is closest to
     /// the hint.
-    template <int Bits, Ticks Quantum>
+    template <int Bits, std::int64_t Quantum>
     [[nodiscard]] constexpr Ticks Expand(
         TruncTime<Bits, Quantum> trunc, Ticks epochBase, Ticks hint) noexcept
     {
@@ -78,7 +78,7 @@ namespace SynTm
         // Candidate: the absolute time for this index in the same "cycle" as the hint.
         Ticks hintDelta = hint - epochBase;
         Ticks hintCycle = (hintDelta / range) * range;
-        Ticks candidate = epochBase + hintCycle + static_cast<Ticks>(trunc.index) * Quantum;
+        Ticks candidate = epochBase + hintCycle + Ticks{static_cast<std::int64_t>(trunc.index) * Quantum};
 
         // Pick the candidate closest to hint (might be ±1 cycle away).
         Ticks diff = candidate - hint;

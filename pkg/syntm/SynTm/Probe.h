@@ -18,7 +18,7 @@ namespace SynTm
     /// Contains t1: the local time at which the request was sent.
     struct ProbeRequest
     {
-        Ticks t1 = 0; ///< Origin timestamp (initiator's local time at send).
+        Ticks t1{}; ///< Origin timestamp (initiator's local time at send).
 
         static constexpr std::size_t WireSize = sizeof(Ticks);
     };
@@ -27,9 +27,9 @@ namespace SynTm
     /// Contains t1 (echoed), t2 (responder's receive time), t3 (responder's send time).
     struct ProbeResponse
     {
-        Ticks t1 = 0; ///< Echoed origin timestamp from the request.
-        Ticks t2 = 0; ///< Responder's local time at request reception.
-        Ticks t3 = 0; ///< Responder's local time at response transmission.
+        Ticks t1{}; ///< Echoed origin timestamp from the request.
+        Ticks t2{}; ///< Responder's local time at request reception.
+        Ticks t3{}; ///< Responder's local time at response transmission.
 
         static constexpr std::size_t WireSize = 3 * sizeof(Ticks);
     };
@@ -38,8 +38,8 @@ namespace SynTm
     /// the response. t4 is the initiator's local time at response reception.
     struct ProbeResult
     {
-        Ticks offset = 0; ///< Estimated clock offset: remote - local.
-        Ticks rtt    = 0; ///< Round-trip time.
+        Ticks offset{}; ///< Estimated clock offset: remote - local.
+        Ticks rtt{};    ///< Round-trip time.
     };
 
     /// Compute the probe result from the four NTP-style timestamps.
@@ -61,7 +61,16 @@ namespace SynTm
     {
         inline void WriteLE64(std::span<std::byte> buf, std::size_t pos, Ticks value) noexcept
         {
-            auto u = static_cast<std::uint64_t>(value);
+            auto u = static_cast<std::uint64_t>(value.count());
+            if constexpr (std::endian::native != std::endian::little) {
+                u = std::byteswap(u);
+            }
+            std::memcpy(buf.data() + pos, &u, sizeof(u));
+        }
+
+        inline void WriteRawU64(std::span<std::byte> buf, std::size_t pos, std::uint64_t value) noexcept
+        {
+            auto u = value;
             if constexpr (std::endian::native != std::endian::little) {
                 u = std::byteswap(u);
             }
@@ -75,7 +84,17 @@ namespace SynTm
             if constexpr (std::endian::native != std::endian::little) {
                 u = std::byteswap(u);
             }
-            return static_cast<Ticks>(u);
+            return Ticks{static_cast<std::int64_t>(u)};
+        }
+
+        [[nodiscard]] inline std::uint64_t ReadRawU64(std::span<const std::byte> buf, std::size_t pos) noexcept
+        {
+            std::uint64_t u = 0;
+            std::memcpy(&u, buf.data() + pos, sizeof(u));
+            if constexpr (std::endian::native != std::endian::little) {
+                u = std::byteswap(u);
+            }
+            return u;
         }
     }
 

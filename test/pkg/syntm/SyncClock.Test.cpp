@@ -14,6 +14,7 @@
 #include <vector>
 
 using namespace SynTm;
+using namespace std::chrono_literals;
 
 // ===========================================================================
 // Helper
@@ -48,34 +49,31 @@ TEST(SyncClock, ReturnsZeroBeforeUpdate)
     Consensus consensus(clock);
     SyncClock syncClock(consensus);
 
-    EXPECT_EQ(syncClock.NowNanos(), 0);
+    EXPECT_EQ(syncClock.NowNanos(), Ticks{});
 }
 
 TEST(SyncClock, UpdateRefreshesCache)
 {
     FakeClock clock;
-    clock.SetNow(42'000'000'000LL);
+    clock.SetNow(42s);
     Consensus consensus(clock);
     SyncClock syncClock(consensus);
 
     syncClock.Update();
     // Before sync, consensus returns local time.
-    EXPECT_EQ(syncClock.NowNanos(), 42'000'000'000LL);
+    EXPECT_EQ(syncClock.NowNanos(), 42s);
 }
 
 TEST(SyncClock, NowReturnsChronoTimePoint)
 {
     FakeClock clock;
-    clock.SetNow(1'000'000'000LL);
+    clock.SetNow(1s);
     Consensus consensus(clock);
     SyncClock syncClock(consensus);
 
     syncClock.Update();
     auto tp = syncClock.Now();
-    auto ns = std::chrono::duration_cast<std::chrono::nanoseconds>(
-                  tp.time_since_epoch())
-                  .count();
-    EXPECT_EQ(ns, 1'000'000'000LL);
+    EXPECT_EQ(tp.time_since_epoch(), 1s);
 }
 
 TEST(SyncClock, IsSyncedDelegatesToConsensus)
@@ -101,8 +99,8 @@ TEST(SyncClock, QualityDelegatesToConsensus)
 TEST(SyncClock, TruncTimeRoundTrip)
 {
     FakeClock clockA, clockB;
-    clockA.SetNow(1'000'000'000LL);
-    clockB.SetNow(1'000'000'000LL);
+    clockA.SetNow(1s);
+    clockB.SetNow(1s);
 
     SessionConfig config;
     config.minSamplesForSync = 2;
@@ -113,11 +111,11 @@ TEST(SyncClock, TruncTimeRoundTrip)
     nodeA.AddPeer("B");
     nodeB.AddPeer("A");
 
-    constexpr Ticks delay = 2'000'000;
+    constexpr Ticks delay = 2ms;
     for (int i = 0; i < 4; ++i) {
         SimulateRound(nodeA, clockA, "B", nodeB, clockB, "A", delay);
-        clockA.Advance(100'000'000);
-        clockB.Advance(100'000'000);
+        clockA.Advance(100ms);
+        clockB.Advance(100ms);
     }
 
     SyncClock clockSyncA(nodeA);
@@ -132,12 +130,9 @@ TEST(SyncClock, TruncTimeRoundTrip)
     Ticks expandedB = clockSyncB.Expand(trunc);
     Ticks originalA = clockSyncA.NowNanos();
 
-    Ticks diff = expandedB - originalA;
-    if (diff < 0) {
-        diff = -diff;
-    }
+    auto diff = std::chrono::abs(expandedB - originalA);
     // Within 1 quantum (1ms) + sync tolerance.
-    EXPECT_LE(diff, 5'000'000); // 5ms tolerance.
+    EXPECT_LE(diff, 5ms); // 5ms tolerance.
 }
 
 // ===========================================================================
@@ -147,7 +142,7 @@ TEST(SyncClock, TruncTimeRoundTrip)
 TEST(SyncClock, EventCallback)
 {
     FakeClock clock;
-    clock.SetNow(1'000'000'000LL); // Set after foreign epoch's creation time.
+    clock.SetNow(1s); // Set after foreign epoch's creation time.
     Consensus consensus(clock);
     SyncClock syncClock(consensus);
 
@@ -158,8 +153,8 @@ TEST(SyncClock, EventCallback)
     // Inject a foreign epoch that is stronger (older creation time).
     EpochInfo foreign{
         .epochId     = 999,
-        .baseTime    = 50'000'000,
-        .createdAt   = 50'000'000, // Created earlier → stronger.
+        .baseTime    = 50ms,
+        .createdAt   = 50ms, // Created earlier → stronger.
         .memberCount = 10,
     };
     consensus.HandleRemoteEpoch(foreign);
@@ -176,11 +171,11 @@ TEST(Integrate, ProbeRequestRoundTrip)
 {
     EpochInfo epoch{
         .epochId     = 0xDEADBEEF,
-        .baseTime    = 1'000'000'000LL,
-        .createdAt   = 500'000'000LL,
+        .baseTime    = 1s,
+        .createdAt   = 500ms,
         .memberCount = 5,
     };
-    ProbeRequest req{.t1 = 42'000'000'000LL};
+    ProbeRequest req{.t1 = 42s};
 
     std::array<std::byte, 128> buf{};
     auto written = WriteSyncProbeRequest(buf, epoch, req);
@@ -201,14 +196,14 @@ TEST(Integrate, ProbeResponseRoundTrip)
 {
     EpochInfo epoch{
         .epochId     = 0x12345678,
-        .baseTime    = 2'000'000'000LL,
-        .createdAt   = 1'000'000'000LL,
+        .baseTime    = 2s,
+        .createdAt   = 1s,
         .memberCount = 3,
     };
     ProbeResponse resp{
-        .t1 = 11'000'000'000LL,
-        .t2 = 22'000'000'000LL,
-        .t3 = 33'000'000'000LL,
+        .t1 = 11s,
+        .t2 = 22s,
+        .t3 = 33s,
     };
 
     std::array<std::byte, 128> buf{};

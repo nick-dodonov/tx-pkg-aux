@@ -1,33 +1,35 @@
 #pragma once
 #include "Types.h"
 
+#include <chrono>
 #include <cstdint>
 
 namespace SynTm
 {
+    using namespace std::chrono_literals;
     /// Tunable parameters for a sync Session.
     struct SessionConfig
     {
         /// Minimum interval between probes (ticks).
         /// Used when the session is unsettled (high jitter).
-        Ticks probeIntervalMin = 100'000'000; // 100ms
+        Ticks probeIntervalMin = 100ms;
 
         /// Maximum interval between probes (ticks).
         /// Used when the session is stable (low jitter).
-        Ticks probeIntervalMax = 2'000'000'000; // 2s
+        Ticks probeIntervalMax = 2s;
 
         /// Number of samples in the filter sliding window.
         std::size_t filterWindowSize = 8;
 
         /// Step threshold: corrections larger than this cause a time jump.
-        Ticks stepThreshold = 100'000'000; // 100ms
+        Ticks stepThreshold = 100ms;
 
         /// Maximum slew rate (rational).
         Rational maxSlewRate{.num=500, .den=1'000'000}; // 500ppm
 
         /// Jitter threshold below which the session is considered stable.
         /// When jitter < this, probe interval increases toward probeIntervalMax.
-        Ticks jitterStableThreshold = 1'000'000; // 1ms
+        Ticks jitterStableThreshold = 1ms;
 
         /// Number of consecutive filter results required before
         /// the session transitions from Probing to Synced.
@@ -38,13 +40,13 @@ namespace SynTm
     constexpr SessionConfig LanSessionConfig()
     {
         return SessionConfig{
-            .probeIntervalMin     = 100'000'000,  // 100ms
-            .probeIntervalMax     = 2'000'000'000, // 2s
-            .filterWindowSize     = 8,
-            .stepThreshold        = 100'000'000,   // 100ms
-            .maxSlewRate          = {.num=500, .den=1'000'000},
-            .jitterStableThreshold = 1'000'000,    // 1ms
-            .minSamplesForSync    = 4,
+            .probeIntervalMin      = 100ms,
+            .probeIntervalMax      = 2s,
+            .filterWindowSize      = 8,
+            .stepThreshold         = 100ms,
+            .maxSlewRate           = {.num=500, .den=1'000'000},
+            .jitterStableThreshold = 1ms,
+            .minSamplesForSync     = 4,
         };
     }
 
@@ -52,13 +54,13 @@ namespace SynTm
     constexpr SessionConfig WanSessionConfig()
     {
         return SessionConfig{
-            .probeIntervalMin     = 500'000'000,    // 500ms
-            .probeIntervalMax     = 10'000'000'000LL, // 10s
-            .filterWindowSize     = 16,
-            .stepThreshold        = 500'000'000,    // 500ms
-            .maxSlewRate          = {.num=200, .den=1'000'000},
-            .jitterStableThreshold = 10'000'000,   // 10ms
-            .minSamplesForSync    = 6,
+            .probeIntervalMin      = 500ms,
+            .probeIntervalMax      = 10s,
+            .filterWindowSize      = 16,
+            .stepThreshold         = 500ms,
+            .maxSlewRate           = {.num=200, .den=1'000'000},
+            .jitterStableThreshold = 10ms,
+            .minSamplesForSync     = 6,
         };
     }
 }

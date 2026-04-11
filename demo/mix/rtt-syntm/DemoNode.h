@@ -88,7 +88,7 @@ namespace Demo
             // Schedule first shot.
             auto shotInterval = std::chrono::milliseconds(_config.shotIntervalMs);
             auto statusInterval = std::chrono::milliseconds(_config.statusIntervalMs);
-            auto nextShot = _syncClock.NowNanos() + std::chrono::duration_cast<std::chrono::nanoseconds>(shotInterval).count();
+            auto nextShot = _syncClock.NowNanos() + std::chrono::duration_cast<SynTm::Ticks>(shotInterval);
             _sim->nextShotTime.store(nextShot, std::memory_order_relaxed);
 
             auto lastStatus = std::chrono::steady_clock::now();
@@ -133,7 +133,7 @@ namespace Demo
                     auto actual = _sim->shotActualTime.load(std::memory_order_relaxed);
                     auto delta = actual - nextShot;
                     _log.Info("[SHOT] scheduled={} actual={} delta={}ns",
-                        Log::Sep{nextShot}, Log::Sep{actual}, Log::Sep{delta});
+                        Log::Sep{nextShot.count()}, Log::Sep{actual.count()}, Log::Sep{delta.count()});
 
                     // Announce shot to peers.
                     for (auto& [_, agent] : _agents) {
@@ -142,7 +142,7 @@ namespace Demo
 
                     // Schedule next shot.
                     nextShot = _syncClock.NowNanos() +
-                        std::chrono::duration_cast<std::chrono::nanoseconds>(shotInterval).count();
+                        std::chrono::duration_cast<SynTm::Ticks>(shotInterval);
                     _sim->nextShotTime.store(nextShot, std::memory_order_relaxed);
                 }
 
@@ -238,7 +238,7 @@ namespace Demo
         {
             auto now = _syncClock.NowNanos();
             _sim->nextShotTime.store(now, std::memory_order_relaxed);
-            _log.Info("[CMD] manual shot at synced={}", Log::Sep{now});
+            _log.Info("[CMD] manual shot at synced={}", Log::Sep{now.count()});
         }
 
         void HandleCommand(const CmdStatus&)
@@ -267,7 +267,7 @@ namespace Demo
 
             _log.Info("=== synced={} quality={} peers={} syncTime={:.3f}s",
                 synced, SynTm::SyncQualityToString(quality), peerCount,
-                static_cast<double>(syncNow) / 1e9);
+                static_cast<double>(syncNow.count()) / 1e9);
 
             _log.Info("  SIM: pos={:.2f} vel={:.2f} speed={:.1f}",
                 _sim->position, _sim->velocity, _sim->speedMultiplier);

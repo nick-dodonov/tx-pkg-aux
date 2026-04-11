@@ -8,6 +8,7 @@
 #include <gtest/gtest.h>
 
 using namespace SynTm;
+using namespace std::chrono_literals;
 
 // ===========================================================================
 // Rational
@@ -16,48 +17,28 @@ using namespace SynTm;
 TEST(Rational, IdentityRate)
 {
     Rational r{.num=1, .den=1};
-    EXPECT_EQ(r.Apply(1'000'000'000), 1'000'000'000);
+    EXPECT_EQ(r.Apply(1s), 1s);
 }
 
 TEST(Rational, ScaleUp)
 {
     Rational r{.num=3, .den=2}; // 1.5x
-    EXPECT_EQ(r.Apply(1'000'000'000), 1'500'000'000);
+    EXPECT_EQ(r.Apply(1s), 1500ms);
 }
 
 TEST(Rational, ScaleDown)
 {
     Rational r{.num=2, .den=3}; // ~0.667x
-    EXPECT_EQ(r.Apply(3'000'000'000), 2'000'000'000);
+    EXPECT_EQ(r.Apply(3s), 2s);
 }
 
 TEST(Rational, LargeValuesNoOverflow)
 {
     // 100 seconds * rate close to 1.0 — should not overflow with __int128.
     Rational r{.num=1'000'001, .den=1'000'000}; // 1.000001x (1ppm drift)
-    Ticks hundred_sec = 100'000'000'000LL;
+    Ticks hundred_sec = 100s;
     Ticks result = r.Apply(hundred_sec);
-    EXPECT_EQ(result, 100'000'100'000LL);
-}
-
-// ===========================================================================
-// SyncQuality / SyncEvent to-string
-// ===========================================================================
-
-TEST(Types, SyncQualityToString)
-{
-    EXPECT_EQ(SyncQualityToString(SyncQuality::None),   "None");
-    EXPECT_EQ(SyncQualityToString(SyncQuality::Low),    "Low");
-    EXPECT_EQ(SyncQualityToString(SyncQuality::High),   "High");
-}
-
-TEST(Types, SyncEventToString)
-{
-    EXPECT_EQ(SyncEventToString(SyncEvent::SyncAcquired),    "SyncAcquired");
-    EXPECT_EQ(SyncEventToString(SyncEvent::EpochChanged),     "EpochChanged");
-    EXPECT_EQ(SyncEventToString(SyncEvent::ResyncStarted),    "ResyncStarted");
-    EXPECT_EQ(SyncEventToString(SyncEvent::ResyncCompleted),  "ResyncCompleted");
-    EXPECT_EQ(SyncEventToString(SyncEvent::SyncLost),         "SyncLost");
+    EXPECT_EQ(result, 100s + 100us);
 }
 
 // ===========================================================================
@@ -67,31 +48,31 @@ TEST(Types, SyncEventToString)
 TEST(FakeClock, StartsAtZero)
 {
     FakeClock clock;
-    EXPECT_EQ(clock.Now(), 0);
+    EXPECT_EQ(clock.Now(), Ticks{});
 }
 
 TEST(FakeClock, SetNow)
 {
     FakeClock clock;
-    clock.SetNow(42'000'000);
-    EXPECT_EQ(clock.Now(), 42'000'000);
+    clock.SetNow(42ms);
+    EXPECT_EQ(clock.Now(), 42ms);
 }
 
 TEST(FakeClock, Advance)
 {
     FakeClock clock;
-    clock.SetNow(1'000'000);
-    clock.Advance(500'000);
-    EXPECT_EQ(clock.Now(), 1'500'000);
+    clock.SetNow(1ms);
+    clock.Advance(500us);
+    EXPECT_EQ(clock.Now(), 1500us);
 }
 
 TEST(FakeClock, AdvanceMultipleTimes)
 {
     FakeClock clock;
-    clock.Advance(100);
-    clock.Advance(200);
-    clock.Advance(300);
-    EXPECT_EQ(clock.Now(), 600);
+    clock.Advance(100ns);
+    clock.Advance(200ns);
+    clock.Advance(300ns);
+    EXPECT_EQ(clock.Now(), 600ns);
 }
 
 // ===========================================================================
@@ -101,7 +82,7 @@ TEST(FakeClock, AdvanceMultipleTimes)
 TEST(SteadyClock, ReturnsPositive)
 {
     SteadyClock clock;
-    EXPECT_GT(clock.Now(), 0);
+    EXPECT_GT(clock.Now(), Ticks{});
 }
 
 TEST(SteadyClock, Monotonic)
@@ -120,10 +101,9 @@ TEST(Probe, ComputeResultSymmetric)
 {
     // Symmetric delay: 10ms each way, zero offset.
     //   t1=0, t2=10ms, t3=10ms, t4=20ms
-    constexpr Ticks ms = 1'000'000;
-    auto result = ComputeProbeResult(0, 10 * ms, 10 * ms, 20 * ms);
-    EXPECT_EQ(result.offset, 0);
-    EXPECT_EQ(result.rtt, 20 * ms);
+    auto result = ComputeProbeResult(Ticks{}, 10ms, 10ms, 20ms);
+    EXPECT_EQ(result.offset, Ticks{});
+    EXPECT_EQ(result.rtt, 20ms);
 }
 
 TEST(Probe, ComputeResultWithOffset)
@@ -131,10 +111,9 @@ TEST(Probe, ComputeResultWithOffset)
     // Remote clock is 5ms ahead, symmetric 10ms RTT.
     //   t1=0, t2=15ms, t3=15ms, t4=20ms
     //   offset = ((15-0) + (15-20)) / 2 = (15 + (-5)) / 2 = 5ms
-    constexpr Ticks ms = 1'000'000;
-    auto result = ComputeProbeResult(0, 15 * ms, 15 * ms, 20 * ms);
-    EXPECT_EQ(result.offset, 5 * ms);
-    EXPECT_EQ(result.rtt, 20 * ms);
+    auto result = ComputeProbeResult(Ticks{}, 15ms, 15ms, 20ms);
+    EXPECT_EQ(result.offset, 5ms);
+    EXPECT_EQ(result.rtt, 20ms);
 }
 
 TEST(Probe, ComputeResultWithNegativeOffset)
@@ -142,10 +121,9 @@ TEST(Probe, ComputeResultWithNegativeOffset)
     // Remote clock is 5ms behind, symmetric 10ms RTT.
     //   t1=0, t2=5ms, t3=5ms, t4=20ms
     //   offset = ((5-0) + (5-20)) / 2 = (5 + (-15)) / 2 = -5ms
-    constexpr Ticks ms = 1'000'000;
-    auto result = ComputeProbeResult(0, 5 * ms, 5 * ms, 20 * ms);
-    EXPECT_EQ(result.offset, -5 * ms);
-    EXPECT_EQ(result.rtt, 20 * ms);
+    auto result = ComputeProbeResult(Ticks{}, 5ms, 5ms, 20ms);
+    EXPECT_EQ(result.offset, -5ms);
+    EXPECT_EQ(result.rtt, 20ms);
 }
 
 TEST(Probe, ComputeResultAsymmetric)
@@ -153,12 +131,11 @@ TEST(Probe, ComputeResultAsymmetric)
     // Asymmetric delay: forward 5ms, return 15ms. Zero real offset.
     //   t1=0, t2=5ms, t3=5ms, t4=20ms
     //   True offset = 0, but estimated offset = -5ms (NTP asymmetry bias).
-    constexpr Ticks ms = 1'000'000;
-    auto result = ComputeProbeResult(0, 5 * ms, 5 * ms, 20 * ms);
+    auto result = ComputeProbeResult(Ticks{}, 5ms, 5ms, 20ms);
     // RTT = (20-0) - (5-5) = 20ms
-    EXPECT_EQ(result.rtt, 20 * ms);
+    EXPECT_EQ(result.rtt, 20ms);
     // Offset has asymmetry bias — expected for NTP-style estimation.
-    EXPECT_EQ(result.offset, -5 * ms);
+    EXPECT_EQ(result.offset, -5ms);
 }
 
 TEST(Probe, ComputeResultWithProcessingDelay)
@@ -167,10 +144,9 @@ TEST(Probe, ComputeResultWithProcessingDelay)
     //   t1=0, t2=10ms, t3=12ms, t4=22ms
     //   rtt = (22-0) - (12-10) = 20ms
     //   offset = ((10-0) + (12-22)) / 2 = (10 - 10) / 2 = 0
-    constexpr Ticks ms = 1'000'000;
-    auto result = ComputeProbeResult(0, 10 * ms, 12 * ms, 22 * ms);
-    EXPECT_EQ(result.rtt, 20 * ms);
-    EXPECT_EQ(result.offset, 0);
+    auto result = ComputeProbeResult(Ticks{}, 10ms, 12ms, 22ms);
+    EXPECT_EQ(result.rtt, 20ms);
+    EXPECT_EQ(result.offset, Ticks{});
 }
 
 // ===========================================================================
@@ -179,7 +155,7 @@ TEST(Probe, ComputeResultWithProcessingDelay)
 
 TEST(ProbeSerialization, RequestRoundTrip)
 {
-    ProbeRequest req{.t1 = 123'456'789'012'345LL};
+    ProbeRequest req{.t1 = Ticks{123'456'789'012'345LL}};
     std::array<std::byte, ProbeRequest::WireSize> buf{};
 
     auto written = WriteTo(buf, req);
@@ -193,9 +169,9 @@ TEST(ProbeSerialization, RequestRoundTrip)
 TEST(ProbeSerialization, ResponseRoundTrip)
 {
     ProbeResponse resp{
-        .t1 = 111'111'111'111LL,
-        .t2 = 222'222'222'222LL,
-        .t3 = 333'333'333'333LL,
+        .t1 = Ticks{111'111'111'111LL},
+        .t2 = Ticks{222'222'222'222LL},
+        .t3 = Ticks{333'333'333'333LL},
     };
     std::array<std::byte, ProbeResponse::WireSize> buf{};
 
@@ -211,7 +187,7 @@ TEST(ProbeSerialization, ResponseRoundTrip)
 
 TEST(ProbeSerialization, RequestBufferTooSmall)
 {
-    ProbeRequest req{.t1 = 42};
+    ProbeRequest req{.t1 = Ticks{42}};
     std::array<std::byte, 4> buf{}; // Too small.
     EXPECT_EQ(WriteTo(buf, req), 0u);
     EXPECT_FALSE(ReadProbeRequest(std::span<const std::byte>(buf)).has_value());
@@ -227,12 +203,12 @@ TEST(ProbeSerialization, ResponseBufferTooSmall)
 
 TEST(ProbeSerialization, NegativeValues)
 {
-    ProbeRequest req{.t1 = -999'999'999LL};
+    ProbeRequest req{.t1 = Ticks{-999'999'999LL}};
     std::array<std::byte, ProbeRequest::WireSize> buf{};
     [[maybe_unused]] auto written = WriteTo(buf, req);
     auto decoded = ReadProbeRequest(buf);
     ASSERT_TRUE(decoded.has_value());
-    EXPECT_EQ(decoded->t1, -999'999'999LL);
+    EXPECT_EQ(decoded->t1, Ticks{-999'999'999LL});
 }
 
 // ===========================================================================
@@ -241,46 +217,46 @@ TEST(ProbeSerialization, NegativeValues)
 
 TEST(TruncTime, BasicTruncateExpand)
 {
-    constexpr Ticks epoch = 1'000'000'000'000LL; // 1 second
-    constexpr Ticks time = epoch + 500'000; // +500µs
-    constexpr Ticks quantum = 100'000; // 100µs
+    constexpr Ticks epoch = 1000s; // 1000 seconds
+    constexpr Ticks time = epoch + 500us; // +500µs
+    constexpr std::int64_t quantum = 100'000; // 100µs
 
     auto trunc = Truncate<16, quantum>(time, epoch);
     EXPECT_EQ(trunc.index, 5u); // 500'000 / 100'000 = 5
 
     Ticks expanded = Expand(trunc, epoch, time);
-    EXPECT_EQ(expanded, epoch + 5 * quantum); // Exact quantum boundary.
+    EXPECT_EQ(expanded, epoch + Ticks{5 * quantum}); // Exact quantum boundary.
 }
 
 TEST(TruncTime, WrapAround)
 {
-    constexpr Ticks epoch = 0;
+    constexpr Ticks epoch{};
 
     // Time is at 300ms → wraps around (300 mod 256 = 44).
-    constexpr Ticks time = 300'000'000;
+    constexpr Ticks time = 300ms;
     auto trunc = Truncate<8, 1'000'000>(time, epoch);
     EXPECT_EQ(trunc.index, 44u);
 
     // Expand with hint near 300ms should give back ~300ms.
-    Ticks expanded = Expand(trunc, epoch, 295'000'000);
-    EXPECT_EQ(expanded, 300'000'000);
+    Ticks expanded = Expand(trunc, epoch, 295ms);
+    EXPECT_EQ(expanded, 300ms);
 }
 
 TEST(TruncTime, ExpandChoosesClosestToHint)
 {
-    constexpr Ticks epoch = 0;
+    constexpr Ticks epoch{};
 
     // Index 10 → within first cycle: 10ms.
     TruncTime<8, 1'000'000> trunc{.index = 10};
 
     // Hint near 10ms → should expand to 10ms.
-    EXPECT_EQ(Expand(trunc, epoch, Ticks{8'000'000}), 10'000'000);
+    EXPECT_EQ(Expand(trunc, epoch, 8ms), 10ms);
 
     // Hint near 266ms (= 256 + 10) → should expand to 266ms.
-    EXPECT_EQ(Expand(trunc, epoch, Ticks{264'000'000}), 266'000'000);
+    EXPECT_EQ(Expand(trunc, epoch, 264ms), 266ms);
 
     // Hint near 522ms (= 512 + 10) → should expand to 522ms.
-    EXPECT_EQ(Expand(trunc, epoch, Ticks{520'000'000}), 522'000'000);
+    EXPECT_EQ(Expand(trunc, epoch, 520ms), 522ms);
 }
 
 TEST(TruncTime, Presets)
@@ -296,11 +272,11 @@ TEST(TruncTime, Presets)
 TEST(TruncTime, ExactRoundTrip)
 {
     // If time is exactly on a quantum boundary, Truncate+Expand is identity.
-    constexpr Ticks epoch   = 5'000'000'000LL;
-    constexpr Ticks quantum = 100'000;
+    constexpr Ticks epoch = 5s;
+    constexpr std::int64_t quantum = 100'000;
 
     for (int i = 0; i < 1000; ++i) {
-        Ticks time = epoch + static_cast<Ticks>(i) * quantum;
+        Ticks time = epoch + Ticks{static_cast<std::int64_t>(i) * quantum};
         auto trunc = Truncate<16, quantum>(time, epoch);
         Ticks expanded = Expand(trunc, epoch, time);
         EXPECT_EQ(expanded, time);

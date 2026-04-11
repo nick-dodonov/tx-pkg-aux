@@ -10,6 +10,7 @@
 #include <vector>
 
 using namespace SynTm;
+using namespace std::chrono_literals;
 
 // ===========================================================================
 // Helper: simulate a probe round between two Consensus instances
@@ -51,30 +52,30 @@ TEST(Epoch, DefaultIsInvalid)
 
 TEST(Epoch, ValidAfterInit)
 {
-    SyncEpoch epoch{.id = 42, .baseTime = 1000, .createdAt = 1000};
+    SyncEpoch epoch{.id = 42, .baseTime = 1us, .createdAt = 1us};
     EXPECT_TRUE(epoch.IsValid());
 }
 
 TEST(Epoch, OlderIsStronger)
 {
-    SyncEpoch older{.id = 1, .createdAt = 100};
-    SyncEpoch newer{.id = 2, .createdAt = 200};
+    SyncEpoch older{.id = 1, .createdAt = 100ns};
+    SyncEpoch newer{.id = 2, .createdAt = 200ns};
     EXPECT_TRUE(older.IsStrongerThan(newer));
     EXPECT_FALSE(newer.IsStrongerThan(older));
 }
 
 TEST(Epoch, LargerGroupWinsOnTie)
 {
-    SyncEpoch small{.id = 1, .memberCount = 2, .createdAt = 100};
-    SyncEpoch large{.id = 2, .memberCount = 5, .createdAt = 100};
+    SyncEpoch small{.id = 1, .memberCount = 2, .createdAt = 100ns};
+    SyncEpoch large{.id = 2, .memberCount = 5, .createdAt = 100ns};
     EXPECT_TRUE(large.IsStrongerThan(small));
     EXPECT_FALSE(small.IsStrongerThan(large));
 }
 
 TEST(Epoch, LowerIdWinsOnDoubleTie)
 {
-    SyncEpoch a{.id = 1, .memberCount = 3, .createdAt = 100};
-    SyncEpoch b{.id = 2, .memberCount = 3, .createdAt = 100};
+    SyncEpoch a{.id = 1, .memberCount = 3, .createdAt = 100ns};
+    SyncEpoch b{.id = 2, .memberCount = 3, .createdAt = 100ns};
     EXPECT_TRUE(a.IsStrongerThan(b));
     EXPECT_FALSE(b.IsStrongerThan(a));
 }
@@ -100,7 +101,7 @@ TEST(Consensus, AddRemovePeer)
 TEST(Consensus, CreatesEpochOnFirstPeer)
 {
     FakeClock clock;
-    clock.SetNow(1'000'000'000LL);
+    clock.SetNow(1s);
     Consensus consensus(clock);
 
     EXPECT_FALSE(consensus.Epoch().IsValid());
@@ -116,8 +117,8 @@ TEST(Consensus, TwoNodeConvergence)
 {
     FakeClock clockA;
     FakeClock clockB;
-    clockA.SetNow(1'000'000'000LL);
-    clockB.SetNow(1'000'000'000LL);
+    clockA.SetNow(1s);
+    clockB.SetNow(1s);
 
     SessionConfig config;
     config.minSamplesForSync = 3;
@@ -134,18 +135,18 @@ TEST(Consensus, TwoNodeConvergence)
     nodeA.AddPeer("B");
     nodeB.AddPeer("A");
 
-    constexpr Ticks delay = 5'000'000;
+    constexpr Ticks delay = 5ms;
 
     for (int i = 0; i < 6; ++i) {
         // A probes B.
         SimulateConsensusProbeRound(nodeA, clockA, "B", nodeB, clockB, "A", delay);
-        clockA.Advance(100'000'000);
-        clockB.Advance(100'000'000);
+        clockA.Advance(100ms);
+        clockB.Advance(100ms);
 
         // B probes A.
         SimulateConsensusProbeRound(nodeB, clockB, "A", nodeA, clockA, "B", delay); //NOLINT(readability-suspicious-call-argument)
-        clockA.Advance(100'000'000);
-        clockB.Advance(100'000'000);
+        clockA.Advance(100ms);
+        clockB.Advance(100ms);
     }
 
     EXPECT_TRUE(nodeA.IsSynced());
@@ -160,9 +161,9 @@ TEST(Consensus, TwoNodeConvergence)
 TEST(Consensus, ThreeNodeChainPropagation)
 {
     FakeClock clockA, clockB, clockC;
-    clockA.SetNow(1'000'000'000LL);
-    clockB.SetNow(1'000'000'000LL);
-    clockC.SetNow(1'000'000'000LL);
+    clockA.SetNow(1s);
+    clockB.SetNow(1s);
+    clockC.SetNow(1s);
 
     SessionConfig config;
     config.minSamplesForSync = 3;
@@ -178,32 +179,32 @@ TEST(Consensus, ThreeNodeChainPropagation)
     nodeB.AddPeer("C");
     nodeC.AddPeer("B");
 
-    constexpr Ticks delay = 5'000'000;
+    constexpr Ticks delay = 5ms;
 
     for (int i = 0; i < 8; ++i) {
         // A ↔ B probes.
         SimulateConsensusProbeRound(nodeA, clockA, "B", nodeB, clockB, "A", delay);
-        clockA.Advance(50'000'000);
-        clockB.Advance(50'000'000);
-        clockC.Advance(50'000'000);
+        clockA.Advance(50ms);
+        clockB.Advance(50ms);
+        clockC.Advance(50ms);
 
         // B ↔ C probes.
         SimulateConsensusProbeRound(nodeB, clockB, "C", nodeC, clockC, "B", delay); //NOLINT(readability-suspicious-call-argument)
-        clockA.Advance(50'000'000);
-        clockB.Advance(50'000'000);
-        clockC.Advance(50'000'000);
+        clockA.Advance(50ms);
+        clockB.Advance(50ms);
+        clockC.Advance(50ms);
 
         // B ↔ A probes (reverse).
         SimulateConsensusProbeRound(nodeB, clockB, "A", nodeA, clockA, "B", delay); //NOLINT(readability-suspicious-call-argument)
-        clockA.Advance(50'000'000);
-        clockB.Advance(50'000'000);
-        clockC.Advance(50'000'000);
+        clockA.Advance(50ms);
+        clockB.Advance(50ms);
+        clockC.Advance(50ms);
 
         // C ↔ B probes (reverse).
         SimulateConsensusProbeRound(nodeC, clockC, "B", nodeB, clockB, "A", delay);
-        clockA.Advance(50'000'000);
-        clockB.Advance(50'000'000);
-        clockC.Advance(50'000'000);
+        clockA.Advance(50ms);
+        clockB.Advance(50ms);
+        clockC.Advance(50ms);
     }
 
     // All three should converge to the same epoch.
@@ -218,8 +219,8 @@ TEST(Consensus, ThreeNodeChainPropagation)
 TEST(Consensus, GroupMergeAdoptsStrongerEpoch)
 {
     FakeClock clockA, clockB;
-    clockA.SetNow(100'000'000LL);  // A created earlier → stronger.
-    clockB.SetNow(200'000'000LL);
+    clockA.SetNow(100ms);  // A created earlier → stronger.
+    clockB.SetNow(200ms);
 
     Consensus nodeA(clockA);
     Consensus nodeB(clockB);
@@ -253,8 +254,8 @@ TEST(Consensus, GroupMergeAdoptsStrongerEpoch)
 TEST(Consensus, ViewerAdoptsAnyEpoch)
 {
     FakeClock clockA, clockV;
-    clockA.SetNow(1'000'000'000LL);
-    clockV.SetNow(2'000'000'000LL); // Viewer created later — would normally be weaker.
+    clockA.SetNow(1s);
+    clockV.SetNow(2s); // Viewer created later — would normally be weaker.
 
     Consensus nodeA(clockA, ConsensusMode::Voter);
     Consensus viewer(clockV, ConsensusMode::Viewer);
@@ -275,8 +276,8 @@ TEST(Consensus, ViewerAdoptsAnyEpoch)
 TEST(Consensus, EmitsSyncLostOnLastPeerRemoved)
 {
     FakeClock clockA, clockB;
-    clockA.SetNow(1'000'000'000LL);
-    clockB.SetNow(1'000'000'000LL);
+    clockA.SetNow(1s);
+    clockB.SetNow(1s);
 
     SessionConfig config;
     config.minSamplesForSync = 2;
@@ -291,13 +292,13 @@ TEST(Consensus, EmitsSyncLostOnLastPeerRemoved)
     nodeA.AddPeer("B");
     nodeB.AddPeer("A");
 
-    constexpr Ticks delay = 2'000'000;
+    constexpr Ticks delay = 2ms;
 
     // Converge.
     for (int i = 0; i < 5; ++i) {
         SimulateConsensusProbeRound(nodeA, clockA, "B", nodeB, clockB, "A", delay);
-        clockA.Advance(100'000'000);
-        clockB.Advance(100'000'000);
+        clockA.Advance(100ms);
+        clockB.Advance(100ms);
     }
 
     EXPECT_TRUE(nodeA.IsSynced());

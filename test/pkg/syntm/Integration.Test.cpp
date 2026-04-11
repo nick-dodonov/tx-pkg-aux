@@ -20,6 +20,7 @@
 #include <vector>
 
 using namespace SynTm;
+using namespace std::chrono_literals;
 
 // ===========================================================================
 // Test harness: simulated node graph
@@ -85,8 +86,8 @@ namespace
     void AdvanceAll(std::vector<SimNode*>& nodes, Ticks dt)
     {
         for (auto* n : nodes) {
-            auto actual = static_cast<Ticks>(
-                static_cast<double>(dt) * n->driftFactor);
+            auto actual = Ticks{static_cast<std::int64_t>(
+                static_cast<double>(dt.count()) * n->driftFactor)};
             n->clock.Advance(actual);
         }
     }
@@ -97,8 +98,8 @@ namespace
         SessionConfig c;
         c.minSamplesForSync = 2;
         c.filterWindowSize  = 4;
-        c.probeIntervalMin  = 10'000'000;  // 10ms.
-        c.probeIntervalMax  = 50'000'000;  // 50ms.
+        c.probeIntervalMin  = 10ms;
+        c.probeIntervalMax  = 50ms;
         return c;
     }
 }
@@ -112,20 +113,20 @@ TEST(Integration, TwoNodeOffset)
     auto config = FastConfig();
 
     // Node A starts at 1s, node B starts with +50ms offset.
-    SimNode nodeA("A", 1'000'000'000LL, ConsensusMode::Voter, config);
-    SimNode nodeB("B", 1'050'000'000LL, ConsensusMode::Voter, config);
+    SimNode nodeA("A", 1s, ConsensusMode::Voter, config);
+    SimNode nodeB("B", 1s + 50ms, ConsensusMode::Voter, config);
 
     nodeA.consensus.AddPeer("B");
     nodeB.consensus.AddPeer("A");
 
-    constexpr Ticks delay = 5'000'000; // 5ms symmetric.
+    constexpr Ticks delay = 5ms; // 5ms symmetric.
     std::vector<SimNode*> all = {&nodeA, &nodeB};
 
     for (int i = 0; i < 8; ++i) {
         ProbeRound(nodeA, "B", nodeB, "A", delay, delay);
-        AdvanceAll(all, 50'000'000);
+        AdvanceAll(all, 50ms);
         ProbeRound(nodeB, "A", nodeA, "B", delay, delay);
-        AdvanceAll(all, 50'000'000);
+        AdvanceAll(all, 50ms);
     }
 
     EXPECT_TRUE(nodeA.consensus.IsSynced());
@@ -140,20 +141,14 @@ TEST(Integration, TwoNodeOffset)
     // Verify A's synced time is close to B's local time.
     Ticks aSynced = nodeA.syncClock.NowNanos();
     Ticks bLocal  = nodeB.clock.Now();
-    Ticks diffA = aSynced - bLocal;
-    if (diffA < 0) {
-        diffA = -diffA;
-    }
-    EXPECT_LE(diffA, 5'000'000); // Within 5ms of B's local time.
+    auto diffA = std::chrono::abs(aSynced - bLocal);
+    EXPECT_LE(diffA, 5ms); // Within 5ms of B's local time.
 
     // Verify B's synced time is close to A's local time.
     Ticks bSynced = nodeB.syncClock.NowNanos();
     Ticks aLocal  = nodeA.clock.Now();
-    Ticks diffB = bSynced - aLocal;
-    if (diffB < 0) {
-        diffB = -diffB;
-    }
-    EXPECT_LE(diffB, 5'000'000); // Within 5ms of A's local time.
+    auto diffB = std::chrono::abs(bSynced - aLocal);
+    EXPECT_LE(diffB, 5ms); // Within 5ms of A's local time.
 }
 
 // ===========================================================================
@@ -164,9 +159,9 @@ TEST(Integration, ThreeNodeChain)
 {
     auto config = FastConfig();
 
-    SimNode nodeA("A", 1'000'000'000LL, ConsensusMode::Voter, config);
-    SimNode nodeB("B", 1'000'000'000LL, ConsensusMode::Voter, config);
-    SimNode nodeC("C", 1'000'000'000LL, ConsensusMode::Voter, config);
+    SimNode nodeA("A", 1s, ConsensusMode::Voter, config);
+    SimNode nodeB("B", 1s, ConsensusMode::Voter, config);
+    SimNode nodeC("C", 1s, ConsensusMode::Voter, config);
 
     // A ↔ B, B ↔ C. No direct A ↔ C link.
     nodeA.consensus.AddPeer("B");
@@ -174,18 +169,18 @@ TEST(Integration, ThreeNodeChain)
     nodeB.consensus.AddPeer("C");
     nodeC.consensus.AddPeer("B");
 
-    constexpr Ticks delay = 3'000'000;
+    constexpr Ticks delay = 3ms;
     std::vector<SimNode*> all = {&nodeA, &nodeB, &nodeC};
 
     for (int i = 0; i < 10; ++i) {
         ProbeRound(nodeA, "B", nodeB, "A", delay, delay);
-        AdvanceAll(all, 30'000'000);
+        AdvanceAll(all, 30ms);
         ProbeRound(nodeB, "C", nodeC, "B", delay, delay);
-        AdvanceAll(all, 30'000'000);
+        AdvanceAll(all, 30ms);
         ProbeRound(nodeB, "A", nodeA, "B", delay, delay);
-        AdvanceAll(all, 30'000'000);
+        AdvanceAll(all, 30ms);
         ProbeRound(nodeC, "B", nodeB, "C", delay, delay);
-        AdvanceAll(all, 30'000'000);
+        AdvanceAll(all, 30ms);
     }
 
     // All three should share the same epoch.
@@ -205,19 +200,19 @@ TEST(Integration, GroupMerge)
     auto config = FastConfig();
 
     // Group 1: A ↔ B, started earlier (stronger epoch).
-    SimNode nodeA("A", 100'000'000LL, ConsensusMode::Voter, config);
-    SimNode nodeB("B", 100'000'000LL, ConsensusMode::Voter, config);
+    SimNode nodeA("A", 100ms, ConsensusMode::Voter, config);
+    SimNode nodeB("B", 100ms, ConsensusMode::Voter, config);
 
     // Group 2: C ↔ D, started later (weaker epoch).
-    SimNode nodeC("C", 500'000'000LL, ConsensusMode::Voter, config);
-    SimNode nodeD("D", 500'000'000LL, ConsensusMode::Voter, config);
+    SimNode nodeC("C", 500ms, ConsensusMode::Voter, config);
+    SimNode nodeD("D", 500ms, ConsensusMode::Voter, config);
 
     nodeA.consensus.AddPeer("B");
     nodeB.consensus.AddPeer("A");
     nodeC.consensus.AddPeer("D");
     nodeD.consensus.AddPeer("C");
 
-    constexpr Ticks delay = 2'000'000;
+    constexpr Ticks delay = 2ms;
 
     // Sync each group internally.
     std::vector<SimNode*> group1 = {&nodeA, &nodeB};
@@ -225,17 +220,17 @@ TEST(Integration, GroupMerge)
 
     for (int i = 0; i < 5; ++i) {
         ProbeRound(nodeA, "B", nodeB, "A", delay, delay);
-        AdvanceAll(group1, 30'000'000);
-        AdvanceAll(group2, 30'000'000);
+        AdvanceAll(group1, 30ms);
+        AdvanceAll(group2, 30ms);
         ProbeRound(nodeB, "A", nodeA, "B", delay, delay);
-        AdvanceAll(group1, 30'000'000);
-        AdvanceAll(group2, 30'000'000);
+        AdvanceAll(group1, 30ms);
+        AdvanceAll(group2, 30ms);
         ProbeRound(nodeC, "D", nodeD, "C", delay, delay);
-        AdvanceAll(group1, 30'000'000);
-        AdvanceAll(group2, 30'000'000);
+        AdvanceAll(group1, 30ms);
+        AdvanceAll(group2, 30ms);
         ProbeRound(nodeD, "C", nodeC, "D", delay, delay);
-        AdvanceAll(group1, 30'000'000);
-        AdvanceAll(group2, 30'000'000);
+        AdvanceAll(group1, 30ms);
+        AdvanceAll(group2, 30ms);
     }
 
     auto epochGroup1 = nodeA.consensus.Epoch().id;
@@ -253,14 +248,14 @@ TEST(Integration, GroupMerge)
 
     for (int i = 0; i < 5; ++i) {
         ProbeRound(nodeB, "C", nodeC, "B", delay, delay);
-        AdvanceAll(all, 30'000'000);
+        AdvanceAll(all, 30ms);
         ProbeRound(nodeC, "B", nodeB, "C", delay, delay);
-        AdvanceAll(all, 30'000'000);
+        AdvanceAll(all, 30ms);
         // Continue internal probes.
         ProbeRound(nodeC, "D", nodeD, "C", delay, delay);
-        AdvanceAll(all, 30'000'000);
+        AdvanceAll(all, 30ms);
         ProbeRound(nodeD, "C", nodeC, "D", delay, delay);
-        AdvanceAll(all, 30'000'000);
+        AdvanceAll(all, 30ms);
     }
 
     // Group 2 should have adopted group 1's epoch (it was created earlier).
@@ -287,20 +282,20 @@ TEST(Integration, ViewerTracksVoter)
 {
     auto config = FastConfig();
 
-    SimNode voter("V", 1'000'000'000LL, ConsensusMode::Voter, config);
-    SimNode viewer("W", 2'000'000'000LL, ConsensusMode::Viewer, config);
+    SimNode voter("V", 1s, ConsensusMode::Voter, config);
+    SimNode viewer("W", 2s, ConsensusMode::Viewer, config);
 
     voter.consensus.AddPeer("W");
     viewer.consensus.AddPeer("V");
 
-    constexpr Ticks delay = 5'000'000;
+    constexpr Ticks delay = 5ms;
     std::vector<SimNode*> all = {&voter, &viewer};
 
     for (int i = 0; i < 6; ++i) {
         ProbeRound(viewer, "V", voter, "W", delay, delay);
-        AdvanceAll(all, 50'000'000);
+        AdvanceAll(all, 50ms);
         ProbeRound(voter, "W", viewer, "V", delay, delay);
-        AdvanceAll(all, 50'000'000);
+        AdvanceAll(all, 50ms);
     }
 
     // Viewer should have adopted the voter's epoch.
@@ -319,13 +314,13 @@ TEST(Integration, WireFormatEndToEnd)
 {
     auto config = FastConfig();
 
-    SimNode nodeA("A", 1'000'000'000LL, ConsensusMode::Voter, config);
-    SimNode nodeB("B", 1'000'000'000LL, ConsensusMode::Voter, config);
+    SimNode nodeA("A", 1s, ConsensusMode::Voter, config);
+    SimNode nodeB("B", 1s, ConsensusMode::Voter, config);
 
     nodeA.consensus.AddPeer("B");
     nodeB.consensus.AddPeer("A");
 
-    constexpr Ticks delay = 3'000'000;
+    constexpr Ticks delay = 3ms;
     std::vector<SimNode*> all = {&nodeA, &nodeB};
 
     // Simulate probe exchange using wire-format serialization.
@@ -369,7 +364,7 @@ TEST(Integration, WireFormatEndToEnd)
         nodeA.consensus.HandleProbeResponse(
             "B", *parsedResp->response, parsedResp->epoch);
 
-        AdvanceAll(all, 50'000'000);
+        AdvanceAll(all, 50ms);
     }
 
     EXPECT_TRUE(nodeA.consensus.IsSynced());
@@ -385,20 +380,20 @@ TEST(Integration, DriftCompensation)
     auto config = FastConfig();
 
     // Node A runs at 1x speed. Node B runs at 1.0001x (100 ppm fast).
-    SimNode nodeA("A", 1'000'000'000LL, ConsensusMode::Voter, config, 1.0);
-    SimNode nodeB("B", 1'000'000'000LL, ConsensusMode::Voter, config, 1.0001);
+    SimNode nodeA("A", 1s, ConsensusMode::Voter, config, 1.0);
+    SimNode nodeB("B", 1s, ConsensusMode::Voter, config, 1.0001);
 
     nodeA.consensus.AddPeer("B");
     nodeB.consensus.AddPeer("A");
 
-    constexpr Ticks delay = 3'000'000;
+    constexpr Ticks delay = 3ms;
     std::vector<SimNode*> all = {&nodeA, &nodeB};
 
     for (int i = 0; i < 12; ++i) {
         ProbeRound(nodeA, "B", nodeB, "A", delay, delay);
-        AdvanceAll(all, 100'000'000);
+        AdvanceAll(all, 100ms);
         ProbeRound(nodeB, "A", nodeA, "B", delay, delay);
-        AdvanceAll(all, 100'000'000);
+        AdvanceAll(all, 100ms);
     }
 
     EXPECT_TRUE(nodeA.consensus.IsSynced());
@@ -408,12 +403,9 @@ TEST(Integration, DriftCompensation)
     nodeA.syncClock.Update();
     nodeB.syncClock.Update();
 
-    Ticks diff = nodeA.syncClock.NowNanos() - nodeB.syncClock.NowNanos();
-    if (diff < 0) {
-        diff = -diff;
-    }
+    auto diff = std::chrono::abs(nodeA.syncClock.NowNanos() - nodeB.syncClock.NowNanos());
     // 10ms tolerance — generous, accounting for 100 ppm drift over ~2.4s.
-    EXPECT_LE(diff, 10'000'000);
+    EXPECT_LE(diff, 10ms);
 }
 
 // ===========================================================================
@@ -424,20 +416,20 @@ TEST(Integration, SyncAcquiredEvent)
 {
     auto config = FastConfig();
 
-    SimNode nodeA("A", 1'000'000'000LL, ConsensusMode::Voter, config);
-    SimNode nodeB("B", 1'000'000'000LL, ConsensusMode::Voter, config);
+    SimNode nodeA("A", 1s, ConsensusMode::Voter, config);
+    SimNode nodeB("B", 1s, ConsensusMode::Voter, config);
 
     nodeA.consensus.AddPeer("B");
     nodeB.consensus.AddPeer("A");
 
-    constexpr Ticks delay = 5'000'000;
+    constexpr Ticks delay = 5ms;
     std::vector<SimNode*> all = {&nodeA, &nodeB};
 
     for (int i = 0; i < 6; ++i) {
         ProbeRound(nodeA, "B", nodeB, "A", delay, delay);
-        AdvanceAll(all, 50'000'000);
+        AdvanceAll(all, 50ms);
         ProbeRound(nodeB, "A", nodeA, "B", delay, delay);
-        AdvanceAll(all, 50'000'000);
+        AdvanceAll(all, 50ms);
     }
 
     auto hasSyncAcquired = [](const std::vector<SyncEvent>& evts) {
@@ -459,20 +451,20 @@ TEST(Integration, TruncTimeCrossNode)
 {
     auto config = FastConfig();
 
-    SimNode nodeA("A", 1'000'000'000LL, ConsensusMode::Voter, config);
-    SimNode nodeB("B", 1'000'000'000LL, ConsensusMode::Voter, config);
+    SimNode nodeA("A", 1s, ConsensusMode::Voter, config);
+    SimNode nodeB("B", 1s, ConsensusMode::Voter, config);
 
     nodeA.consensus.AddPeer("B");
     nodeB.consensus.AddPeer("A");
 
-    constexpr Ticks delay = 2'000'000;
+    constexpr Ticks delay = 2ms;
     std::vector<SimNode*> all = {&nodeA, &nodeB};
 
     for (int i = 0; i < 6; ++i) {
         ProbeRound(nodeA, "B", nodeB, "A", delay, delay);
-        AdvanceAll(all, 50'000'000);
+        AdvanceAll(all, 50ms);
         ProbeRound(nodeB, "A", nodeA, "B", delay, delay);
-        AdvanceAll(all, 50'000'000);
+        AdvanceAll(all, 50ms);
     }
 
     nodeA.syncClock.Update();
@@ -485,12 +477,9 @@ TEST(Integration, TruncTimeCrossNode)
     Ticks expanded = nodeB.syncClock.Expand(trunc);
     Ticks original = nodeA.syncClock.NowNanos();
 
-    Ticks diff = expanded - original;
-    if (diff < 0) {
-        diff = -diff;
-    }
+    auto diff = std::chrono::abs(expanded - original);
     // Within 5ms tolerance (1 quantum + sync error).
-    EXPECT_LE(diff, 5'000'000);
+    EXPECT_LE(diff, 5ms);
 }
 
 // ===========================================================================
@@ -505,22 +494,22 @@ TEST(Integration, TwoNodeLargeOffset_ConvergesAndStabilizes)
 
     // A starts at 0, B starts at 20s — simulates two processes each with
     // their own AppClock that was started at different wall-clock moments.
-    SimNode nodeA("A", 0LL, ConsensusMode::Voter, config);
-    SimNode nodeB("B", 20'000'000'000LL, ConsensusMode::Voter, config);
+    SimNode nodeA("A", Ticks{}, ConsensusMode::Voter, config);
+    SimNode nodeB("B", 20s, ConsensusMode::Voter, config);
 
     nodeA.consensus.AddPeer("B");
     nodeB.consensus.AddPeer("A");
 
-    constexpr Ticks delay = 5'000'000; // 5ms symmetric.
+    constexpr Ticks delay = 5ms; // 5ms symmetric.
     std::vector<SimNode*> all = {&nodeA, &nodeB};
 
     // Run until both sides are Synced (up to 60 rounds).
     int rounds = 0;
     for (; rounds < 60; ++rounds) {
         ProbeRound(nodeA, "B", nodeB, "A", delay, delay);
-        AdvanceAll(all, 100'000'000);
+        AdvanceAll(all, 100ms);
         ProbeRound(nodeB, "A", nodeA, "B", delay, delay);
-        AdvanceAll(all, 100'000'000);
+        AdvanceAll(all, 100ms);
         if (nodeA.consensus.IsSynced() && nodeB.consensus.IsSynced()) {
             break;
         }
@@ -535,9 +524,9 @@ TEST(Integration, TwoNodeLargeOffset_ConvergesAndStabilizes)
 
     for (int i = 0; i < 20; ++i) {
         ProbeRound(nodeA, "B", nodeB, "A", delay, delay);
-        AdvanceAll(all, 100'000'000);
+        AdvanceAll(all, 100ms);
         ProbeRound(nodeB, "A", nodeA, "B", delay, delay);
-        AdvanceAll(all, 100'000'000);
+        AdvanceAll(all, 100ms);
     }
 
     auto hasResyncStarted = [](const std::vector<SyncEvent>& evts) {
@@ -563,23 +552,23 @@ TEST(Integration, TwoNodeLargeOffset_ConvergesAndStabilizes)
 TEST(Integration, Resynced_FiresOncePerEpisode)
 {
     auto config = FastConfig();
-    config.stepThreshold = 50'000'000; // lower threshold to make steps easier to trigger
+    config.stepThreshold = 50ms; // lower threshold to make steps easier to trigger
 
-    SimNode nodeA("A", 1'000'000'000LL, ConsensusMode::Voter, config);
-    SimNode nodeB("B", 1'000'000'000LL, ConsensusMode::Voter, config);
+    SimNode nodeA("A", 1s, ConsensusMode::Voter, config);
+    SimNode nodeB("B", 1s, ConsensusMode::Voter, config);
 
     nodeA.consensus.AddPeer("B");
     nodeB.consensus.AddPeer("A");
 
-    constexpr Ticks delay = 1'000'000;
+    constexpr Ticks delay = 1ms;
     std::vector<SimNode*> all = {&nodeA, &nodeB};
 
     // Converge first (bidirectional).
     for (int i = 0; i < 10; ++i) {
         ProbeRound(nodeA, "B", nodeB, "A", delay, delay);
-        AdvanceAll(all, 50'000'000);
+        AdvanceAll(all, 50ms);
         ProbeRound(nodeB, "A", nodeA, "B", delay, delay);
-        AdvanceAll(all, 50'000'000);
+        AdvanceAll(all, 50ms);
     }
     ASSERT_TRUE(nodeA.consensus.IsSynced());
     ASSERT_TRUE(nodeB.consensus.IsSynced());
@@ -588,14 +577,14 @@ TEST(Integration, Resynced_FiresOncePerEpisode)
     nodeB.events.clear();
 
     // Jump B by 200ms to force A into Resyncing.
-    nodeB.clock.Advance(200'000'000);
+    nodeB.clock.Advance(200ms);
 
     // Run a bunch of probes through the resync episode (bidirectional).
     for (int i = 0; i < 20; ++i) {
         ProbeRound(nodeA, "B", nodeB, "A", delay, delay);
-        AdvanceAll(all, 50'000'000);
+        AdvanceAll(all, 50ms);
         ProbeRound(nodeB, "A", nodeA, "B", delay, delay);
-        AdvanceAll(all, 50'000'000);
+        AdvanceAll(all, 50ms);
     }
 
     // Count ResyncStarted and ResyncCompleted events on A: each should be exactly 1 per episode.

@@ -29,13 +29,13 @@ namespace Demo
         float speedMultiplier = 1.0f;
 
         /// Set by DemoNode when a coordinated shot is scheduled.
-        std::atomic<SynTm::Ticks> nextShotTime{0};
+        std::atomic<SynTm::Ticks> nextShotTime{SynTm::Ticks{}};
 
         /// Set to true by Update when the shot fires. DemoNode reads & clears.
         std::atomic<bool> shotFired{false};
 
         /// Actual synced time when the shot was detected.
-        std::atomic<SynTm::Ticks> shotActualTime{0};
+        std::atomic<SynTm::Ticks> shotActualTime{SynTm::Ticks{}};
 
         // -- Handler interface --
 
@@ -53,12 +53,12 @@ namespace Demo
 
             // Check shot timing.
             auto expected = nextShotTime.load(std::memory_order_relaxed);
-            if (expected > 0) {
+            if (expected > SynTm::Ticks{}) {
                 auto now = _syncClock.NowNanos();
                 if (now >= expected) {
                     shotActualTime.store(now, std::memory_order_relaxed);
                     shotFired.store(true, std::memory_order_relaxed);
-                    nextShotTime.store(0, std::memory_order_relaxed);
+                    nextShotTime.store(SynTm::Ticks{}, std::memory_order_relaxed);
                 }
             }
         }

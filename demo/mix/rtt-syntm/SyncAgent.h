@@ -174,10 +174,10 @@ namespace Demo
             auto error = msg->receivedSyncTime - msg->scheduledSyncTime;
             _view.lastShotError = error;
             ++_view.shotCount;
-            _view.totalShotError += std::abs(error);
+            _view.totalShotError += std::chrono::abs(error);
             Log::Info("[SHOT] ack from={} error={}ns avg={}ns",
                 _peerId, error,
-                _view.shotCount > 0 ? _view.totalShotError / _view.shotCount : 0);
+                _view.shotCount > 0 ? _view.totalShotError / _view.shotCount : SynTm::Ticks{});
         }
 
         void SendBytes(std::span<const std::byte> data)

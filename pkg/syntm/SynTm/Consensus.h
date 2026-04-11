@@ -264,7 +264,7 @@ namespace SynTm
             Ticks now = _clock.Now();
             // Simple epoch ID: hash of local time.
             _epoch = SyncEpoch{
-                .id          = static_cast<std::uint64_t>(now) ^ 0x5A5A5A5A'5A5A5A5AULL,
+                .id          = static_cast<std::uint64_t>(now.count()) ^ 0x5A5A5A5A'5A5A5A5AULL,
                 .baseTime    = now,
                 .rate        = Rational{.num=1, .den=1},
                 .memberCount = 1,

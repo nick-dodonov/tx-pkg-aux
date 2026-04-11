@@ -117,14 +117,14 @@ namespace SynTm
             Ticks t4 = _clock.Now();
             auto probe = ComputeProbeResult(resp.t1, resp.t2, resp.t3, t4);
 
-            Log::Trace("probe offset={}ns rtt={}ns", Log::Sep{probe.offset}, Log::Sep{probe.rtt});
+            Log::Trace("probe offset={}ns rtt={}ns", Log::Sep{probe.offset.count()}, Log::Sep{probe.rtt.count()});
 
             auto filterResult = _filter.AddSample(t4, probe);
             const auto sampleCount = filterResult.sampleCount;
 
             Log::Trace("filter: offset={}ns rate={}/{}({}) jitter={}ns minRtt={}ns sampleCount={}",
-                Log::Sep{filterResult.offset}, Log::Sep{filterResult.rate.num}, Log::Sep{filterResult.rate.den}, filterResult.rate.ToDouble(),
-                Log::Sep{filterResult.jitter}, Log::Sep{filterResult.minRtt}, sampleCount);
+                Log::Sep{filterResult.offset.count()}, Log::Sep{filterResult.rate.num}, Log::Sep{filterResult.rate.den}, filterResult.rate.ToDouble(),
+                Log::Sep{filterResult.jitter.count()}, Log::Sep{filterResult.minRtt.count()}, sampleCount);
 
             bool stepped = _driftModel.Steer(t4, filterResult);
 
@@ -201,8 +201,8 @@ namespace SynTm
         void Reset()
         {
             _state = SessionState::Idle;
-            _lastProbeSentAt = 0;
-            _pendingT1 = 0;
+            _lastProbeSentAt = {};
+            _pendingT1 = {};
             _everProbed = false;
             _filter.Reset();
             _driftModel.Reset();
@@ -225,12 +225,12 @@ namespace SynTm
 
             // Linear interpolation between min and max based on fill ratio.
             Ticks range = _config.probeIntervalMax - _config.probeIntervalMin;
-            auto ratio = static_cast<Ticks>(sampleCount * 2) /
-                         static_cast<Ticks>(_config.filterWindowSize);
+            auto ratio = static_cast<std::int64_t>(sampleCount * 2) /
+                         static_cast<std::int64_t>(_config.filterWindowSize);
             if (ratio > 2) { //NOLINT(readability-use-std-min-max)
                 ratio = 2;
             }
-            return _config.probeIntervalMin + (range * (ratio - 1)) / 1;
+            return _config.probeIntervalMin + range * (ratio - 1);
         }
 
         IClock& _clock;
@@ -239,8 +239,8 @@ namespace SynTm
         DriftModel _driftModel;
 
         SessionState _state = SessionState::Idle;
-        Ticks _lastProbeSentAt = 0;
-        Ticks _pendingT1 = 0;
+        Ticks _lastProbeSentAt{};
+        Ticks _pendingT1{};
         bool _everProbed = false;
     };
 }

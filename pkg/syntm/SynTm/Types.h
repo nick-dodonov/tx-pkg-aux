@@ -1,12 +1,14 @@
 #pragma once
+#include <chrono>
 #include <cstdint>
 #include <string_view>
 
 namespace SynTm
 {
-    /// Ticks as a signed 64-bit integer (nanosecond resolution).
-    /// Range: ~±292 years — sufficient for any realistic synchronization window.
-    using Ticks = std::int64_t;
+    /// Duration with nanosecond resolution.
+    /// Using std::chrono::duration enforces unit-safe arithmetic and enables
+    /// chrono literals (1ms, 2s) throughout the codebase.
+    using Ticks = std::chrono::nanoseconds;
 
     /// Rational number for drift rate representation.
     /// Enables purely integer arithmetic in the hot path.
@@ -20,8 +22,8 @@ namespace SynTm
         [[nodiscard]] constexpr Ticks Apply(Ticks value) const noexcept
         {
             // Use __int128 to avoid overflow on large values.
-            auto wide = static_cast<__int128>(value) * num;
-            return static_cast<Ticks>(wide / den);
+            auto wide = static_cast<__int128>(value.count()) * num;
+            return Ticks{static_cast<std::int64_t>(wide / den)};
         }
 
         /// Convert to double for logging/debugging (not used in hot path).

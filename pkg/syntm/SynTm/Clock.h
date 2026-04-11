@@ -22,10 +22,8 @@ namespace SynTm
     public:
         [[nodiscard]] Ticks Now() const noexcept override
         {
-            auto tp = std::chrono::steady_clock::now();
-            return std::chrono::duration_cast<std::chrono::nanoseconds>(
-                       tp.time_since_epoch())
-                .count();
+            return std::chrono::duration_cast<Ticks>(
+                std::chrono::steady_clock::now().time_since_epoch());
         }
     };
 
@@ -36,8 +34,8 @@ namespace SynTm
     public:
         [[nodiscard]] Ticks Now() const noexcept override
         {
-            auto elapsed = std::chrono::steady_clock::now() - _epoch;
-            return std::chrono::duration_cast<std::chrono::nanoseconds>(elapsed).count();
+            return std::chrono::duration_cast<Ticks>(
+                std::chrono::steady_clock::now() - _epoch);
         }
 
     private:
@@ -55,6 +53,6 @@ namespace SynTm
         void Advance(Ticks delta) noexcept { _now += delta; }
 
     private:
-        Ticks _now = 0;
+        Ticks _now{};
     };
 }
