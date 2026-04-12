@@ -23,7 +23,7 @@ namespace SynTm
         ///
         /// TODO: maxSlewRate is declared but unused — slew currently applies 50% of correction
         /// directly. Implement as: clamp computed slew to maxSlewRate * elapsed before applying.
-        DriftRate maxSlewRate{.ppb = 500'000};
+        DriftRate maxSlewRate = DriftRate{500us};
     };
 
     /// Tracks the mapping from local time to synchronized time,
@@ -74,8 +74,8 @@ namespace SynTm
                 _baseLocal = localTime;
                 _baseSynced = targetSynced;
                 _rate = result.rate;
-                Log::Trace("STEP baseLocal={} baseSynced={} rate={}ppb ({:.6f})",
-                    Log::Sep{_baseLocal.count()}, Log::Sep{_baseSynced.count()}, _rate.ppb, _rate.ToDouble());
+                Log::Trace("STEP baseLocal={} baseSynced={} rate={}ns/s ({:.6f})",
+                    Log::Sep{_baseLocal.count()}, Log::Sep{_baseSynced.count()}, _rate.count(), _rate.ToDouble());
                 return true; // Step occurred.
             }
 
@@ -94,8 +94,8 @@ namespace SynTm
             _baseSynced = currentSynced + slewAmount;
             _baseLocal = localTime;
 
-            Log::Trace("slew slewAmount={}ns newBaseSynced={} rate={}ppb ({:.6f})",
-                Log::Sep{slewAmount.count()}, Log::Sep{_baseSynced.count()}, _rate.ppb, _rate.ToDouble());
+            Log::Trace("slew slewAmount={}ns newBaseSynced={} rate={}ns/s ({:.6f})",
+                Log::Sep{slewAmount.count()}, Log::Sep{_baseSynced.count()}, _rate.count(), _rate.ToDouble());
 
             return false; // Smooth correction.
         }

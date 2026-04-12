@@ -187,12 +187,12 @@ namespace SynTm
 
             // beta = sumXY / sumXX (dimensionless drift per tick of local time).
             // ppb = beta * 10⁹ (exact in __int128, then clamped to int32).
-            auto ppbWide = sumXY * static_cast<__int128>(1'000'000'000LL) / sumXX;
+            auto ppbWide = sumXY * static_cast<__int128>(DriftRate::period::den) / sumXX;
             constexpr auto kMax = static_cast<__int128>(std::numeric_limits<std::int32_t>::max());
             constexpr auto kMin = static_cast<__int128>(std::numeric_limits<std::int32_t>::min());
             auto ppb = static_cast<std::int32_t>(std::clamp(ppbWide, kMin, kMax));
 
-            return DriftRate{.ppb = ppb};
+            return DriftRate{ppb};
         }
 
         /// Jitter: interquartile range of offsets.

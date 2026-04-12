@@ -117,13 +117,13 @@ namespace SynTm
             Ticks t4 = _clock.Now();
             auto probe = ComputeProbeResult(resp.t1, resp.t2, resp.t3, t4);
 
-            Log::Trace("probe offset={}ns rtt={}ns", Log::Sep{probe.offset.count()}, Log::Sep{probe.rtt.count()});
+            Log::Trace("probe: offset={}ns rtt={}ns", Log::Sep{probe.offset.count()}, Log::Sep{probe.rtt.count()});
 
             auto filterResult = _filter.AddSample(t4, probe);
             const auto sampleCount = filterResult.sampleCount;
 
-            Log::Trace("filter: offset={}ns rate={}ppb ({:.6f}) jitter={}ns minRtt={}ns sampleCount={}",
-                Log::Sep{filterResult.offset.count()}, filterResult.rate.ppb, filterResult.rate.ToDouble(),
+            Log::Trace("filter: offset={}ns rate={}ns/s ({:.6f}) jitter={}ns minRtt={}ns sampleCount={}",
+                Log::Sep{filterResult.offset.count()}, filterResult.rate.count(), filterResult.rate.ToDouble(),
                 Log::Sep{filterResult.jitter.count()}, Log::Sep{filterResult.minRtt.count()}, sampleCount);
 
             bool stepped = _driftModel.Steer(t4, filterResult);

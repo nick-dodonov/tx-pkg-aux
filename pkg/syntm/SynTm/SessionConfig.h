@@ -25,7 +25,7 @@ namespace SynTm
         Ticks stepThreshold = 100ms;
 
         /// Maximum slew rate (ppb). Default: 500'000 ppb = 500 ppm.
-        DriftRate maxSlewRate{.ppb = 500'000};
+        DriftRate maxSlewRate = DriftRate{500us};
 
         /// Jitter threshold below which the session is considered stable.
         /// When jitter < this, probe interval increases toward probeIntervalMax.
@@ -44,7 +44,7 @@ namespace SynTm
             .probeIntervalMax      = 2s,
             .filterWindowSize      = 8,
             .stepThreshold         = 100ms,
-            .maxSlewRate           = DriftRate{.ppb = 500'000},
+            .maxSlewRate           = DriftRate{500us},
             .jitterStableThreshold = 1ms,
             .minSamplesForSync     = 4,
         };
@@ -58,7 +58,7 @@ namespace SynTm
             .probeIntervalMax      = 10s,
             .filterWindowSize      = 16,
             .stepThreshold         = 500ms,
-            .maxSlewRate           = DriftRate{.ppb = 200'000},
+            .maxSlewRate           = DriftRate{200us},
             .jitterStableThreshold = 10ms,
             .minSamplesForSync     = 6,
         };

@@ -512,5 +512,5 @@ TEST(Filter, DriftRate_NoOverflowWhenWindowSpansSeconds)
     // With the overflow bug the rate was ~0.521; the DriftModel then diverges
     // by ~960ms over the next 2s probe interval, triggering a step.
     EXPECT_NEAR(rate, 1.0, 0.01)
-        << "computed rate=" << result.rate.ppb << "ppb (" << rate << ")";
+        << "computed rate=" << result.rate.count() << "ns/s (" << rate << ")";
 }

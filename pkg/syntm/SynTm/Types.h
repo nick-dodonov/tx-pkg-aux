@@ -10,39 +10,53 @@ namespace SynTm
     /// chrono literals (1ms, 2s) throughout the codebase.
     using Ticks = std::chrono::nanoseconds;
 
-    /// Clock drift rate in parts per billion (ppb).
+    /// Clock drift rate: nanoseconds of correction per second of elapsed time (ns/s).
     ///
-    /// Semantics: `ppb = (rate - 1.0) × 10⁹`
-    ///   - `ppb = 0`        → no drift (rate = 1.0, local and remote advance equally)
-    ///   - `ppb = +1'000`   → +1 ppm — remote gains 1 µs every second
-    ///   - `ppb = -500'000` → −500 ppm — remote loses 0.5 ms every second
+    /// Backed by std::chrono::duration<int32_t, std::nano>. The stored count()
+    /// is numerically identical to the industry-standard "parts per billion" (ppb),
+    /// and 1/1000 of "parts per million" (ppm):
     ///
-    /// Range: int32 covers ±2.1×10⁹ ppb = ±2.1× rate — far beyond any realistic
-    /// crystal drift (±1000 ppm = ±10⁶ ppb uses < 0.05% of the range).
-    struct DriftRate
+    ///   count() == 0        → no drift (rate = 1.0, clocks advance equally)
+    ///   count() == +1'000   → 1 µs/s = 1 ppm  (remote gains 1 µs per second)
+    ///   count() == +500'000 → 500 µs/s = 500 ppm
+    ///
+    /// Construct from ppm-scale values via duration_cast from microseconds:
+    ///   std::chrono::duration_cast<DriftRate>(500us)   // 500 µs/s = 500 ppm
+    ///   std::chrono::duration_cast<DriftRate>(1us)     // 1 µs/s   = 1 ppm
+    ///
+    /// Range: int32_t covers ±2.1×10⁹ ns/s — far beyond any realistic crystal
+    /// drift (±1000 ppm = ±10⁶ ns/s uses < 0.05% of the range).
+    struct DriftRate : std::chrono::duration<std::int32_t, std::nano>
     {
-        std::int32_t ppb = 0;
+        using Base = std::chrono::duration<std::int32_t, std::nano>;
+        using Base::Base;
 
-        /// Apply this rate to an elapsed duration: result ≈ value × (1 + ppb×10⁻⁹).
+        /// Explicit conversion from any duration type (e.g. DriftRate{500us} = 500 µs/s = 500 ppm).
+        template <typename Rep2, typename Period2>
+        explicit constexpr DriftRate(std::chrono::duration<Rep2, Period2> d) noexcept
+            : Base{std::chrono::duration_cast<Base>(d)}
+        {
+        }
+
+        /// Apply this rate to an elapsed duration: result ≈ elapsed × (1 + count()/period::den).
         ///
         /// Uses __int128 to handle the intermediate product without overflow.
         ///
         /// TODO(opt): decomposed form avoids __int128 and is safe for all realistic drifts:
-        ///   return value + Ticks{value.count() * ppb / 1'000'000'000LL};
-        ///   Safety bound: |elapsed.count() * ppb| ≤ INT64_MAX (~9.22×10¹⁸).
-        ///   For Ticks=ns and |ppb| ≤ 10⁶ (1000 ppm): safe up to ~2.56 h elapsed.
+        ///   return elapsed + Ticks{elapsed.count() * count() / period::den};
+        ///   Safety bound: |elapsed.count() * count()| ≤ INT64_MAX (~9.22×10¹⁸).
+        ///   For Ticks=ns and |count()| ≤ 10⁶ (1000 ppm): safe up to ~2.56 h elapsed.
         ///   In practice elapsed resets on every step/slew (seconds), so always safe.
         ///
         /// TODO(opt): shift variant — eliminates division entirely:
-        ///   store ppb_30 = ppb * 2³⁰ / 10⁹, Apply = value + (value * ppb_30) >> 30.
-        ///   2³⁰ ≈ 1.07×10⁹ introduces ~7% representational error vs true ppb.
+        ///   store val_30 = count() * 2³⁰ / period::den; Apply = elapsed + (elapsed * val_30) >> 30.
+        ///   2³⁰ ≈ 1.07×10⁹ introduces ~7% representational error.
         ///   Consider only if Apply appears as a profiling hot spot (currently
         ///   one call site: DriftModel::Convert).
-        [[nodiscard]] constexpr Ticks Apply(Ticks value) const noexcept
+        [[nodiscard]] constexpr Ticks Apply(Ticks elapsed) const noexcept
         {
-            // 10⁹ ppb denominator — exact for the ppb unit.
-            constexpr std::int64_t kDen = 1'000'000'000LL;
-            auto wide = static_cast<__int128>(value.count()) * (kDen + ppb);
+            constexpr auto kDen = static_cast<std::int64_t>(period::den);
+            auto wide = static_cast<__int128>(elapsed.count()) * (kDen + count());
             return Ticks{static_cast<std::int64_t>(wide / kDen)};
         }
 
@@ -51,7 +65,7 @@ namespace SynTm
         /// indicates a problem. Not used in the hot path.
         [[nodiscard]] constexpr double ToDouble() const noexcept
         {
-            return 1.0 + static_cast<double>(ppb) / 1'000'000'000.0;
+            return 1.0 + static_cast<double>(count()) / static_cast<double>(period::den);
         }
 
         auto operator<=>(const DriftRate&) const = default;

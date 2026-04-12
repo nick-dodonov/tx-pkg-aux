@@ -116,8 +116,8 @@ TEST(Filter, DetectsZeroDrift)
     auto result = filter.AddSample(8s,
         ProbeResult{.offset = 10ms, .rtt = 2ms});
 
-    // Rate should be 0 ppb (no drift).
-    EXPECT_EQ(result.rate.ppb, 0);
+    // Rate should be 0 (no drift).
+    EXPECT_EQ(result.rate.count(), 0);
 }
 
 TEST(Filter, DetectsPositiveDrift)
@@ -235,7 +235,7 @@ TEST(DriftModel, RateApplied)
 
     FilterResult fr{
         .offset = Ticks{},
-        .rate   = DriftRate{.ppb = 100'000}, // +100 ppm — remote is faster.
+        .rate   = DriftRate{100us}, // 100 µs/s = 100 ppm - remote is faster.
         .jitter = 100us,
         .minRtt = 2ms,
     };

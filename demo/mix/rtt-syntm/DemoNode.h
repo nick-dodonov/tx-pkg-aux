@@ -265,9 +265,9 @@ namespace Demo
             auto synced = _consensus.IsSynced();
             auto peerCount = _consensus.PeerCount();
 
-            _log.Info("SYNTM: synced={} quality={} peers={} syncTime={:.3f}s",
+            _log.Info("TM: synced={} quality={} peers={} syncTime={:.3f}s",
                 synced, SynTm::SyncQualityToString(quality), peerCount,
-                static_cast<double>(syncNow.count()) / 1e9);
+                std::chrono::duration<double>{syncNow}.count());
 
             _log.Info("SIM: pos={:.2f} vel={:.2f} speed={:.1f}",
                 _sim->position, _sim->velocity, _sim->speedMultiplier);

@@ -22,20 +22,20 @@ TEST(DriftRate, IdentityRate)
 
 TEST(DriftRate, PositiveDrift)
 {
-    DriftRate r{.ppb = 500'000}; // +500 ppm — remote gains 0.5ms per second.
+    auto r = DriftRate{500us}; // 500 µs/s = 500 ppm - remote gains 500 µs per second.
     EXPECT_EQ(r.Apply(1s), 1s + 500us);
 }
 
 TEST(DriftRate, NegativeDrift)
 {
-    DriftRate r{.ppb = -500'000}; // -500 ppm — remote loses 0.5ms per second.
+    auto r = DriftRate{-500us}; // -500 µs/s = -500 ppm - remote loses 500 µs per second.
     EXPECT_EQ(r.Apply(2s), 2s - 1ms);
 }
 
 TEST(DriftRate, LargeValuesNoOverflow)
 {
     // 100 seconds * 1 ppm drift — should not overflow with __int128.
-    DriftRate r{.ppb = 1'000}; // 1 ppm
+    auto r = DriftRate{1us}; // 1 µs/s = 1 ppm
     Ticks hundred_sec = 100s;
     Ticks result = r.Apply(hundred_sec);
     EXPECT_EQ(result, 100s + 100us);
