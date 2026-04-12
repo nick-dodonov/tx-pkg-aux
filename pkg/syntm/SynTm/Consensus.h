@@ -198,7 +198,7 @@ namespace SynTm
             SyncEpoch remoteEpoch{
                 .id          = remote.epochId,
                 .baseTime    = remote.baseTime,
-                .rate        = Rational{.num=1, .den=1},
+                .rate        = DriftRate{},
                 .memberCount = remote.memberCount,
                 .createdAt   = remote.createdAt,
             };
@@ -266,7 +266,7 @@ namespace SynTm
             _epoch = SyncEpoch{
                 .id          = static_cast<std::uint64_t>(now.count()) ^ 0x5A5A5A5A'5A5A5A5AULL,
                 .baseTime    = now,
-                .rate        = Rational{.num=1, .den=1},
+                .rate        = DriftRate{},
                 .memberCount = 1,
                 .createdAt   = now,
             };
@@ -277,7 +277,7 @@ namespace SynTm
             _epoch = SyncEpoch{
                 .id          = info.epochId,
                 .baseTime    = info.baseTime,
-                .rate        = Rational{.num=1, .den=1},
+                .rate        = DriftRate{},
                 .memberCount = info.memberCount,
                 .createdAt   = info.createdAt,
             };

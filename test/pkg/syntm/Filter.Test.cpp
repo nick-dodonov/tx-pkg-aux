@@ -116,8 +116,8 @@ TEST(Filter, DetectsZeroDrift)
     auto result = filter.AddSample(8s,
         ProbeResult{.offset = 10ms, .rtt = 2ms});
 
-    // Rate should be 1/1 (no drift).
-    EXPECT_EQ(result.rate.num, result.rate.den);
+    // Rate should be 0 ppb (no drift).
+    EXPECT_EQ(result.rate.ppb, 0);
 }
 
 TEST(Filter, DetectsPositiveDrift)
@@ -140,8 +140,8 @@ TEST(Filter, DetectsPositiveDrift)
     auto fr = filter.AddSample(8s,
         ProbeResult{.offset = 10ms + 800us, .rtt = 2ms});
 
-    // Rate num > den (remote is faster).
-    double rate = static_cast<double>(fr.rate.num) / static_cast<double>(fr.rate.den);
+    // Rate ppb > 0 (remote is faster).
+    double rate = fr.rate.ToDouble();
     EXPECT_GT(rate, 1.0);
     EXPECT_LT(rate, 1.01); // Should be in the ballpark of 100ppm (1.0001).
 }
@@ -179,7 +179,7 @@ TEST(DriftModel, SteerSmallCorrection)
     // Filter says offset is 7ms (2ms correction).
     FilterResult fr{
         .offset = 7ms,
-        .rate   = Rational{1, 1},
+        .rate   = DriftRate{},
         .jitter = 100us,
         .minRtt = 2ms,
     };
@@ -204,7 +204,7 @@ TEST(DriftModel, SteerLargeCorrection)
     // Filter says offset is 200ms (195ms correction > 50ms threshold).
     FilterResult fr{
         .offset = 200ms,
-        .rate   = Rational{1, 1},
+        .rate   = DriftRate{},
         .jitter = 100us,
         .minRtt = 2ms,
     };
@@ -235,7 +235,7 @@ TEST(DriftModel, RateApplied)
 
     FilterResult fr{
         .offset = Ticks{},
-        .rate   = Rational{.num=1'000'100, .den=1'000'000},
+        .rate   = DriftRate{.ppb = 100'000}, // +100 ppm — remote is faster.
         .jitter = 100us,
         .minRtt = 2ms,
     };

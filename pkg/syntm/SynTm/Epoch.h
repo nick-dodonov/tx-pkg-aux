@@ -19,8 +19,8 @@ namespace SynTm
         /// Base synchronized time — the epoch's "origin" in ticks.
         Ticks baseTime{};
 
-        /// Drift rate relative to some agreed reference (typically 1/1).
-        Rational rate{.num=1, .den=1};
+        /// Drift rate relative to some agreed reference.
+        DriftRate rate{};
 
         /// Number of nodes currently sharing this epoch.
         std::uint32_t memberCount = 0;

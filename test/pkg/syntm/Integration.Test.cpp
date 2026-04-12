@@ -97,9 +97,9 @@ namespace
     {
         SessionConfig c;
         c.minSamplesForSync = 2;
-        c.filterWindowSize  = 4;
-        c.probeIntervalMin  = 10ms;
-        c.probeIntervalMax  = 50ms;
+        c.filterWindowSize = 4;
+        c.probeIntervalMin = 10ms;
+        c.probeIntervalMax = 50ms;
         return c;
     }
 }

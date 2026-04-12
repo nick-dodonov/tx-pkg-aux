@@ -11,31 +11,31 @@ using namespace SynTm;
 using namespace std::chrono_literals;
 
 // ===========================================================================
-// Rational
+// DriftRate
 // ===========================================================================
 
-TEST(Rational, IdentityRate)
+TEST(DriftRate, IdentityRate)
 {
-    Rational r{.num=1, .den=1};
+    DriftRate r{}; // 0 ppb — no drift.
     EXPECT_EQ(r.Apply(1s), 1s);
 }
 
-TEST(Rational, ScaleUp)
+TEST(DriftRate, PositiveDrift)
 {
-    Rational r{.num=3, .den=2}; // 1.5x
-    EXPECT_EQ(r.Apply(1s), 1500ms);
+    DriftRate r{.ppb = 500'000}; // +500 ppm — remote gains 0.5ms per second.
+    EXPECT_EQ(r.Apply(1s), 1s + 500us);
 }
 
-TEST(Rational, ScaleDown)
+TEST(DriftRate, NegativeDrift)
 {
-    Rational r{.num=2, .den=3}; // ~0.667x
-    EXPECT_EQ(r.Apply(3s), 2s);
+    DriftRate r{.ppb = -500'000}; // -500 ppm — remote loses 0.5ms per second.
+    EXPECT_EQ(r.Apply(2s), 2s - 1ms);
 }
 
-TEST(Rational, LargeValuesNoOverflow)
+TEST(DriftRate, LargeValuesNoOverflow)
 {
-    // 100 seconds * rate close to 1.0 — should not overflow with __int128.
-    Rational r{.num=1'000'001, .den=1'000'000}; // 1.000001x (1ppm drift)
+    // 100 seconds * 1 ppm drift — should not overflow with __int128.
+    DriftRate r{.ppb = 1'000}; // 1 ppm
     Ticks hundred_sec = 100s;
     Ticks result = r.Apply(hundred_sec);
     EXPECT_EQ(result, 100s + 100us);

@@ -5,6 +5,7 @@
 #include <algorithm>
 #include <cstddef>
 #include <cstdint>
+#include <limits>
 #include <vector>
 
 namespace SynTm
@@ -13,7 +14,7 @@ namespace SynTm
     struct FilterResult
     {
         Ticks offset{}; ///< Best estimate of clock offset (remote - local).
-        Rational rate{.num=1, .den=1}; ///< Estimated drift rate (local → remote).
+        DriftRate rate{}; ///< Estimated drift rate (local → remote).
         Ticks jitter{}; ///< Dispersion measure (interquartile range of offsets).
         Ticks minRtt{}; ///< Minimum RTT seen in the current window.
         std::size_t sampleCount = 0; ///< Number of samples in the window that produced this result.
@@ -135,15 +136,14 @@ namespace SynTm
         }
 
         /// Integer linear regression: offset = alpha + beta * (localTime - t0).
-        /// Returns Rational rate ≈ 1 + beta (drift per nanosecond).
+        /// Returns DriftRate where ppb = beta * 10⁹ (drift in parts per billion).
         ///
         /// Uses: beta = Σ(dx·dy) / Σ(dx²), where dx = localTime - mean(localTime),
         /// dy = offset - mean(offset).
-        /// Rate = (den + num_drift) / den where num_drift = beta * den.
-        [[nodiscard]] Rational ComputeDriftRate() const
+        [[nodiscard]] DriftRate ComputeDriftRate() const
         {
             if (_samples.size() < 3) {
-                return Rational{.num=1, .den=1}; // Not enough data for drift.
+                return DriftRate{}; // Not enough data for drift.
             }
 
             const auto n = static_cast<std::int64_t>(_samples.size());
@@ -182,33 +182,17 @@ namespace SynTm
             }
 
             if (sumXX == 0) {
-                return Rational{.num=1, .den=1};
+                return DriftRate{};
             }
 
-            // beta = sumXY / sumXX (drift rate in offset-nanos per local-nanos).
-            // We want rate = 1 + beta → rational form.
-            // rate = (sumXX + sumXY) / sumXX
-            auto num = static_cast<std::int64_t>((sumXX + sumXY) / static_cast<__int128>(n));
-            auto den = static_cast<std::int64_t>(sumXX / static_cast<__int128>(n));
+            // beta = sumXY / sumXX (dimensionless drift per tick of local time).
+            // ppb = beta * 10⁹ (exact in __int128, then clamped to int32).
+            auto ppbWide = sumXY * static_cast<__int128>(1'000'000'000LL) / sumXX;
+            constexpr auto kMax = static_cast<__int128>(std::numeric_limits<std::int32_t>::max());
+            constexpr auto kMin = static_cast<__int128>(std::numeric_limits<std::int32_t>::min());
+            auto ppb = static_cast<std::int32_t>(std::clamp(ppbWide, kMin, kMax));
 
-            if (den == 0) {
-                return Rational{.num=1, .den=1};
-            }
-
-            // Simplify by GCD for smaller numbers.
-            auto g = Gcd(Abs(num), Abs(den));
-            if (g > 1) {
-                num /= g;
-                den /= g;
-            }
-
-            // Ensure denominator is positive.
-            if (den < 0) {
-                num = -num;
-                den = -den;
-            }
-
-            return Rational{.num=num, .den=den};
+            return DriftRate{.ppb = ppb};
         }
 
         /// Jitter: interquartile range of offsets.
@@ -231,21 +215,6 @@ namespace SynTm
             auto q1 = offsets[offsets.size() / 4];
             auto q3 = offsets[offsets.size() * 3 / 4];
             return q3 - q1;
-        }
-
-        static constexpr std::int64_t Abs(std::int64_t x) noexcept
-        {
-            return x < 0 ? -x : x;
-        }
-
-        static constexpr std::int64_t Gcd(std::int64_t a, std::int64_t b) noexcept
-        {
-            while (b != 0) {
-                auto t = b;
-                b = a % b;
-                a = t;
-            }
-            return a;
         }
 
         std::size_t _windowSize;

@@ -24,8 +24,8 @@ namespace SynTm
         /// Step threshold: corrections larger than this cause a time jump.
         Ticks stepThreshold = 100ms;
 
-        /// Maximum slew rate (rational).
-        Rational maxSlewRate{.num=500, .den=1'000'000}; // 500ppm
+        /// Maximum slew rate (ppb). Default: 500'000 ppb = 500 ppm.
+        DriftRate maxSlewRate{.ppb = 500'000};
 
         /// Jitter threshold below which the session is considered stable.
         /// When jitter < this, probe interval increases toward probeIntervalMax.
@@ -44,7 +44,7 @@ namespace SynTm
             .probeIntervalMax      = 2s,
             .filterWindowSize      = 8,
             .stepThreshold         = 100ms,
-            .maxSlewRate           = {.num=500, .den=1'000'000},
+            .maxSlewRate           = DriftRate{.ppb = 500'000},
             .jitterStableThreshold = 1ms,
             .minSamplesForSync     = 4,
         };
@@ -58,7 +58,7 @@ namespace SynTm
             .probeIntervalMax      = 10s,
             .filterWindowSize      = 16,
             .stepThreshold         = 500ms,
-            .maxSlewRate           = {.num=200, .den=1'000'000},
+            .maxSlewRate           = DriftRate{.ppb = 200'000},
             .jitterStableThreshold = 10ms,
             .minSamplesForSync     = 6,
         };

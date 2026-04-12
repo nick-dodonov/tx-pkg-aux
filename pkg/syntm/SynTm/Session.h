@@ -122,8 +122,8 @@ namespace SynTm
             auto filterResult = _filter.AddSample(t4, probe);
             const auto sampleCount = filterResult.sampleCount;
 
-            Log::Trace("filter: offset={}ns rate={}/{}({}) jitter={}ns minRtt={}ns sampleCount={}",
-                Log::Sep{filterResult.offset.count()}, Log::Sep{filterResult.rate.num}, Log::Sep{filterResult.rate.den}, filterResult.rate.ToDouble(),
+            Log::Trace("filter: offset={}ns rate={}ppb ({:.6f}) jitter={}ns minRtt={}ns sampleCount={}",
+                Log::Sep{filterResult.offset.count()}, filterResult.rate.ppb, filterResult.rate.ToDouble(),
                 Log::Sep{filterResult.jitter.count()}, Log::Sep{filterResult.minRtt.count()}, sampleCount);
 
             bool stepped = _driftModel.Steer(t4, filterResult);

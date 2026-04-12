@@ -19,14 +19,17 @@ namespace SynTm
         Ticks stepThreshold = 100ms;
 
         /// Maximum slew rate: how fast to adjust (ticks per tick of local time).
-        /// Expressed as Rational. Default: 500ppm — ±0.5ms per second.
-        Rational maxSlewRate{.num=500, .den=1'000'000};
+        /// Expressed as DriftRate (ppb). Default: 500'000 ppb = 500 ppm — ±0.5 ms per second.
+        ///
+        /// TODO: maxSlewRate is declared but unused — slew currently applies 50% of correction
+        /// directly. Implement as: clamp computed slew to maxSlewRate * elapsed before applying.
+        DriftRate maxSlewRate{.ppb = 500'000};
     };
 
     /// Tracks the mapping from local time to synchronized time,
     /// compensating for measured offset and drift.
     ///
-    /// The model: syncedTime = (localTime - baseLocal) * rate.num / rate.den + baseSynced
+    /// The model: syncedTime = rate.Apply(localTime - baseLocal) + baseSynced
     ///
     /// Pure computation — no I/O, no timers, fully testable.
     class DriftModel
@@ -40,7 +43,7 @@ namespace SynTm
         {
             _baseLocal = localTime;
             _baseSynced = localTime + offset;
-            _rate = Rational{.num=1, .den=1};
+            _rate = DriftRate{};
             _initialized = true;
             Log::Trace("baseLocal={} baseSynced={} offset={}ns",
                 Log::Sep{_baseLocal.count()}, Log::Sep{_baseSynced.count()}, Log::Sep{offset.count()});
@@ -71,8 +74,8 @@ namespace SynTm
                 _baseLocal = localTime;
                 _baseSynced = targetSynced;
                 _rate = result.rate;
-                Log::Trace("STEP baseLocal={} baseSynced={} rate={}/{}({})",
-                    Log::Sep{_baseLocal.count()}, Log::Sep{_baseSynced.count()}, Log::Sep{_rate.num}, Log::Sep{_rate.den}, _rate.ToDouble());
+                Log::Trace("STEP baseLocal={} baseSynced={} rate={}ppb ({:.6f})",
+                    Log::Sep{_baseLocal.count()}, Log::Sep{_baseSynced.count()}, _rate.ppb, _rate.ToDouble());
                 return true; // Step occurred.
             }
 
@@ -91,8 +94,8 @@ namespace SynTm
             _baseSynced = currentSynced + slewAmount;
             _baseLocal = localTime;
 
-            Log::Trace("slew slewAmount={}ns newBaseSynced={} rate={}/{}({})",
-                Log::Sep{slewAmount.count()}, Log::Sep{_baseSynced.count()}, Log::Sep{_rate.num}, Log::Sep{_rate.den}, _rate.ToDouble());
+            Log::Trace("slew slewAmount={}ns newBaseSynced={} rate={}ppb ({:.6f})",
+                Log::Sep{slewAmount.count()}, Log::Sep{_baseSynced.count()}, _rate.ppb, _rate.ToDouble());
 
             return false; // Smooth correction.
         }
@@ -108,7 +111,7 @@ namespace SynTm
         }
 
         /// Current rate.
-        [[nodiscard]] Rational Rate() const noexcept { return _rate; }
+        [[nodiscard]] DriftRate Rate() const noexcept { return _rate; }
 
         /// Whether the model has been initialized.
         [[nodiscard]] bool IsInitialized() const noexcept { return _initialized; }
@@ -119,7 +122,7 @@ namespace SynTm
             _initialized = false;
             _baseLocal = {};
             _baseSynced = {};
-            _rate = Rational{.num=1, .den=1};
+            _rate = DriftRate{};
         }
 
         /// Read current policy.
@@ -130,6 +133,6 @@ namespace SynTm
         bool _initialized = false;
         Ticks _baseLocal{};
         Ticks _baseSynced{};
-        Rational _rate{.num=1, .den=1};
+        DriftRate _rate{};
     };
 }

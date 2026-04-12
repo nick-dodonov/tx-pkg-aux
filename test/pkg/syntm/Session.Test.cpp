@@ -507,11 +507,10 @@ TEST(Filter, DriftRate_NoOverflowWhenWindowSpansSeconds)
         result = filter.AddSample(s.localTime, ProbeResult{.offset = s.offset, .rtt = 60ms});
     }
 
-    double rate = static_cast<double>(result.rate.num) / static_cast<double>(result.rate.den);
+    double rate = result.rate.ToDouble();
 
     // With the overflow bug the rate was ~0.521; the DriftModel then diverges
     // by ~960ms over the next 2s probe interval, triggering a step.
     EXPECT_NEAR(rate, 1.0, 0.01)
-        << "computed rate=" << result.rate.num << "/" << result.rate.den
-        << " (" << rate << ") — likely int64 overflow in ComputeDriftRate";
+        << "computed rate=" << result.rate.ppb << "ppb (" << rate << ")";
 }
