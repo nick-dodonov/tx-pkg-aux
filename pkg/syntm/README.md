@@ -91,7 +91,7 @@ consensus.HandleProbeResponse("peer-id", incomingResponse, remoteEpochInfo);
 syncClock.Update(); // Call periodically from your main loop.
 
 auto now = syncClock.Now();           // std::chrono::steady_clock::time_point
-auto ns  = syncClock.NowNanos();      // Raw int64_t ticks
+auto ns  = syncClock.Now();           // Raw chrono::nanoseconds ticks
 bool ok  = syncClock.IsSynced();      // Have we converged?
 auto q   = syncClock.Quality();       // SyncQuality::None/Low/High
 ```

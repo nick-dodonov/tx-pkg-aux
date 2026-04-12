@@ -88,7 +88,7 @@ namespace Demo
             // Schedule first shot.
             auto shotInterval = std::chrono::milliseconds(_config.shotIntervalMs);
             auto statusInterval = std::chrono::milliseconds(_config.statusIntervalMs);
-            auto nextShot = _syncClock.NowNanos() + std::chrono::duration_cast<SynTm::Ticks>(shotInterval);
+            auto nextShot = _syncClock.Now() + std::chrono::duration_cast<SynTm::Ticks>(shotInterval);
             _sim->nextShotTime.store(nextShot, std::memory_order_relaxed);
 
             auto lastStatus = std::chrono::steady_clock::now();
@@ -122,7 +122,7 @@ namespace Demo
                 // Broadcast state.
                 if (now - lastBroadcast >= std::chrono::milliseconds(200)) {
                     lastBroadcast = now;
-                    auto syncNow = _syncClock.NowNanos();
+                    auto syncNow = _syncClock.Now();
                     for (auto& [_, agent] : _agents) {
                         agent.SendStateUpdate(_sim->position, _sim->velocity, syncNow);
                     }
@@ -141,7 +141,7 @@ namespace Demo
                     }
 
                     // Schedule next shot.
-                    nextShot = _syncClock.NowNanos() +
+                    nextShot = _syncClock.Now() +
                         std::chrono::duration_cast<SynTm::Ticks>(shotInterval);
                     _sim->nextShotTime.store(nextShot, std::memory_order_relaxed);
                 }
@@ -236,7 +236,7 @@ namespace Demo
 
         void HandleCommand(const CmdShot&)
         {
-            auto now = _syncClock.NowNanos();
+            auto now = _syncClock.Now();
             _sim->nextShotTime.store(now, std::memory_order_relaxed);
             _log.Info("[CMD] manual shot at synced={}", Log::Sep{now.count()});
         }
@@ -260,23 +260,23 @@ namespace Demo
 
         void Dump()
         {
-            auto syncNow = _syncClock.NowNanos();
+            auto syncNow = _syncClock.Now();
             auto quality = _consensus.Quality();
             auto synced = _consensus.IsSynced();
             auto peerCount = _consensus.PeerCount();
 
-            _log.Info("=== synced={} quality={} peers={} syncTime={:.3f}s",
+            _log.Info("SYNTM: synced={} quality={} peers={} syncTime={:.3f}s",
                 synced, SynTm::SyncQualityToString(quality), peerCount,
                 static_cast<double>(syncNow.count()) / 1e9);
 
-            _log.Info("  SIM: pos={:.2f} vel={:.2f} speed={:.1f}",
+            _log.Info("SIM: pos={:.2f} vel={:.2f} speed={:.1f}",
                 _sim->position, _sim->velocity, _sim->speedMultiplier);
 
             for (const auto& [peerId, agent] : _agents) {
                 const auto& v = agent.View();
                 auto estPos = v.EstimatePosition(syncNow);
                 auto stale = v.TimeSinceLastUpdate(syncNow);
-                _log.Info("  PEER {}: pos={:.2f}(est={:.2f}) offset={}ns rtt={}ns quality={} shot-err={}ns stale={:.1f}s",
+                _log.Info("PEER {}: pos={:.2f}(est={:.2f}) offset={}ns rtt={}ns quality={} shot-err={}ns stale={:.1f}s",
                     peerId, v.lastPosition, estPos, v.offset, v.rtt,
                     SynTm::SyncQualityToString(v.syncQuality), v.lastShotError, stale);
             }

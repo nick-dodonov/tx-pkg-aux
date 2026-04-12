@@ -54,7 +54,7 @@ namespace Demo
             // Check shot timing.
             auto expected = nextShotTime.load(std::memory_order_relaxed);
             if (expected > SynTm::Ticks{}) {
-                auto now = _syncClock.NowNanos();
+                auto now = _syncClock.Now();
                 if (now >= expected) {
                     shotActualTime.store(now, std::memory_order_relaxed);
                     shotFired.store(true, std::memory_order_relaxed);

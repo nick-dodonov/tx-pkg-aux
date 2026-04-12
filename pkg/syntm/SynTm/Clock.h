@@ -6,7 +6,7 @@
 namespace SynTm
 {
     /// Abstract clock source for testability.
-    /// Production code uses SteadyClock; tests use FakeClock.
+    /// Implementations: SteadyClock (production), AppClock, FakeClock (tests), SyncClock.
     class IClock
     {
     public:

@@ -156,7 +156,7 @@ namespace Demo
             if (!msg) {
                 return;
             }
-            auto now = _syncClock.NowNanos();
+            auto now = _syncClock.Now();
             auto delta = now - msg->scheduledSyncTime;
             Log::Info("[SHOT] received from={} scheduled={} actual={} delta={}ns",
                 _peerId, msg->scheduledSyncTime, now, delta);

@@ -139,13 +139,13 @@ TEST(Integration, TwoNodeOffset)
     nodeB.syncClock.Update();
 
     // Verify A's synced time is close to B's local time.
-    Ticks aSynced = nodeA.syncClock.NowNanos();
+    Ticks aSynced = nodeA.syncClock.Now();
     Ticks bLocal  = nodeB.clock.Now();
     auto diffA = std::chrono::abs(aSynced - bLocal);
     EXPECT_LE(diffA, 5ms); // Within 5ms of B's local time.
 
     // Verify B's synced time is close to A's local time.
-    Ticks bSynced = nodeB.syncClock.NowNanos();
+    Ticks bSynced = nodeB.syncClock.Now();
     Ticks aLocal  = nodeA.clock.Now();
     auto diffB = std::chrono::abs(bSynced - aLocal);
     EXPECT_LE(diffB, 5ms); // Within 5ms of A's local time.
@@ -403,7 +403,7 @@ TEST(Integration, DriftCompensation)
     nodeA.syncClock.Update();
     nodeB.syncClock.Update();
 
-    auto diff = std::chrono::abs(nodeA.syncClock.NowNanos() - nodeB.syncClock.NowNanos());
+    auto diff = std::chrono::abs(nodeA.syncClock.Now() - nodeB.syncClock.Now());
     // 10ms tolerance — generous, accounting for 100 ppm drift over ~2.4s.
     EXPECT_LE(diff, 10ms);
 }
@@ -475,7 +475,7 @@ TEST(Integration, TruncTimeCrossNode)
 
     // B expands it.
     Ticks expanded = nodeB.syncClock.Expand(trunc);
-    Ticks original = nodeA.syncClock.NowNanos();
+    Ticks original = nodeA.syncClock.Now();
 
     auto diff = std::chrono::abs(expanded - original);
     // Within 5ms tolerance (1 quantum + sync error).

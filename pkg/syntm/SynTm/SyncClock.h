@@ -14,10 +14,10 @@ namespace SynTm
     /// truncated time, and sync state queries.
     ///
     /// Thread safety:
-    ///   - Now() and NowNanos() read an atomic snapshot — safe from any thread.
+    ///   - Now() reads an atomic snapshot — safe from any thread.
     ///   - Update() must be called from a single thread (the event loop).
     ///   - All other methods delegate to Consensus and share its threading model.
-    class SyncClock
+    class SyncClock final : public IClock
     {
     public:
         explicit SyncClock(Consensus& consensus)
@@ -31,17 +31,9 @@ namespace SynTm
             _cachedSyncedNow.store(_consensus.SyncedNow(), std::memory_order_relaxed);
         }
 
-        /// Synchronized time as a steady_clock time_point.
+        /// Synchronized time in ticks.
         /// Thread-safe (reads atomic snapshot).
-        [[nodiscard]] std::chrono::steady_clock::time_point Now() const noexcept
-        {
-            auto ns = _cachedSyncedNow.load(std::memory_order_relaxed);
-            return std::chrono::steady_clock::time_point{ns};
-        }
-
-        /// Synchronized time in raw ticks.
-        /// Thread-safe (reads atomic snapshot).
-        [[nodiscard]] Ticks NowNanos() const noexcept
+        [[nodiscard]] Ticks Now() const noexcept override
         {
             return _cachedSyncedNow.load(std::memory_order_relaxed);
         }
@@ -51,14 +43,14 @@ namespace SynTm
         [[nodiscard]] TruncTimeT Truncate() const noexcept
         {
             return SynTm::Truncate<TruncTimeT::BitWidth, TruncTimeT::QuantumNs>(
-                NowNanos(), _consensus.Epoch().baseTime);
+                Now(), _consensus.Epoch().baseTime);
         }
 
         /// Expand a truncated time to an absolute tick value.
         template <typename TruncTimeT>
         [[nodiscard]] Ticks Expand(TruncTimeT trunc) const noexcept
         {
-            return SynTm::Expand(trunc, _consensus.Epoch().baseTime, NowNanos());
+            return SynTm::Expand(trunc, _consensus.Epoch().baseTime, Now());
         }
 
         /// Expand a truncated time to a steady_clock time_point.

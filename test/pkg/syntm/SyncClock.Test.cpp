@@ -49,7 +49,7 @@ TEST(SyncClock, ReturnsZeroBeforeUpdate)
     Consensus consensus(clock);
     SyncClock syncClock(consensus);
 
-    EXPECT_EQ(syncClock.NowNanos(), Ticks{});
+    EXPECT_EQ(syncClock.Now(), Ticks{});
 }
 
 TEST(SyncClock, UpdateRefreshesCache)
@@ -61,19 +61,7 @@ TEST(SyncClock, UpdateRefreshesCache)
 
     syncClock.Update();
     // Before sync, consensus returns local time.
-    EXPECT_EQ(syncClock.NowNanos(), 42s);
-}
-
-TEST(SyncClock, NowReturnsChronoTimePoint)
-{
-    FakeClock clock;
-    clock.SetNow(1s);
-    Consensus consensus(clock);
-    SyncClock syncClock(consensus);
-
-    syncClock.Update();
-    auto tp = syncClock.Now();
-    EXPECT_EQ(tp.time_since_epoch(), 1s);
+    EXPECT_EQ(syncClock.Now(), 42s);
 }
 
 TEST(SyncClock, IsSyncedDelegatesToConsensus)
@@ -128,7 +116,7 @@ TEST(SyncClock, TruncTimeRoundTrip)
 
     // Expand on B's side — should give approximately the same time.
     Ticks expandedB = clockSyncB.Expand(trunc);
-    Ticks originalA = clockSyncA.NowNanos();
+    Ticks originalA = clockSyncA.Now();
 
     auto diff = std::chrono::abs(expandedB - originalA);
     // Within 1 quantum (1ms) + sync tolerance.
