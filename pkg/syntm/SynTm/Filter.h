@@ -114,7 +114,7 @@ namespace SynTm
                 // Weight inversely proportional to RTT (microsecond-scale).
                 auto rttUs = std::max(
                     std::chrono::duration_cast<std::chrono::microseconds>(s.rtt).count(),
-                    std::int64_t{1});
+                    std::chrono::microseconds::rep{1});
                 auto w = static_cast<std::int64_t>(1'000'000 / rttUs);
                 w = std::max(w, std::int64_t{1});
                 sorted.push_back({s.offset, w});

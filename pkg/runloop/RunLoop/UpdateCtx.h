@@ -3,8 +3,6 @@
 
 namespace RunLoop
 {
-    class IRunner;
-
     /// Context passed to the runner update action.
     /// Filled with frame timing information depending on the runner implementation.
     struct UpdateCtx
@@ -46,15 +44,12 @@ namespace RunLoop
             float passedSeconds{};
         };
 
-        explicit UpdateCtx(IRunner& runner);
-
         /// Initialize frame timing information at the start of the loop
         void Initialize();
 
         /// Update frame timing information for each frame
         void Tick();
 
-        IRunner& Runner;
         Frame frame;
         Session session;
     };

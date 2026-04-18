@@ -9,7 +9,6 @@ namespace App
     WasmRunner::WasmRunner(HandlerPtr handler, Options options)
         : Runner{std::move(handler)}
         , _options{options}
-        , _updateCtx{*this}
     {}
 
     int WasmRunner::Run()

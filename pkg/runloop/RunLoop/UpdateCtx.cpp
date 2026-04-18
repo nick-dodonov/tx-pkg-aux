@@ -2,10 +2,6 @@
 
 namespace RunLoop
 {
-    UpdateCtx::UpdateCtx(IRunner& runner)
-        : Runner(runner)
-    {}
-
     void UpdateCtx::Initialize()
     {
         session.startTime = Clock::now();

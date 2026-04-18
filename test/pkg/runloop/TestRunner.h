@@ -37,7 +37,7 @@ namespace
         bool DriveStart() { return InvokeStart(); }
         void DriveUpdate(uint64_t frameIndex = 0)
         {
-            RunLoop::UpdateCtx ctx{*this};
+            RunLoop::UpdateCtx ctx{};
             ctx.frame.index = frameIndex;
             InvokeUpdate(ctx);
         }
