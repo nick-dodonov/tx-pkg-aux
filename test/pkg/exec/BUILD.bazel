@@ -2,12 +2,30 @@ load("@tx-kit-ext//rules:multi_app.bzl", "multi_test")
 
 multi_test(
     name = "exec",
-    srcs = glob([
-        "*.cpp",
-        "*.h",
-    ]),
+    srcs = glob(
+        [
+            "*.cpp",
+            "*.h",
+        ],
+        exclude = ["Domain.Error.Test.cpp"],
+    ),
     deps = [
         "//pkg/app",
+        "//pkg/exec",
+        "//test/pkg/runloop:runloop_testlib",
+        "@googletest//:gtest_main",
+    ],
+)
+
+multi_test(
+    name = "exec-ex",
+    srcs = ["Domain.Error.Test.cpp"],
+    platforms = ["host"],
+    cxxopts = select({
+        "@platforms//os:windows": ["/EHsc"],
+        "//conditions:default": ["-fexceptions"],
+    }),
+    deps = [
         "//pkg/exec",
         "//test/pkg/runloop:runloop_testlib",
         "@googletest//:gtest_main",

@@ -83,6 +83,7 @@ namespace Exec
 
     private:
         void Completed(int exitCode);
+        void Failed(std::exception_ptr ex);
         void Stopped();
 
         friend struct DomainReceiver;
@@ -161,12 +162,7 @@ namespace Exec
 
         void set_value(int exitCode) const noexcept { domain->Completed(exitCode); }
         void set_stopped() const noexcept { domain->Stopped(); }
-        [[noreturn]] void set_error(auto&& _) noexcept
-        { 
-            //TODO: handle errors properly instead of treating them as fatal — e.g. set a distinct exit code, or propagate via a separate callback mechanism (since the runner expects an int exit code, not an exception_ptr)
-            Log::Fatal("terminated with unhandled exception");
-            std::terminate();
-        }
+        void set_error(std::exception_ptr&& ex) noexcept;
     };
 
     // Verify DomainReceiver satisfies the P2300 receiver concept:

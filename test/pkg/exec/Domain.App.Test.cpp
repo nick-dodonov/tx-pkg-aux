@@ -1,4 +1,5 @@
 #include "Exec/Domain.h"
+#include "Exec/Delay/LoopTimerBackend.h"
 #include "App/Factory.h"
 #include "TestRunner.h"
 
@@ -18,6 +19,36 @@ exec::task<int> TwoHopTask()
     co_await stdexec::schedule(sched);
     co_return 55;
 }
+
+/// Sender that immediately completes with set_error(exception_ptr).
+struct ErrorSender
+{
+    using sender_concept = stdexec::sender_t;
+    using completion_signatures = stdexec::completion_signatures<
+        stdexec::set_value_t(int),
+        stdexec::set_error_t(std::exception_ptr),
+        stdexec::set_stopped_t()>;
+
+    std::exception_ptr ex;
+
+    template <class Receiver>
+    struct OpState
+    {
+        Receiver receiver;
+        std::exception_ptr ex;
+
+        friend void tag_invoke(stdexec::start_t, OpState& self) noexcept
+        {
+            stdexec::set_error(std::move(self.receiver), std::move(self.ex));
+        }
+    };
+
+    template <class Receiver>
+    auto connect(Receiver receiver) const
+    {
+        return OpState<Receiver>{std::move(receiver), ex};
+    }
+};
 
 } // namespace
 
@@ -65,4 +96,20 @@ TEST(DomainTest, CoroutineSenderWithSchedulerAccess)
     // call, so all hops (starts_on bridge → exec::task start-on-scheduler →
     // co_await schedule resume) complete in a single Update() frame.
     EXPECT_EQ(runner->Run(), 55);
+}
+
+// A sender that completes with a null exception_ptr should still exit
+// gracefully with ExitCode::Failure (covers the no-exceptions / empty-ptr branch).
+TEST(DomainTest, NullExceptionPtrExitsWithFailure)
+{
+    auto domain = std::make_shared<Exec::Domain>(
+        ErrorSender{std::exception_ptr{}},
+        std::make_unique<Exec::LoopTimerBackend>());
+    TestRunner runner{domain};
+
+    runner.DriveStart();
+    runner.DriveUpdate();
+
+    ASSERT_TRUE(runner.exitCode.has_value());
+    EXPECT_EQ(runner.exitCode.value(), RunLoop::ExitCode::Failure);
 }

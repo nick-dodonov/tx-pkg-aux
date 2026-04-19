@@ -51,6 +51,31 @@ namespace Exec
         GetRunner()->Exit(exitCode);
     }
 
+    void Domain::Failed(std::exception_ptr ex)
+    {
+#if __cpp_exceptions
+        if (ex) {
+            try {
+                std::rethrow_exception(ex);
+            } catch (const std::exception& e) {
+                Log::Error("unhandled exception: {}", e.what());
+            } catch (...) {
+                Log::Error("unhandled exception of unknown type");
+            }
+        } else {
+            Log::Error("sender completed with error");
+        }
+#else
+        Log::Error("sender completed with error");
+#endif
+        GetRunner()->Exit(RunLoop::ExitCode::Failure);
+    }
+
+    void DomainReceiver::set_error(std::exception_ptr&& ex) noexcept
+    {
+        domain->Failed(std::move(ex));
+    }
+
     void Domain::Stopped()
     {
         Log::Trace("");
