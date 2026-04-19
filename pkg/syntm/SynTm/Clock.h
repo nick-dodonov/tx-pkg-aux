@@ -38,6 +38,9 @@ namespace SynTm
                 std::chrono::steady_clock::now() - _epoch);
         }
 
+        /// Shift the clock forward by delta (moves _epoch back so Now() increases).
+        void Advance(Ticks delta) noexcept { _epoch -= delta; }
+
     private:
         std::chrono::steady_clock::time_point _epoch = std::chrono::steady_clock::now();
     };
