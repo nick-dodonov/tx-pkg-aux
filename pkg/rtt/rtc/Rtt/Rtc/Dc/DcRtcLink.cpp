@@ -147,6 +147,9 @@ namespace Rtt::Rtc
             }
             if (st == S::Closed || st == S::Disconnected || st == S::Failed) {
                 auto self = wlink.lock();
+                if (self) {
+                    self->_disconnectRequested.store(true);
+                }
                 if (!self || self->_closedFired.exchange(true)) {
                     return;
                 }
@@ -243,7 +246,12 @@ namespace Rtt::Rtc
         //_logger.Trace("sending {} bytes {} -> {}", bytesWritten, _localId.value, _remoteId.value);
 
         rtc::binary payload(buf.begin(), buf.begin() + static_cast<std::ptrdiff_t>(bytesWritten));
-        _dc->send(std::move(payload));
+        try {
+            _dc->send(std::move(payload));
+        } catch (const std::exception& ex) {
+            // DC closed between isOpen() check and send() — race on remote close
+            _logger.Debug("send failed (DC closed race) {} -> {}: {}", _localId.value, _remoteId.value, ex.what());
+        }
     }
 
     void DcRtcLink::Disconnect()

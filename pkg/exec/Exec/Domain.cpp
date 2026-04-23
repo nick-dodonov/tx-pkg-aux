@@ -1,5 +1,6 @@
 #include "Exec/Delay/ThreadTimerBackend.h"
 #include "Exec/Domain.h"
+#include "Log/Exception.h"
 #include "Log/Log.h"
 #include "RunLoop/Runner.h"
 
@@ -53,21 +54,12 @@ namespace Exec
 
     void Domain::Failed(std::exception_ptr ex)
     {
-#if __cpp_exceptions
-        if (ex) {
-            try {
-                std::rethrow_exception(ex);
-            } catch (const std::exception& e) {
-                Log::Error("unhandled exception: {}", e.what());
-            } catch (...) {
-                Log::Error("unhandled exception of unknown type");
-            }
+        const auto msg = Log::ExceptionMessage(ex);
+        if (!msg.empty()) {
+            Log::Error("unhandled exception: {}", msg);
         } else {
             Log::Error("sender completed with error");
         }
-#else
-        Log::Error("sender completed with error");
-#endif
         GetRunner()->Exit(RunLoop::ExitCode::Failure);
     }
 
