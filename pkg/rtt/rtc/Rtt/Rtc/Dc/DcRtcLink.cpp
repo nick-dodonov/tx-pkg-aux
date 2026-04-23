@@ -132,13 +132,17 @@ namespace Rtt::Rtc
             if (auto self = wlink.lock()) {
                 self->_logger.Trace("PC state [{} -> {}]: {}", self->_localId.value, self->_remoteId.value, ToStringView(st));
             }
+            // A PeerConnection can transition Disconnected → Closed, firing onStateChange
+            // for both states.  Use std::exchange to guarantee each callback fires at most
+            // once, preventing double-decrement of reference counters (e.g. inboundCount)
+            // that would silently corrupt state and block future reconnects.
             if (st == S::Closed || st == S::Disconnected) {
-                if (onClosed) {
-                    onClosed();
+                if (auto cb = std::exchange(onClosed, nullptr)) {
+                    cb();
                 }
             } else if (st == S::Failed) {
-                if (onFailed) {
-                    onFailed();
+                if (auto cb = std::exchange(onFailed, nullptr)) {
+                    cb();
                 }
             }
             if (st == S::Closed || st == S::Disconnected || st == S::Failed) {
@@ -161,7 +165,19 @@ namespace Rtt::Rtc
     void DcRtcLink::SetRemoteDescription(const std::string& sdp, rtc::Description::Type type, const PeerId& fromPeerId)
     {
         _logger.Trace("{} received from {}", rtc::Description::typeToString(type), fromPeerId.value); //TODO: typeToStringView
-        pc.setRemoteDescription(rtc::Description(sdp, type));
+        try {
+            pc.setRemoteDescription(rtc::Description(sdp, type));
+        } catch (const std::exception& ex) {
+            // libdatachannel throws if the description type is incompatible with the
+            // current PC signaling state (e.g. Answer delivered to an answerer PC that
+            // never sent an offer — classic glare symptom).  Log and bail out so the
+            // exception does not propagate to std::terminate.
+            _logger.Error(
+                "setRemoteDescription failed ({} from {}): {} — likely glare; check HandleOffer",
+                rtc::Description::typeToString(type), fromPeerId.value, ex.what()
+            );
+            return;
+        }
 
         std::vector<std::pair<std::string, std::string>> pending;
         {

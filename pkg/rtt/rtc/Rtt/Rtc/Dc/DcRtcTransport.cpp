@@ -135,6 +135,15 @@ namespace Rtt::Rtc
             );
             {
                 std::lock_guard lock{mutex};
+                // Check and insert atomically to avoid TOCTOU: HandleOffer() is called
+                // from libdatachannel background threads and may insert peers[remoteId]
+                // between a separate check and insert.  If a link already exists (inbound
+                // answerer PC or a previous outbound still closing), discard the newly
+                // created link and bail out.
+                if (peers.contains(remoteId.value)) {
+                    logger.Debug("skipping outbound to {} — link already exists", remoteId.value);
+                    return;
+                }
                 peers[remoteId.value] = link;
             }
 
@@ -184,6 +193,50 @@ namespace Rtt::Rtc
         {
             const auto sdp = j.value("description", std::string{});
 
+            // RFC 8829 §5.2 — Glare resolution ("perfect negotiation" pattern).
+            //
+            // Glare arises when both sides call Connect() to each other concurrently:
+            // each side runs OpenOfferer() and simultaneously receives the other's offer.
+            // Without resolution, HandleOffer() would overwrite the outbound entry in
+            // `peers`, silently destroying the outbound PeerConnection.  The subsequently
+            // delivered answer would then be fed to the inbound (answerer) PC, which never
+            // sent an offer, causing libdatachannel to throw — and the process to abort.
+            //
+            // Resolution: assign each side a fixed role using a deterministic, symmetric
+            // tiebreaker — lexicographic comparison of string peer IDs:
+            //
+            //   "polite" side   (localId < remoteId): rolls back its outbound offer,
+            //                   removes the outbound link, and continues as answerer.
+            //
+            //   "impolite" side (localId > remoteId): ignores the incoming offer,
+            //                   keeps its outbound link; the polite side will answer and
+            //                   the impolite side will receive that answer shortly.
+            //
+            // Because the comparison is strict and IDs are unique, exactly one side is
+            // polite and the other is impolite — no tie is possible.
+            {
+                std::lock_guard lock{mutex};
+                if (peers.contains(fromId.value)) {
+                    const bool polite = localId.value < fromId.value;
+                    if (polite) {
+                        logger.Warn(
+                            "glare with {} — rolling back outbound offer and becoming answerer (polite, {} < {})",
+                            fromId.value, localId.value, fromId.value
+                        );
+                        // Remove the outbound link; its PC will be destroyed and the
+                        // onOpen callback becomes a no-op (wlink.lock() returns null).
+                        // inboundCount was never incremented for this outbound entry.
+                        peers.erase(fromId.value);
+                    } else {
+                        logger.Warn(
+                            "glare with {} — ignoring incoming offer, keeping outbound offer (impolite, {} > {})",
+                            fromId.value, localId.value, fromId.value
+                        );
+                        return;
+                    }
+                }
+            }
+
             auto link = std::make_shared<DcRtcLink>(
                 config,
                 localId,
@@ -213,9 +266,19 @@ namespace Rtt::Rtc
                     auto onGone = [wself, fromId]() {
                         if (auto s = wself.lock()) {
                             std::lock_guard lock{s->mutex};
+                            s->logger.Trace("onGone: removing inbound peer {} (inboundCount: {} -> {})",
+                                fromId.value, s->inboundCount, s->inboundCount > 0 ? s->inboundCount - 1 : 0);
                             s->peers.erase(fromId.value);
+                            // Guard against underflow: if this fires more than once the
+                            // counter would wrap (size_t is unsigned), silently pushing
+                            // inboundCount past maxInboundConnections and blocking all
+                            // future inbound offers.  The root cause (double-fire) is
+                            // fixed in DcRtcLink::Attach via std::exchange, but log an
+                            // error here as a belt-and-suspenders canary.
                             if (s->inboundCount > 0) {
                                 --s->inboundCount;
+                            } else {
+                                s->logger.Error("inboundCount underflow for {} — onGone fired more than once", fromId.value);
                             }
                         }
                     };
