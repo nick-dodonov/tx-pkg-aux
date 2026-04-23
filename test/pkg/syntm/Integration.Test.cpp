@@ -132,23 +132,22 @@ TEST(Integration, TwoNodeOffset)
     EXPECT_TRUE(nodeA.consensus.IsSynced());
     EXPECT_TRUE(nodeB.consensus.IsSynced());
 
-    // Each node converges to its peer's timeline:
-    // A.SyncedNow ≈ B.Now (A corrects toward B)
-    // B.SyncedNow ≈ A.Now (B corrects toward A)
+    // After convergence both nodes must report the same synced time —
+    // the epoch owner's (A's) local timeline.
+    // A is the epoch owner (started at 1s, B at 1s+50ms — A's epoch is older/stronger).
     nodeA.syncClock.Update();
     nodeB.syncClock.Update();
 
-    // Verify A's synced time is close to B's local time.
+    // Both synced times should agree with each other within tolerance.
     Ticks aSynced = nodeA.syncClock.Now();
-    Ticks bLocal  = nodeB.clock.Now();
-    auto diffA = std::chrono::abs(aSynced - bLocal);
-    EXPECT_LE(diffA, 5ms); // Within 5ms of B's local time.
-
-    // Verify B's synced time is close to A's local time.
     Ticks bSynced = nodeB.syncClock.Now();
-    Ticks aLocal  = nodeA.clock.Now();
-    auto diffB = std::chrono::abs(bSynced - aLocal);
-    EXPECT_LE(diffB, 5ms); // Within 5ms of A's local time.
+    auto diff = std::chrono::abs(aSynced - bSynced);
+    EXPECT_LE(diff, 5ms);
+
+    // Epoch owner A's synced time is its own local time.
+    EXPECT_TRUE(nodeA.consensus.IsEpochOwner());
+    auto diffA = std::chrono::abs(aSynced - nodeA.clock.Now());
+    EXPECT_LE(diffA, 1ms);
 }
 
 // ===========================================================================
@@ -602,3 +601,105 @@ TEST(Integration, Resynced_FiresOncePerEpisode)
     EXPECT_EQ(resyncCompletedCount, 1)
         << "ResyncCompleted fired " << resyncCompletedCount << " times for one resync episode";
 }
+
+// ===========================================================================
+// Both sides report the same synced time after convergence
+// ===========================================================================
+
+TEST(Integration, BothSidesSameEpochTime)
+{
+    // Two nodes with different initial clocks and asymmetric delays.
+    // After convergence, both must report the same synced time —
+    // the epoch owner's (A's) local timeline.
+    auto config = FastConfig();
+
+    SimNode nodeA("A", 500ms, ConsensusMode::Voter, config);
+    SimNode nodeB("B", 800ms, ConsensusMode::Voter, config); // B is 300ms ahead.
+
+    nodeA.consensus.AddPeer("B");
+    nodeB.consensus.AddPeer("A");
+
+    constexpr Ticks delayAtoB = 3ms;
+    constexpr Ticks delayBtoA = 7ms; // Asymmetric.
+    std::vector<SimNode*> all = {&nodeA, &nodeB};
+
+    for (int i = 0; i < 10; ++i) {
+        ProbeRound(nodeA, "B", nodeB, "A", delayAtoB, delayBtoA);
+        AdvanceAll(all, 80ms);
+        ProbeRound(nodeB, "A", nodeA, "B", delayBtoA, delayAtoB); //NOLINT(readability-suspicious-call-argument)
+        AdvanceAll(all, 80ms);
+    }
+
+    EXPECT_TRUE(nodeA.consensus.IsSynced());
+    EXPECT_TRUE(nodeB.consensus.IsSynced());
+    EXPECT_TRUE(nodeA.consensus.IsEpochOwner()); // A's epoch is older.
+    EXPECT_FALSE(nodeB.consensus.IsEpochOwner());
+
+    nodeA.syncClock.Update();
+    nodeB.syncClock.Update();
+
+    // Core invariant: both nodes agree on synced time.
+    auto diff = std::chrono::abs(nodeA.syncClock.Now() - nodeB.syncClock.Now());
+    EXPECT_LE(diff, 10ms) << "Synced times diverged: A=" << nodeA.syncClock.Now().count()
+                          << "ns B=" << nodeB.syncClock.Now().count() << "ns";
+
+    // Owner's synced time equals its local time.
+    auto ownerDiff = std::chrono::abs(nodeA.syncClock.Now() - nodeA.clock.Now());
+    EXPECT_LE(ownerDiff, 1ms);
+}
+
+// ===========================================================================
+// Multi-hop chain: C→B→A, all converge to epoch owner (A)
+// ===========================================================================
+
+TEST(Integration, MultiHopChainCommonTime)
+{
+    // A ↔ B ↔ C chain. A and C are NOT directly connected.
+    // After convergence all three should report the same synced time —
+    // A's timeline, propagated transitively through B.
+    auto config = FastConfig();
+
+    SimNode nodeA("A", 1s,         ConsensusMode::Voter, config);
+    SimNode nodeB("B", 1s + 100ms, ConsensusMode::Voter, config);
+    SimNode nodeC("C", 1s + 250ms, ConsensusMode::Voter, config);
+
+    nodeA.consensus.AddPeer("B");
+    nodeB.consensus.AddPeer("A");
+    nodeB.consensus.AddPeer("C");
+    nodeC.consensus.AddPeer("B");
+
+    // Use 1ms delay (vs 4ms) so that B's extra ProbeRound advances don't
+    // accumulate into a multi-ms systematic filter lag.
+    constexpr Ticks delay = 1ms;
+    std::vector<SimNode*> all = {&nodeA, &nodeB, &nodeC};
+
+    for (int i = 0; i < 14; ++i) {
+        ProbeRound(nodeA, "B", nodeB, "A", delay, delay);
+        AdvanceAll(all, 40ms);
+        ProbeRound(nodeB, "C", nodeC, "B", delay, delay);
+        AdvanceAll(all, 40ms);
+        ProbeRound(nodeB, "A", nodeA, "B", delay, delay);
+        AdvanceAll(all, 40ms);
+        ProbeRound(nodeC, "B", nodeB, "C", delay, delay);
+        AdvanceAll(all, 40ms);
+    }
+
+    EXPECT_TRUE(nodeA.consensus.IsSynced());
+    EXPECT_TRUE(nodeB.consensus.IsSynced());
+    EXPECT_TRUE(nodeC.consensus.IsSynced());
+
+    // All three must share the same epoch.
+    EXPECT_EQ(nodeA.consensus.Epoch().id, nodeB.consensus.Epoch().id);
+    EXPECT_EQ(nodeB.consensus.Epoch().id, nodeC.consensus.Epoch().id);
+
+    nodeA.syncClock.Update();
+    nodeB.syncClock.Update();
+    nodeC.syncClock.Update();
+
+    // Core invariant: all three agree on synced time.
+    auto diffAB = std::chrono::abs(nodeA.syncClock.Now() - nodeB.syncClock.Now());
+    auto diffAC = std::chrono::abs(nodeA.syncClock.Now() - nodeC.syncClock.Now());
+    EXPECT_LE(diffAB, 10ms) << "A vs B diverged: " << diffAB.count() << "ns";
+    EXPECT_LE(diffAC, 15ms) << "A vs C diverged (2 hops): " << diffAC.count() << "ns";
+}
+

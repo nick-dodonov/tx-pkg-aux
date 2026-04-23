@@ -155,16 +155,22 @@ namespace SynTm
                     .exitedResyncing = exitedResyncing};
         }
 
-        /// Convert a local time to synchronized time using the current model.
-        [[nodiscard]] Ticks ToSyncedTime(Ticks localTime) const noexcept
+        /// Convert a local time to the estimated remote peer time.
+        [[nodiscard]] Ticks ToRemoteTime(Ticks localTime) const noexcept
         {
             return _driftModel.Convert(localTime);
         }
 
-        /// Get the current synchronized time.
-        [[nodiscard]] Ticks SyncedNow() const noexcept
+        /// Current local time (raw clock).
+        [[nodiscard]] Ticks LocalNow() const noexcept
         {
-            return ToSyncedTime(_clock.Now());
+            return _clock.Now();
+        }
+
+        /// Estimated current time on the remote peer.
+        [[nodiscard]] Ticks RemoteNow() const noexcept
+        {
+            return ToRemoteTime(_clock.Now());
         }
 
         /// Current session state.

@@ -28,14 +28,14 @@ namespace SynTm
         /// Call periodically from the event loop to refresh the atomic snapshot.
         void Update()
         {
-            _cachedSyncedNow.store(_consensus.SyncedNow(), std::memory_order_relaxed);
+            _cachedNow.store(_consensus.SyncedNow(), std::memory_order_relaxed);
         }
 
         /// Synchronized time in ticks.
         /// Thread-safe (reads atomic snapshot).
         [[nodiscard]] Ticks Now() const noexcept override
         {
-            return _cachedSyncedNow.load(std::memory_order_relaxed);
+            return _cachedNow.load(std::memory_order_relaxed);
         }
 
         /// Truncate the current synchronized time using the given TruncTime type.
@@ -80,6 +80,6 @@ namespace SynTm
 
     private:
         Consensus& _consensus;
-        std::atomic<Ticks> _cachedSyncedNow{Ticks{}};
+        std::atomic<Ticks> _cachedNow{Ticks{}};
     };
 }

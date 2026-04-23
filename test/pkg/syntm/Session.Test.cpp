@@ -116,8 +116,8 @@ TEST(Session, ConvergesWithZeroOffset)
 
     EXPECT_EQ(sessionA.State(), SessionState::Synced);
 
-    // Synced time should be very close to local time (zero offset).
-    Ticks synced = sessionA.SyncedNow();
+    // Remote time should be very close to local time (zero offset).
+    Ticks synced = sessionA.RemoteNow();
     Ticks local  = clockA.Now();
     auto diff = std::chrono::abs(synced - local);
     EXPECT_LE(diff, 1ms); // Within 1ms tolerance.
@@ -151,9 +151,9 @@ TEST(Session, ConvergesWithOffset)
 
     EXPECT_EQ(sessionA.State(), SessionState::Synced);
 
-    // Session A's synced time should reflect B's offset.
-    // syncedTime ≈ localTimeA + 50ms
-    Ticks synced = sessionA.SyncedNow();
+    // Session A's remote time estimate should reflect B's offset.
+    // remoteTime ≈ localTimeA + 50ms
+    Ticks synced = sessionA.RemoteNow();
     Ticks expected = clockA.Now() + 50ms;
     auto diff = std::chrono::abs(synced - expected);
     EXPECT_LE(diff, 5ms); // Within 5ms tolerance.
@@ -235,9 +235,9 @@ TEST(Session, CompensatesDrift)
     // The drift model should track B's drift.
     // After 10 rounds of 100ms + 2×5ms delay = ~1.1s, B has drifted ~110µs.
     // The session should have partially compensated for this.
-    Ticks synced = sessionA.SyncedNow();
+    Ticks synced = sessionA.RemoteNow();
     Ticks local  = clockA.Now();
-    // With drift compensation, the offset should be tracked.
+    // With drift compensation, the remote time estimate should track B's drift.
     // We just verify the model is initialized and producing reasonable output.
     EXPECT_TRUE(sessionA.GetDriftModel().IsInitialized());
     EXPECT_NE(synced, local); // Should show some offset due to drift.

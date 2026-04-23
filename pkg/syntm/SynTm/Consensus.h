@@ -123,13 +123,29 @@ namespace SynTm
         }
 
         /// Handle an incoming probe request from a peer.
+        ///
+        /// The epoch owner always replies with local time (which equals epoch time).
+        /// A non-owner replies with raw local time to its epoch source peer so that
+        /// the source's session never sees a transition from raw to epoch-relative
+        /// timestamps — which would cause a spurious step. For all other peers the
+        /// non-owner replies with epoch-relative time (ToSyncedTime), enabling
+        /// transitive synchronisation analogous to NTP stratum propagation.
+        ///
+        /// Session::HandleProbeRequest() (always raw) is intentionally kept for
+        /// Session-level unit tests that operate without a Consensus layer.
         [[nodiscard]] std::optional<ProbeResponse> HandleProbeRequest(const std::string& peerId, const ProbeRequest& req)
         {
-            auto* session = GetSession(peerId);
-            if (!session) {
+            if (!GetSession(peerId)) {
                 return std::nullopt;
             }
-            return session->HandleProbeRequest(req);
+            Ticks now = _clock.Now();
+            // Use raw local time for the epoch source: the owner already knows its
+            // own time, and a non-owner avoids injecting a discontinuity into the
+            // owner's session when it first starts responding with synced time.
+            bool useRaw = _isEpochOwner || peerId == _epochSourcePeerId;
+            Ticks t2 = useRaw ? now : ToSyncedTime(now);
+            Ticks t3 = useRaw ? now : ToSyncedTime(now);
+            return ProbeResponse{.t1 = req.t1, .t2 = t2, .t3 = t3};
         }
 
         /// Handle a probe response from a peer, plus their epoch info.
@@ -147,7 +163,7 @@ namespace SynTm
 
             // Process epoch merge if the remote provided epoch info.
             if (remoteEpoch) {
-                HandleRemoteEpoch(*remoteEpoch);
+                HandleRemoteEpoch(*remoteEpoch, peerId);
             }
 
             // Emit ResyncStarted only when the session first enters Resyncing —
@@ -180,11 +196,13 @@ namespace SynTm
         }
 
         /// Handle epoch info received from a remote peer.
-        void HandleRemoteEpoch(const EpochInfo& remote)
+        ///
+        /// @param sourcePeerId  ID of the peer that sent this epoch (empty = not from a probe).
+        void HandleRemoteEpoch(const EpochInfo& remote, const std::string& sourcePeerId = {})
         {
             if (!_epoch.IsValid()) {
                 // Adopt the remote epoch.
-                AdoptEpoch(remote);
+                AdoptEpoch(remote, sourcePeerId);
                 return;
             }
 
@@ -205,7 +223,7 @@ namespace SynTm
 
             if (_mode == ConsensusMode::Viewer || remoteEpoch.IsStrongerThan(_epoch)) {
                 // Adopt the stronger epoch.
-                AdoptEpoch(remote);
+                AdoptEpoch(remote, sourcePeerId);
                 EmitEvent(SyncEvent::EpochChanged);
             }
             // Otherwise, keep our epoch. The remote will eventually adopt ours
@@ -217,29 +235,40 @@ namespace SynTm
         // -------------------------------------------------------------------
 
         /// Get the best estimate of synchronized time right now.
+        /// Epoch owner returns its local time directly — it is the reference.
+        /// Non-owners return the best session's remote time estimate.
         [[nodiscard]] Ticks SyncedNow() const noexcept
         {
-            // Use the best peer session's synced time.
-            const Session* bestSession = BestSyncedSession();
-            if (bestSession) {
-                return bestSession->SyncedNow();
+            if (_isEpochOwner) {
+                return _clock.Now();
+            }
+            const Session* session = GetEpochAlignedSession();
+            if (session) {
+                return session->RemoteNow();
             }
             // No synced peer — return local time.
             return _clock.Now();
         }
 
         /// Convert a local time to synced time using the best available session.
+        /// Epoch owner maps local → local (identity).
         [[nodiscard]] Ticks ToSyncedTime(Ticks localTime) const noexcept
         {
-            const Session* bestSession = BestSyncedSession();
-            if (bestSession) {
-                return bestSession->ToSyncedTime(localTime);
+            if (_isEpochOwner) {
+                return localTime;
+            }
+            const Session* session = GetEpochAlignedSession();
+            if (session) {
+                return session->ToRemoteTime(localTime);
             }
             return localTime;
         }
 
         /// Whether we have at least one synced peer.
         [[nodiscard]] bool IsSynced() const noexcept { return _synced; }
+
+        /// Whether this node created and owns the current epoch.
+        [[nodiscard]] bool IsEpochOwner() const noexcept { return _isEpochOwner; }
 
         /// Best sync quality across all peers.
         [[nodiscard]] SyncQuality Quality() const noexcept
@@ -270,9 +299,11 @@ namespace SynTm
                 .memberCount = 1,
                 .createdAt   = now,
             };
+            _isEpochOwner = true;
+            _epochSourcePeerId.clear();
         }
 
-        void AdoptEpoch(const EpochInfo& info)
+        void AdoptEpoch(const EpochInfo& info, const std::string& sourcePeerId = {})
         {
             _epoch = SyncEpoch{
                 .id          = info.epochId,
@@ -287,6 +318,8 @@ namespace SynTm
                 session.Reset();
             }
             _synced = false;
+            _isEpochOwner = false;
+            _epochSourcePeerId = sourcePeerId;
         }
 
         [[nodiscard]] bool HasAnySyncedPeer() const noexcept
@@ -315,6 +348,22 @@ namespace SynTm
             return best;
         }
 
+        /// Find the session that is aligned to the epoch source.
+        ///
+        /// Prefers the session whose peer provided our current epoch, since that
+        /// peer's timestamps are already on the epoch owner's timeline. Falls back
+        /// to BestSyncedSession when the preferred peer is absent or not yet Synced.
+        [[nodiscard]] const Session* GetEpochAlignedSession() const noexcept
+        {
+            if (!_epochSourcePeerId.empty()) {
+                const auto* session = GetSession(_epochSourcePeerId);
+                if (session && session->Quality() == SyncQuality::High) {
+                    return session;
+                }
+            }
+            return BestSyncedSession();
+        }
+
         void EmitEvent(SyncEvent event) const
         {
             if (_eventCallback) {
@@ -327,6 +376,8 @@ namespace SynTm
         SessionConfig _config;
         SyncEpoch _epoch;
         bool _synced = false;
+        bool _isEpochOwner = false;
+        std::string _epochSourcePeerId;
 
         std::unordered_map<std::string, Session> _peers;
         EventCallback _eventCallback;
