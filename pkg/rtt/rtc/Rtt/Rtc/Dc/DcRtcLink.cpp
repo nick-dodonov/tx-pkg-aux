@@ -129,7 +129,15 @@ namespace Rtt::Rtc
         // DC close — ensures ICE/DTLS teardown is complete before calling back.
         pc.onStateChange([wlink, onClosed = std::move(onClosed), onFailed = std::move(onFailed)](rtc::PeerConnection::State st) mutable {
             using S = rtc::PeerConnection::State;
-            if (auto self = wlink.lock()) {
+
+            // Lock wlink before invoking any user callback. onClosed/onGone may erase
+            // the last external shared_ptr to this DcRtcLink (e.g. from State::peers),
+            // which would trigger ~DcRtcLink() — and destroy `pc` — while we are still
+            // inside this very onStateChange callback ("suicide during callback").
+            // Holding `self` here ensures DcRtcLink stays alive for the full callback.
+            auto self = wlink.lock();
+
+            if (self) {
                 self->_logger.Trace("PC state [{} -> {}]: {}", self->_localId.value, self->_remoteId.value, ToStringView(st));
             }
             // A PeerConnection can transition Disconnected → Closed, firing onStateChange
@@ -146,7 +154,6 @@ namespace Rtt::Rtc
                 }
             }
             if (st == S::Closed || st == S::Disconnected || st == S::Failed) {
-                auto self = wlink.lock();
                 if (self) {
                     self->_disconnectRequested.store(true);
                 }

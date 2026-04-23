@@ -192,12 +192,20 @@ namespace Rtt::Rtc
     });
 
     /// Close the PeerConnection and remove the entry from the JS map.
-    /// After this call no further C++ callbacks will fire for this ctx.
+    /// Nulls all DC/PC event handlers before closing so no further C++ callbacks
+    /// fire after this call — the ctx pointer may be freed immediately after return.
     EM_JS(void, JsRtcPc_Close, (JsRtcPeerContext* ctx), {
         if (!Module._rtt_pcMap) return;
         const entry = Module._rtt_pcMap.get(ctx);
         if (!entry) return;
         Module._rtt_pcMap.delete(ctx);
+        if (entry.dc) {
+            entry.dc.onopen    = null;
+            entry.dc.onclose   = null;
+            entry.dc.onmessage = null;
+        }
+        entry.pc.onicecandidate = null;
+        entry.pc.ondatachannel  = null;
         try { entry.pc.close(); } catch (_) {}
     });
 
