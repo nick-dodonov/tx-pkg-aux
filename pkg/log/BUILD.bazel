@@ -1,9 +1,28 @@
+load("@rules_cc//cc:defs.bzl", "cc_library")
 load("@tx-kit-ext//rules:multi_lib.bzl", "multi_lib")
+
+# Separate library compiled with -fexceptions to allow inspecting exception_ptr
+# from no-exception callers. No external dependencies — stdlib only.
+cc_library(
+    name = "log-ex",
+    srcs = ["Log/Exception.cpp"],
+    hdrs = ["Log/Exception.h"],
+    strip_include_prefix = ".",
+    visibility = ["//visibility:public"],
+    copts = select({
+        "@platforms//os:windows": [],
+        "//conditions:default": ["-fexceptions"],
+    }),
+    cxxopts = select({
+        "@platforms//os:windows": ["/EHsc"],
+        "//conditions:default": [],
+    }),
+)
 
 multi_lib(
     name = "log",
-    srcs = glob(["**/*.cpp"]),
-    hdrs = glob(["**/*.h"]),
+    srcs = glob(["**/*.cpp"], exclude = ["Log/Exception.cpp"]),
+    hdrs = glob(["**/*.h"], exclude = ["Log/Exception.h"]),
     defines = [
         "SPDLOG_USE_STD_FORMAT",
         "SPDLOG_NO_EXCEPTIONS",
@@ -11,6 +30,7 @@ multi_lib(
     strip_include_prefix = ".",
     visibility = ["//visibility:public"],
     deps = [
+        ":log-ex",
         "@spdlog",
     ],
 )

@@ -2,7 +2,20 @@ load("@tx-kit-ext//rules:multi_app.bzl", "multi_test")
 
 multi_test(
     name = "log",
-    srcs = glob(["*.cpp"]),
+    srcs = glob(["*.cpp"], exclude = ["Exception.Test.cpp"]),
+    deps = [
+        "//pkg/log",
+        "@googletest//:gtest_main",
+    ],
+)
+
+multi_test(
+    name = "log-ex",
+    srcs = ["Exception.Test.cpp"],
+    cxxopts = select({
+        "@platforms//os:windows": ["/EHsc"],
+        "//conditions:default": ["-fexceptions"],
+    }),
     deps = [
         "//pkg/log",
         "@googletest//:gtest_main",
