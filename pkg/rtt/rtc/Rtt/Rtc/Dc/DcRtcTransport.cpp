@@ -183,6 +183,20 @@ namespace Rtt::Rtc
                 l->SetHandler(std::move(handler));
             });
 
+            // Override the constructor's logging-only onStateChange with one that also
+            // cleans up State::peers if the PC reaches a terminal state before the
+            // DataChannel opens (e.g. ICE fails or times out).
+            // dc->onOpen -> Attach() will override this again with the full post-open handler.
+            link->pc.onStateChange([wself, remId](rtc::PeerConnection::State st) {
+                using S = rtc::PeerConnection::State;
+                if (st == S::Closed || st == S::Failed || st == S::Disconnected) {
+                    if (auto s = wself.lock()) {
+                        std::lock_guard lock{s->mutex};
+                        s->peers.erase(remId.value);
+                    }
+                }
+            });
+
             logger.Debug("starting offerer -> {}", remId.value);
         }
 

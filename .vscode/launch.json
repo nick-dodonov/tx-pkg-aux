@@ -43,22 +43,6 @@
                 "cwd": "${workspaceFolder}",
                 "useSingleResult": true
             }
-        },
-        //TODO: remove as unused after testing (including recommendations)
-        {
-            "id": "debugTask_RunfilesDir",
-            "type": "command",
-            "command": "extension.commandvariable.transform", // rioj7.command-variable extension
-            "args": {
-                "text": "${configExpression:debugTaskName}",
-                "find": "^(.*/)(.*)$",
-                "replace": "${workspaceFolder}/bazel-bin/$1$2/$2.runfiles/_main",
-                "configExpression": {
-                    "debugTaskName": {
-                        "configVariable": "tx.debugTaskName"
-                    }
-                }
-            }
         }
     ]
 }
