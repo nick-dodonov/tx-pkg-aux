@@ -299,7 +299,7 @@ namespace SynTm
             return false;
         }
 
-        /// Find the best synced session (highest quality, lowest jitter).
+        /// Find the best synced session (highest quality).
         [[nodiscard]] const Session* BestSyncedSession() const noexcept
         {
             const Session* best = nullptr;

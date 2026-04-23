@@ -201,7 +201,7 @@ TEST(Consensus, ThreeNodeChainPropagation)
         clockC.Advance(50ms);
 
         // C ↔ B probes (reverse).
-        SimulateConsensusProbeRound(nodeC, clockC, "B", nodeB, clockB, "A", delay);
+        SimulateConsensusProbeRound(nodeC, clockC, "B", nodeB, clockB, "C", delay);
         clockA.Advance(50ms);
         clockB.Advance(50ms);
         clockC.Advance(50ms);

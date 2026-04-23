@@ -74,12 +74,10 @@ namespace SynTm
         }
 
         /// Create a probe request to send to the remote peer.
-        /// Records t1 internally for later matching.
         [[nodiscard]] ProbeRequest MakeProbeRequest()
         {
             Ticks now = _clock.Now();
             _lastProbeSentAt = now;
-            _pendingT1 = now;
             _everProbed = true;
             if (_state == SessionState::Idle) {
                 _state = SessionState::Probing;
@@ -202,7 +200,6 @@ namespace SynTm
         {
             _state = SessionState::Idle;
             _lastProbeSentAt = {};
-            _pendingT1 = {};
             _everProbed = false;
             _filter.Reset();
             _driftModel.Reset();
@@ -227,9 +224,7 @@ namespace SynTm
             Ticks range = _config.probeIntervalMax - _config.probeIntervalMin;
             auto ratio = static_cast<std::int64_t>(sampleCount * 2) /
                          static_cast<std::int64_t>(_config.filterWindowSize);
-            if (ratio > 2) { //NOLINT(readability-use-std-min-max)
-                ratio = 2;
-            }
+            ratio = std::min(ratio, std::int64_t{2});
             return _config.probeIntervalMin + range * (ratio - 1);
         }
 
@@ -240,7 +235,6 @@ namespace SynTm
 
         SessionState _state = SessionState::Idle;
         Ticks _lastProbeSentAt{};
-        Ticks _pendingT1{};
         bool _everProbed = false;
     };
 }
