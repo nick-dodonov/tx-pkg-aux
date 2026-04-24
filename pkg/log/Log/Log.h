@@ -146,8 +146,16 @@ namespace Log
             : _area(std::make_shared<ConstAreaSupplier>(area))
         {}
 
+        explicit Logger(const char* area, const Logger& parentLogger) noexcept
+            : _area(MakeAreaSupplier(area, parentLogger))
+        {}
+
         explicit Logger(std::string area) noexcept
             : _area(std::make_shared<StringAreaSupplier>(std::move(area)))
+        {}
+
+        explicit Logger(std::string area, const Logger& parentLogger) noexcept
+            : _area(MakeAreaSupplier(std::move(area), parentLogger))
         {}
 
         bool Enabled(const Level level) noexcept
@@ -252,6 +260,22 @@ namespace Log
         std::shared_ptr<AreaSupplier> _area;
 
         [[nodiscard]] const char* GetArea() const { return _area->GetArea(); }
+
+        static std::shared_ptr<AreaSupplier> MakeAreaSupplier(const char* area, const Logger& parentLogger) noexcept
+        {
+            if (const auto* parentArea = parentLogger.GetArea()) {
+                return std::make_shared<StringAreaSupplier>(std::format("{} {}", parentArea, area));
+            }
+            return std::make_shared<ConstAreaSupplier>(area);
+        }
+
+        static std::shared_ptr<AreaSupplier> MakeAreaSupplier(std::string area, const Logger& parentLogger) noexcept
+        {
+            if (const auto* parentArea = parentLogger.GetArea()) {
+                return std::make_shared<StringAreaSupplier>(std::format("{} {}", parentArea, area));
+            }
+            return std::make_shared<StringAreaSupplier>(std::move(area));
+        }
 
         // ReSharper disable once CppMemberFunctionMayBeStatic
         spdlog::logger* Raw() { return Detail::DefaultLoggerRaw(); }

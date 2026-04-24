@@ -32,8 +32,8 @@ namespace Rtt::Rtc
         : ISigHandler
         , std::enable_shared_from_this<State>
     {
-        explicit State(std::string_view localIdValue)
-            : logger(std::format("DcRtc/{}", localIdValue))
+        explicit State(const Log::Logger& parentLogger)
+            : logger("DcRtc", parentLogger)
         {}
 
         Log::Logger logger;
@@ -316,7 +316,7 @@ namespace Rtt::Rtc
 
     std::shared_ptr<IConnector> DcRtcTransport::Open(std::shared_ptr<ILinkAcceptor> acceptor)
     {
-        auto state = std::make_shared<State>(_options.localId.value);
+        auto state = std::make_shared<State>(_options.parentLogger);
         state->acceptor = std::move(acceptor);
         state->localId = _options.localId;
         state->config = BuildConfiguration(_options);

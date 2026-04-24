@@ -5,9 +5,7 @@
 #include "Exec/RunContext.h"
 #include "Log/Log.h"
 
-#include <format>
 #include <memory>
-#include <string>
 
 namespace Exec
 {
@@ -35,8 +33,8 @@ namespace Exec
             /// Pass a custom backend (e.g. LoopTimerBackend for tests) to override.
             std::unique_ptr<ITimerBackend> backend;
 
-            /// Log area prefix for this domain's logger. Defaults to "Domain" when empty.
-            std::string logAreaPrefix;
+            /// Parent area logger.
+            Log::Logger parentLogger;
         };
 
         /// Returns the timed scheduler handle for this domain.
@@ -58,7 +56,7 @@ namespace Exec
         template <stdexec::sender S>
         requires (!std::invocable<S, Scheduler>)
         explicit Domain(S sender, Options options = {})
-            : _logger(Log::Logger(std::format("{}Domain", options.logAreaPrefix)))
+            : _logger(Log::Logger("Domain", options.parentLogger))
             , _timerBackend(options.backend ? std::move(options.backend) : MakeDefaultBackend())
             , _scheduler(_timerBackend.get())
         {
@@ -79,7 +77,7 @@ namespace Exec
         template <class F>
         requires std::invocable<F, Scheduler>
         explicit Domain(F factory, Options options = {})
-            : _logger(Log::Logger(std::format("{}Domain", options.logAreaPrefix)))
+            : _logger(Log::Logger("Domain", options.parentLogger))
             , _timerBackend(options.backend ? std::move(options.backend) : MakeDefaultBackend())
             , _scheduler(_timerBackend.get())
         {

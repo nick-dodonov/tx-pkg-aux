@@ -1,11 +1,13 @@
 #include "Log/Log.h"
 #include <gtest/gtest.h>
 
+static Log::Logger _testParentLogger{"Parent"};
+
 struct TestObj
 {
     Log::Logger _logger;
     explicit TestObj(int id)
-        : _logger(std::format("Test/{}", id))
+        : _logger(std::format("Test/{}", id), _testParentLogger)
     {}
 
     void Foo()

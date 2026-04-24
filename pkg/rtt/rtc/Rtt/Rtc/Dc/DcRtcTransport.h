@@ -3,7 +3,6 @@
 #include "Rtt/Rtc/RtcOptions.h"
 #include "Rtt/Transport.h"
 
-#include <cstddef>
 #include <memory>
 
 namespace Rtt::Rtc

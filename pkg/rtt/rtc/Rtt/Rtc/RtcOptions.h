@@ -1,5 +1,6 @@
 #pragma once
 #include "Rtt/Rtc/ISigClient.h"
+#include "Log/Log.h"
 
 #include <cstddef>
 #include <memory>
@@ -27,5 +28,8 @@ namespace Rtt::Rtc
         /// Maximum number of simultaneous inbound connections accepted by this transport.
         /// 0 = reject all inbound offers (pure offerer mode).
         std::size_t maxInboundConnections = 4096;
+
+        /// Parent area logger.
+        Log::Logger parentLogger;
     };
 }
