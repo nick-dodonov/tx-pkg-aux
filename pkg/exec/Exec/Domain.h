@@ -5,7 +5,9 @@
 #include "Exec/RunContext.h"
 #include "Log/Log.h"
 
+#include <format>
 #include <memory>
+#include <string>
 
 namespace Exec
 {
@@ -26,6 +28,17 @@ namespace Exec
         using Scheduler = RunContext::Scheduler;
 
     public:
+        struct Options
+        {
+            /// Timer backend to use. Defaults to nullptr which triggers MakeDefaultBackend()
+            /// — ThreadTimerBackend on desktop, LoopTimerBackend on WASM.
+            /// Pass a custom backend (e.g. LoopTimerBackend for tests) to override.
+            std::unique_ptr<ITimerBackend> backend;
+
+            /// Log area prefix for this domain's logger. Defaults to "Domain" when empty.
+            std::string logAreaPrefix;
+        };
+
         /// Returns the timed scheduler handle for this domain.
         ///
         /// The returned handle satisfies both stdexec::scheduler (for zero-delay
@@ -42,13 +55,11 @@ namespace Exec
         /// Example:
         ///   auto domain = std::make_shared<Domain>(MainTask());
         ///   auto domain = std::make_shared<Domain>(stdexec::just(42));
-        /// `backend` defaults to nullptr which triggers MakeDefaultBackend() in the
-        /// member initializer — ThreadTimerBackend on desktop, LoopTimerBackend on WASM.
-        /// Pass a custom backend (e.g. LoopTimerBackend for tests) to override.
         template <stdexec::sender S>
         requires (!std::invocable<S, Scheduler>)
-        explicit Domain(S sender, std::unique_ptr<ITimerBackend> backend = nullptr)
-            : _timerBackend(backend ? std::move(backend) : MakeDefaultBackend())
+        explicit Domain(S sender, Options options = {})
+            : _logger(Log::Logger(std::format("{}Domain", options.logAreaPrefix)))
+            , _timerBackend(options.backend ? std::move(options.backend) : MakeDefaultBackend())
             , _scheduler(_timerBackend.get())
         {
             Store(stdexec::starts_on(GetScheduler(), std::move(sender)));
@@ -67,8 +78,9 @@ namespace Exec
         ///   });
         template <class F>
         requires std::invocable<F, Scheduler>
-        explicit Domain(F factory, std::unique_ptr<ITimerBackend> backend = nullptr)
-            : _timerBackend(backend ? std::move(backend) : MakeDefaultBackend())
+        explicit Domain(F factory, Options options = {})
+            : _logger(Log::Logger(std::format("{}Domain", options.logAreaPrefix)))
+            , _timerBackend(options.backend ? std::move(options.backend) : MakeDefaultBackend())
             , _scheduler(_timerBackend.get())
         {
             Store(std::move(factory)(GetScheduler()));
@@ -118,6 +130,8 @@ namespace Exec
         /// Returns the platform-default timer backend.
         /// Defined in Domain.cpp to avoid including ThreadTimerBackend.h here.
         static std::unique_ptr<ITimerBackend> MakeDefaultBackend();
+
+        Log::Logger _logger;
 
         // _timerBackend must be declared before _scheduler — it is initialized first
         // (member init order follows declaration order), and the TimedLoopContext

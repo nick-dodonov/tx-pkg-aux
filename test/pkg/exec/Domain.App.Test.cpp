@@ -104,7 +104,7 @@ TEST(DomainTest, NullExceptionPtrExitsWithFailure)
 {
     auto domain = std::make_shared<Exec::Domain>(
         ErrorSender{std::exception_ptr{}},
-        std::make_unique<Exec::LoopTimerBackend>());
+        Exec::Domain::Options{.backend = std::make_unique<Exec::LoopTimerBackend>()});
     TestRunner runner{domain};
 
     runner.DriveStart();

@@ -13,19 +13,19 @@ namespace Exec
 
     Domain::~Domain()
     {
-        Log::Trace("destroy");
+        _logger.Trace("destroy");
     }
 
     bool Domain::Start()
     {
-        Log::Trace("starting operation");
+        _logger.Trace("starting operation");
         _opState->start();
         return true;
     }
 
     void Domain::Stop()
     {
-        Log::Trace("stopping operation");
+        _logger.Trace("stopping operation");
         _stopSource.request_stop();
 
         // Fire any timers that were pending at shutdown so their shared states
@@ -33,7 +33,7 @@ namespace Exec
         // queued operations call set_stopped() before the op state is destroyed.
         if (const auto count = _scheduler.DrainQueue(); count > 0) {
             //TODO: enable verbose logging later and make it configurable (too noisy for now), make summary instead
-            Log::Trace("drained {} task(s)", count);
+            _logger.Trace("drained {} task(s)", count);
         }
         _opState.reset();
     }
@@ -48,7 +48,7 @@ namespace Exec
 
     void Domain::Completed(int exitCode)
     {
-        Log::Trace("{}", exitCode);
+        _logger.Trace("{}", exitCode);
         GetRunner()->Exit(exitCode);
     }
 
@@ -56,9 +56,9 @@ namespace Exec
     {
         const auto msg = Log::ExceptionMessage(ex);
         if (!msg.empty()) {
-            Log::Error("unhandled exception: {}", msg);
+            _logger.Error("unhandled exception: {}", msg);
         } else {
-            Log::Error("sender completed with error");
+            _logger.Error("sender completed with error");
         }
         GetRunner()->Exit(RunLoop::ExitCode::Failure);
     }
@@ -70,7 +70,7 @@ namespace Exec
 
     void Domain::Stopped()
     {
-        Log::Trace("");
+        _logger.Trace("");
 
         // distinguish between cooperative stop (exit code from coroutine) and forced cancellation
         if (auto* runner = GetRunner(); !runner->Exiting()) {
