@@ -51,13 +51,15 @@ namespace SynTm
     {
     public:
         explicit Session(IClock& clock, SessionConfig config = {})
-            : _clock(clock)
+            : _logger("Session", config.parentLogger)
+            , _clock(clock)
             , _config(config)
             , _filter(config.filterWindowSize)
             , _driftModel(SteerPolicy{
-                  .stepThreshold = config.stepThreshold,
-                  .maxSlewRate   = config.maxSlewRate,
-              })
+                .stepThreshold = config.stepThreshold,
+                .maxSlewRate   = config.maxSlewRate,
+                .parentLogger  = _logger,
+            })
         {
             assert(config.filterWindowSize >= config.minSamplesForSync &&
                    "filterWindowSize must be >= minSamplesForSync");
@@ -115,12 +117,12 @@ namespace SynTm
             Ticks t4 = _clock.Now();
             auto probe = ComputeProbeResult(resp.t1, resp.t2, resp.t3, t4);
 
-            Log::Trace("probe: offset={}ns rtt={}ns", Log::Sep{probe.offset.count()}, Log::Sep{probe.rtt.count()});
+            _logger.Trace("probe: offset={}ns rtt={}ns", Log::Sep{probe.offset.count()}, Log::Sep{probe.rtt.count()});
 
             auto filterResult = _filter.AddSample(t4, probe);
             const auto sampleCount = filterResult.sampleCount;
 
-            Log::Trace("filter: offset={}ns rate={}ns/s ({:.6f}) jitter={}ns minRtt={}ns sampleCount={}",
+            _logger.Trace("filter: offset={}ns rate={}ns/s ({:.6f}) jitter={}ns minRtt={}ns sampleCount={}",
                 Log::Sep{filterResult.offset.count()}, filterResult.rate.count(), filterResult.rate.ToDouble(),
                 Log::Sep{filterResult.jitter.count()}, Log::Sep{filterResult.minRtt.count()}, sampleCount);
 
@@ -137,16 +139,16 @@ namespace SynTm
                 // stale pre-step samples corrupt the drift estimate and cause
                 // cascading re-steps.
                 _filter.Reset();
-                Log::Trace("state: STEPPED -> Resyncing (enteredResyncing={}) filter reset", enteredResyncing);
+                _logger.Trace("state: STEPPED -> Resyncing (enteredResyncing={}) filter reset", enteredResyncing);
             } else if (_state == SessionState::Probing && sampleCount >= _config.minSamplesForSync) {
                 _state = SessionState::Synced;
-                Log::Trace("state: Probing -> Synced (sampleCount={})", sampleCount);
+                _logger.Trace("state: Probing -> Synced (sampleCount={})", sampleCount);
             } else if (_state == SessionState::Resyncing && sampleCount >= _config.minSamplesForSync) {
                 exitedResyncing = true;
                 _state = SessionState::Synced;
-                Log::Trace("state: Resyncing -> Synced (sampleCount={})", sampleCount);
+                _logger.Trace("state: Resyncing -> Synced (sampleCount={})", sampleCount);
             } else {
-                Log::Trace("state: {} sampleCount={}/{}", SessionStateToString(_state), sampleCount, _config.minSamplesForSync);
+                _logger.Trace("state: {} sampleCount={}/{}", SessionStateToString(_state), sampleCount, _config.minSamplesForSync);
             }
 
             return {.filterResult = filterResult,
@@ -234,6 +236,7 @@ namespace SynTm
             return _config.probeIntervalMin + range * (ratio - 1);
         }
 
+        Log::Logger _logger;
         IClock& _clock;
         SessionConfig _config;
         Filter _filter;

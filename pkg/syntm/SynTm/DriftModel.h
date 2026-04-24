@@ -23,7 +23,10 @@ namespace SynTm
         ///
         /// TODO: maxSlewRate is declared but unused — slew currently applies 50% of correction
         /// directly. Implement as: clamp computed slew to maxSlewRate * elapsed before applying.
-        DriftRate maxSlewRate = DriftRate{500us};
+        DriftRate maxSlewRate = 500us;
+
+        /// Parent area logger.
+        Log::Logger parentLogger;
     };
 
     /// Tracks the mapping from local time to synchronized time,
@@ -35,7 +38,10 @@ namespace SynTm
     class DriftModel
     {
     public:
-        explicit DriftModel(SteerPolicy policy = {}) : _policy(policy) {}
+        explicit DriftModel(SteerPolicy policy = {}) 
+            : _logger("DriftModel", policy.parentLogger)
+            , _policy(policy)
+        {}
 
         /// Initialize the model at a given local time with a known offset.
         /// Called once when the first filter result arrives.
@@ -45,7 +51,7 @@ namespace SynTm
             _baseSynced = localTime + offset;
             _rate = DriftRate{};
             _initialized = true;
-            Log::Trace("baseLocal={} baseSynced={} offset={}ns",
+            _logger.Trace("baseLocal={} baseSynced={} offset={}ns",
                 Log::Sep{_baseLocal.count()}, Log::Sep{_baseSynced.count()}, Log::Sep{offset.count()});
         }
 
@@ -65,7 +71,7 @@ namespace SynTm
             Ticks correction = targetSynced - currentSynced;
 
             // Check step occurrence based on absolute correction magnitude.
-            Log::Trace("correction={}ns threshold={}ns currentSynced={} targetSynced={}",
+            _logger.Trace("correction={}ns threshold={}ns currentSynced={} targetSynced={}",
                 Log::Sep{correction.count()}, Log::Sep{_policy.stepThreshold.count()}, Log::Sep{currentSynced.count()}, Log::Sep{targetSynced.count()});
 
             auto absCorrection = std::chrono::abs(correction);
@@ -74,7 +80,7 @@ namespace SynTm
                 _baseLocal = localTime;
                 _baseSynced = targetSynced;
                 _rate = result.rate;
-                Log::Trace("STEP baseLocal={} baseSynced={} rate={}ns/s ({:.6f})",
+                _logger.Trace("STEP baseLocal={} baseSynced={} rate={}ns/s ({:.6f})",
                     Log::Sep{_baseLocal.count()}, Log::Sep{_baseSynced.count()}, _rate.count(), _rate.ToDouble());
                 return true; // Step occurred.
             }
@@ -94,7 +100,7 @@ namespace SynTm
             _baseSynced = currentSynced + slewAmount;
             _baseLocal = localTime;
 
-            Log::Trace("slew slewAmount={}ns newBaseSynced={} rate={}ns/s ({:.6f})",
+            _logger.Trace("slew slewAmount={}ns newBaseSynced={} rate={}ns/s ({:.6f})",
                 Log::Sep{slewAmount.count()}, Log::Sep{_baseSynced.count()}, _rate.count(), _rate.ToDouble());
 
             return false; // Smooth correction.
@@ -129,6 +135,7 @@ namespace SynTm
         [[nodiscard]] const SteerPolicy& Policy() const noexcept { return _policy; }
 
     private:
+        Log::Logger _logger;
         SteerPolicy _policy;
         bool _initialized = false;
         Ticks _baseLocal{};

@@ -7,6 +7,7 @@
 namespace SynTm
 {
     using namespace std::chrono_literals;
+
     /// Tunable parameters for a sync Session.
     struct SessionConfig
     {
@@ -25,7 +26,7 @@ namespace SynTm
         Ticks stepThreshold = 100ms;
 
         /// Maximum slew rate (ppb). Default: 500'000 ppb = 500 ppm.
-        DriftRate maxSlewRate = DriftRate{500us};
+        DriftRate maxSlewRate = 500us;
 
         /// Jitter threshold below which the session is considered stable.
         /// When jitter < this, probe interval increases toward probeIntervalMax.
@@ -34,6 +35,9 @@ namespace SynTm
         /// Number of consecutive filter results required before
         /// the session transitions from Probing to Synced.
         std::uint32_t minSamplesForSync = 4;
+
+        /// Parent area logger.
+        Log::Logger parentLogger;
     };
 
     /// Preset for LAN environments (~1ms RTT).
@@ -44,7 +48,7 @@ namespace SynTm
             .probeIntervalMax      = 2s,
             .filterWindowSize      = 8,
             .stepThreshold         = 100ms,
-            .maxSlewRate           = DriftRate{500us},
+            .maxSlewRate           = 500us,
             .jitterStableThreshold = 1ms,
             .minSamplesForSync     = 4,
         };
@@ -58,7 +62,7 @@ namespace SynTm
             .probeIntervalMax      = 10s,
             .filterWindowSize      = 16,
             .stepThreshold         = 500ms,
-            .maxSlewRate           = DriftRate{200us},
+            .maxSlewRate           = 200us,
             .jitterStableThreshold = 10ms,
             .minSamplesForSync     = 6,
         };
