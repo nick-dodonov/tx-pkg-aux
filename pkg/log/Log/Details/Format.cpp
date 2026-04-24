@@ -2,9 +2,44 @@
 #include "../Log.h"
 #include "../Path.h"
 #include <spdlog/pattern_formatter.h>
+#include <spdlog/details/os.h>
+
+#include <charconv>
+#include <shared_mutex>
+#include <string>
+#include <unordered_map>
 
 namespace Log::Detail
 {
+    // ---------------------------------------------------------------
+    // Thread name registry
+    // ---------------------------------------------------------------
+    namespace {
+        struct ThreadNameRegistry
+        {
+            mutable std::shared_mutex mutex;
+            std::unordered_map<size_t, std::string> names;
+
+            void Register(size_t threadId, std::string name)
+            {
+                std::unique_lock lock(mutex);
+                names.insert_or_assign(threadId, std::move(name));
+            }
+
+            std::string_view Find(size_t threadId) const noexcept
+            {
+                std::shared_lock lock(mutex);
+                auto it = names.find(threadId);
+                return it != names.end() ? std::string_view{it->second} : std::string_view{};
+            }
+        };
+
+        ThreadNameRegistry& GetThreadNameRegistry() noexcept
+        {
+            static ThreadNameRegistry registry;
+            return registry;
+        }
+    }
     static std::string_view GetAreaName(const spdlog::details::log_msg& msg)
     {
         const auto& source = msg.source;
@@ -24,6 +59,30 @@ namespace Log::Detail
 
         return "<unknown>";
     }
+
+    /// Thread name formatter (%k): prints registered name for the thread, or numeric ID.
+    class ThreadNameFlagFormatter final: public spdlog::custom_flag_formatter
+    {
+    public:
+        static constexpr auto Flag = 'k';
+
+        void format(const spdlog::details::log_msg& msg, const std::tm&, spdlog::memory_buf_t& dest) override
+        {
+            auto name = GetThreadNameRegistry().Find(msg.thread_id);
+            if (!name.empty()) {
+                spdlog::details::scoped_padder p{padinfo_.enabled() ? name.size() : 0, padinfo_, dest};
+                spdlog::details::fmt_helper::append_string_view(name, dest);
+            } else {
+                char buf[20]; // sufficient for any uint64_t (max 20 digits)
+                auto [end, ec] = std::to_chars(buf, buf + sizeof(buf), msg.thread_id);
+                std::string_view numStr{buf, static_cast<size_t>(end - buf)};
+                spdlog::details::scoped_padder p{padinfo_.enabled() ? numStr.size() : 0, padinfo_, dest};
+                spdlog::details::fmt_helper::append_string_view(numStr, dest);
+            }
+        }
+
+        [[nodiscard]] std::unique_ptr<custom_flag_formatter> clone() const override { return spdlog::details::make_unique<ThreadNameFlagFormatter>(); }
+    };
 
     /// Introduce %N custom logger area name formatter or short filename w/ line number.
     /// Based on spdlog::details::short_filename_formatter
@@ -109,6 +168,7 @@ namespace Log::Detail
         // https://github.com/gabime/spdlog/wiki/Custom-formatting
         // spdlog::set_pattern("(%T.%f) %t %^[%L]%$ [%s:%#] %!: %v");
         auto formatter = std::make_unique<spdlog::pattern_formatter>();
+        formatter->add_flag<ThreadNameFlagFormatter>(ThreadNameFlagFormatter::Flag);
         formatter->add_flag<LoggerFlagFormatter>(LoggerFlagFormatter::Flag);
         formatter->add_flag<FunctionNameFlagFormatter>(FunctionNameFlagFormatter::Flag);
 
@@ -120,7 +180,24 @@ namespace Log::Detail
 #endif
         // Area name bound to right:
         // formatter->set_pattern("(%T." SEC_FRAC_FORMAT ") %t %^[%L]%$ %16!N: %&%v");
-        formatter->set_pattern("(%T." SEC_FRAC_FORMAT ") %t %^[%L]%$ %N: %&%v");
+        formatter->set_pattern("(%T." SEC_FRAC_FORMAT ") %8k %^[%L]%$ %N: %&%v");
         return formatter;
+    }
+
+    void RegisterThread(std::string name)
+    {
+        GetThreadNameRegistry().Register(spdlog::details::os::thread_id(), std::move(name));
+    }
+
+    std::string GetCurrentThreadName()
+    {
+        auto tid = spdlog::details::os::thread_id();
+        auto sv = GetThreadNameRegistry().Find(tid);
+        return std::string{sv};
+    }
+
+    size_t GetCurrentThreadId() noexcept
+    {
+        return spdlog::details::os::thread_id();
     }
 }

@@ -1,4 +1,5 @@
 #include "Boot.h"
+#include "Log/Log.h"
 
 namespace Boot
 {
@@ -16,6 +17,7 @@ namespace Boot
             return _args;
         }
         _args = CliArgs(argc, argv);
+        Log::RegisterThread("<main>");
         LogHeader(_args);
         SetupAbortHandlers();
         _inited = true;

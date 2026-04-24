@@ -8,6 +8,21 @@ namespace Log
 {
     Logger Logger::Default;
     std::shared_ptr<AreaSupplier> Logger::DummyAreaSupplier = std::make_shared<ConstAreaSupplier>(nullptr);
+
+    void RegisterThread(std::string name)
+    {
+        Detail::RegisterThread(std::move(name));
+    }
+
+    std::string GetThreadName()
+    {
+        return Detail::GetCurrentThreadName();
+    }
+
+    size_t GetThreadId() noexcept
+    {
+        return Detail::GetCurrentThreadId();
+    }
 }
 
 namespace Log::Detail

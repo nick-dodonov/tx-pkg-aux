@@ -3,6 +3,7 @@
 #include "Src.h"
 #include <format>
 #include <spdlog/spdlog.h>
+#include <string>
 #include <string_view>
 
 namespace Log::Detail
@@ -113,6 +114,17 @@ namespace Log
     {
         Msg(Level::Fatal, std::move(fmt), std::forward<Args>(args)...);
     }
+
+    /// Register a human-readable name for the calling thread.
+    /// Shown in log output instead of the numeric thread ID.
+    /// Thread-safe; may be called from any thread at any time.
+    void RegisterThread(std::string name);
+
+    /// Returns the registered name for the calling thread, or empty string if none.
+    std::string GetThreadName();
+
+    /// Returns the numeric OS thread ID for the calling thread.
+    size_t GetThreadId() noexcept;
 
     struct AreaSupplier: std::enable_shared_from_this<AreaSupplier>
     {

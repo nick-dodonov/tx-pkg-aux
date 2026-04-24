@@ -84,7 +84,14 @@ namespace Boot
         oss << std::put_time(&tm, "%Y-%m-%d %H:%M:%S ") 
             << (tzOffset >= 0 ? "+" : "-") 
             << std::setfill('0') << std::setw(2) << std::abs(tzOffset) / 60 << ":00";
-        Line("║ Runtime: {}", oss.view());
+
+        const auto threadId = Log::GetThreadId();
+        const auto threadName = Log::GetThreadName();
+        if (!threadName.empty()) {
+            Line("║ Runtime: {} | {} {}", oss.view(), threadName, threadId);
+        } else {
+            Line("║ Runtime: {} | {}", oss.view(), threadId);
+        }
 
         // current working directory
         std::error_code ec;
