@@ -33,12 +33,9 @@ namespace Rtt::Rtc
         , std::enable_shared_from_this<State>
     {
         explicit State(std::string_view localIdValue)
-            : _logName(std::format("DcRtc/{}", localIdValue))
-            , logger(_logName.c_str())
+            : logger(std::format("DcRtc/{}", localIdValue))
         {}
 
-        // _logName must be declared before logger so the c_str() pointer stays valid.
-        std::string _logName;
         Log::Logger logger;
 
         std::shared_ptr<ILinkAcceptor> acceptor;
@@ -345,7 +342,7 @@ namespace Rtt::Rtc
             // Flush any Connect() calls that arrived before signaling was ready.
             std::vector<PeerId> pending;
             {
-                std::lock_guard lock{s->mutex};
+                std::scoped_lock lock{s->mutex};
                 pending = std::move(s->pendingConnects);
             }
             for (auto& id : pending) {
@@ -358,7 +355,7 @@ namespace Rtt::Rtc
         state->logger.Debug("joining signaling as {}", _options.localId.value);
         _options.sigClient->Join(_options.localId, std::move(onJoined));
 
-        return std::shared_ptr<IConnector>(shared_from_this(), static_cast<IConnector*>(this));
+        return shared_from_this();
     }
 
     void DcRtcTransport::Connect(PeerId remoteId)
@@ -367,7 +364,7 @@ namespace Rtt::Rtc
             return;
         }
         {
-            std::lock_guard lock{_state->mutex};
+            std::scoped_lock lock{_state->mutex};
             if (!_state->sigUser) {
                 _state->pendingConnects.push_back(std::move(remoteId));
                 return;

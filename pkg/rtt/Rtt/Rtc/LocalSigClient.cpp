@@ -11,8 +11,8 @@ LocalSigClient::LocalSigClient(std::shared_ptr<SigHub> hub)
 
 void LocalSigClient::Join(PeerId localId, SigJoinHandler onJoined)
 {
-    Log::Debug("joining as {}", localId.value);
     // SigHub::Register calls onJoined synchronously with the new user.
+    Log::Debug("registering as {}", localId.value);
     _hub->Register(std::move(localId), std::move(onJoined));
 }
 

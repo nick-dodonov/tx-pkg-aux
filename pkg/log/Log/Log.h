@@ -114,12 +114,40 @@ namespace Log
         Msg(Level::Fatal, std::move(fmt), std::forward<Args>(args)...);
     }
 
+    struct AreaSupplier: std::enable_shared_from_this<AreaSupplier>
+    {
+        virtual ~AreaSupplier() = default;
+        virtual const char* GetArea() const noexcept = 0;
+    };
+
+    struct ConstAreaSupplier : AreaSupplier
+    {
+        const char* value;
+        explicit ConstAreaSupplier(const char* value): value{value} {}
+        const char* GetArea() const noexcept override { return value; }
+    };
+
+    struct StringAreaSupplier : AreaSupplier
+    {
+        std::string value;
+        explicit StringAreaSupplier(std::string value): value{std::move(value)} {}
+        const char* GetArea() const noexcept override { return value.c_str(); }
+    };
+
     struct Logger
     {
         static Logger Default;
 
-        explicit Logger(const char* area = nullptr) noexcept
-            : _area(area)
+        Logger() noexcept
+            : _area(DummyAreaSupplier)
+        {}
+
+        explicit Logger(const char* area) noexcept
+            : _area(std::make_shared<ConstAreaSupplier>(area))
+        {}
+
+        explicit Logger(std::string area) noexcept
+            : _area(std::make_shared<StringAreaSupplier>(std::move(area)))
         {}
 
         bool Enabled(const Level level) noexcept
@@ -131,9 +159,9 @@ namespace Log
         template <typename T>
         void Msg(spdlog::source_loc loc, const Level level, T&& msg) noexcept
         {
-            if (_area) {
-                loc.filename = _area;
-                loc.line = -1;
+            if (const auto *area = GetArea()) {
+                loc.filename = area;
+                loc.line = Detail::AreaLoggerLine;
             }
             Raw()->log(loc, Detail::ToSpdLevel(level), std::forward<T>(msg));
         }
@@ -141,8 +169,8 @@ namespace Log
         template <typename... Args>
         void Msg(spdlog::source_loc loc, const Level level, std::format_string<Args...> fmt, Args&&... args) noexcept
         {
-            if (_area) {
-                loc.filename = _area;
+            if (const auto *area = GetArea()) {
+                loc.filename = area;
                 loc.line = Detail::AreaLoggerLine;
             }
             Raw()->log(loc, Detail::ToSpdLevel(level), Detail::ToSpdFormat<Args...>(std::move(fmt)), std::forward<Args>(args)...);
@@ -166,11 +194,10 @@ namespace Log
         void Msg(const Src src, const Level level, std::format_string<Args...> fmt, Args&&... args) noexcept
         {
             auto loc = Detail::ToSpdLoc(src);
-            if (_area) {
-                loc.filename = _area;
-                loc.line = -1;
+            if (const auto *area = GetArea()) {
+                loc.filename = area;
+                loc.line = Detail::AreaLoggerLine;
             }
-
             Raw()->log(
                 std::move(loc),
                 Detail::ToSpdLevel(level),
@@ -221,10 +248,13 @@ namespace Log
         }
 
     private:
+        static std::shared_ptr<AreaSupplier> DummyAreaSupplier;
+        std::shared_ptr<AreaSupplier> _area;
+
+        [[nodiscard]] const char* GetArea() const { return _area->GetArea(); }
+
         // ReSharper disable once CppMemberFunctionMayBeStatic
         spdlog::logger* Raw() { return Detail::DefaultLoggerRaw(); }
-
-        const char* _area{};
     };
 
 } // namespace Log

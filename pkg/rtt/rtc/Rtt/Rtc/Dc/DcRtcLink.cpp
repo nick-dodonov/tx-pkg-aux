@@ -191,7 +191,7 @@ namespace Rtt::Rtc
 
         std::vector<std::pair<std::string, std::string>> pending;
         {
-            std::lock_guard lock{_mutex};
+            std::scoped_lock lock{_mutex};
             _remoteDescSet = true;
             pending = std::move(_pendingCandidates);
         }
@@ -206,7 +206,7 @@ namespace Rtt::Rtc
     void DcRtcLink::AddRemoteCandidate(std::string cand, std::string mid, const PeerId& fromPeerId)
     {
         {
-            std::lock_guard lock{_mutex};
+            std::scoped_lock lock{_mutex};
             if (_remoteDescSet) {
                 _logger.Trace("ICE candidate from {} (direct)", fromPeerId.value);
             } else {

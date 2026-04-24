@@ -7,6 +7,7 @@
 namespace Log
 {
     Logger Logger::Default;
+    std::shared_ptr<AreaSupplier> Logger::DummyAreaSupplier = std::make_shared<ConstAreaSupplier>(nullptr);
 }
 
 namespace Log::Detail
@@ -24,10 +25,10 @@ namespace Log::Detail
 #ifdef __cpp_rtti
         // Fix ansicolor_sink trace level color (default is too light, make it gray)
         for (auto& sink : logger->sinks()) {
-            if (auto* ansicolor = dynamic_cast<spdlog::sinks::ansicolor_stdout_sink_mt*>(sink.get())) {
-                ansicolor->set_color(spdlog::level::trace, ansicolor->dark);
-            } else if (auto* ansicolor = dynamic_cast<spdlog::sinks::ansicolor_stdout_sink_st*>(sink.get())) {
-                ansicolor->set_color(spdlog::level::trace, ansicolor->dark);
+            if (auto* ansicolor_mt = dynamic_cast<spdlog::sinks::ansicolor_stdout_sink_mt*>(sink.get())) {
+                ansicolor_mt->set_color(spdlog::level::trace, ansicolor_mt->dark);
+            } else if (auto* ansicolor_st = dynamic_cast<spdlog::sinks::ansicolor_stdout_sink_st*>(sink.get())) {
+                ansicolor_st->set_color(spdlog::level::trace, ansicolor_st->dark);
             }
         }
 #endif
