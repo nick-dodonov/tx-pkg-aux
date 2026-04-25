@@ -53,11 +53,11 @@ namespace SynTm
         explicit Session(IClock& clock, SessionConfig config = {})
             : _logger("Session", config.parentLogger)
             , _clock(clock)
-            , _config(config)
-            , _filter(config.filterWindowSize)
+            , _config(std::move(config))
+            , _filter(_config.filterWindowSize)
             , _driftModel(SteerPolicy{
-                .stepThreshold = config.stepThreshold,
-                .maxSlewRate   = config.maxSlewRate,
+                .stepThreshold = _config.stepThreshold,
+                .maxSlewRate   = _config.maxSlewRate,
                 .parentLogger  = _logger,
             })
         {
@@ -65,25 +65,28 @@ namespace SynTm
                    "filterWindowSize must be >= minSamplesForSync");
         }
 
+        [[nodiscard]] const auto& GetLogger() const noexcept { return _logger; }
+
         /// Whether it's time to send a new probe request.
         [[nodiscard]] bool ShouldProbe() const noexcept
         {
             if (!_everProbed) {
                 return true;
             }
-            Ticks now = _clock.Now();
+            const auto now = _clock.Now();
             return (now - _lastProbeSentAt) >= CurrentProbeInterval();
         }
 
         /// Create a probe request to send to the remote peer.
         [[nodiscard]] ProbeRequest MakeProbeRequest()
         {
-            Ticks now = _clock.Now();
+            const auto now = _clock.Now();
             _lastProbeSentAt = now;
             _everProbed = true;
             if (_state == SessionState::Idle) {
                 _state = SessionState::Probing;
             }
+            _logger.Trace("t1={}ns", Log::Sep{now.count()});
             return ProbeRequest{.t1 = now};
         }
 
@@ -91,10 +94,11 @@ namespace SynTm
         /// Returns a response to send back.
         [[nodiscard]] ProbeResponse HandleProbeRequest(const ProbeRequest& req) const
         {
-            Ticks now = _clock.Now();
+            const auto t2 = _clock.Now();
+            _logger.Trace("t1={}ns -> t2={}ns", Log::Sep{req.t1.count()}, Log::Sep{t2.count()});
             return ProbeResponse{
                 .t1 = req.t1,
-                .t2 = now,
+                .t2 = t2,
                 .t3 = _clock.Now(), // Capture tx time separately for accuracy.
             };
         }
@@ -114,22 +118,21 @@ namespace SynTm
 
         [[nodiscard]] ProbeHandleResult HandleProbeResponse(const ProbeResponse& resp)
         {
-            Ticks t4 = _clock.Now();
-            auto probe = ComputeProbeResult(resp.t1, resp.t2, resp.t3, t4);
+            const auto t4 = _clock.Now();
+            const auto probe = ComputeProbeResult(resp.t1, resp.t2, resp.t3, t4);
+            _logger.Trace("result: offset={}ns rtt={}ns", Log::Sep{probe.offset.count()}, Log::Sep{probe.rtt.count()});
 
-            _logger.Trace("probe: offset={}ns rtt={}ns", Log::Sep{probe.offset.count()}, Log::Sep{probe.rtt.count()});
-
-            auto filterResult = _filter.AddSample(t4, probe);
+            const auto filterResult = _filter.AddSample(t4, probe);
             const auto sampleCount = filterResult.sampleCount;
 
             _logger.Trace("filter: offset={}ns rate={}ns/s ({:.6f}) jitter={}ns minRtt={}ns sampleCount={}",
                 Log::Sep{filterResult.offset.count()}, filterResult.rate.count(), filterResult.rate.ToDouble(),
                 Log::Sep{filterResult.jitter.count()}, Log::Sep{filterResult.minRtt.count()}, sampleCount);
 
-            bool stepped = _driftModel.Steer(t4, filterResult);
+            const auto stepped = _driftModel.Steer(t4, filterResult);
 
-            bool enteredResyncing = false;
-            bool exitedResyncing = false;
+            auto enteredResyncing = false;
+            auto exitedResyncing = false;
 
             // Update state.
             if (stepped) {
@@ -151,10 +154,12 @@ namespace SynTm
                 _logger.Trace("state: {} sampleCount={}/{}", SessionStateToString(_state), sampleCount, _config.minSamplesForSync);
             }
 
-            return {.filterResult = filterResult,
-                    .stepped = stepped,
-                    .enteredResyncing = enteredResyncing,
-                    .exitedResyncing = exitedResyncing};
+            return {
+                .filterResult = filterResult,
+                .stepped = stepped,
+                .enteredResyncing = enteredResyncing,
+                .exitedResyncing = exitedResyncing,
+            };
         }
 
         /// Convert a local time to the estimated remote peer time.
@@ -223,16 +228,18 @@ namespace SynTm
 
             // Once synced, scale interval based on filter sample count.
             // More samples → more stable → longer interval.
-            auto sampleCount = _filter.SampleCount();
+            const auto sampleCount = _filter.SampleCount();
             if (sampleCount < _config.filterWindowSize / 2) {
                 return _config.probeIntervalMin;
             }
 
             // Linear interpolation between min and max based on fill ratio.
-            Ticks range = _config.probeIntervalMax - _config.probeIntervalMin;
-            auto ratio = static_cast<std::int64_t>(sampleCount * 2) /
-                         static_cast<std::int64_t>(_config.filterWindowSize);
+            const auto range = _config.probeIntervalMax - _config.probeIntervalMin;
+            auto ratio =
+                static_cast<std::int64_t>(sampleCount * 2) /
+                static_cast<std::int64_t>(_config.filterWindowSize);
             ratio = std::min(ratio, std::int64_t{2});
+
             return _config.probeIntervalMin + range * (ratio - 1);
         }
 

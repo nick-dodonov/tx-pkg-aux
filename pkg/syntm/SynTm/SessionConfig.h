@@ -1,5 +1,6 @@
 #pragma once
 #include "Types.h"
+#include "Log/Log.h"
 
 #include <chrono>
 #include <cstdint>

@@ -4,11 +4,13 @@
 #include "Session.h"
 #include "SessionConfig.h"
 #include "Types.h"
+#include "pkg/log/Log/Log.h"
 
 #include <algorithm>
 #include <cstdint>
 #include <functional>
 #include <optional>
+#include <ranges>
 #include <string>
 #include <unordered_map>
 
@@ -34,9 +36,10 @@ namespace SynTm
         using EventCallback = std::function<void(SyncEvent)>;
 
         explicit Consensus(IClock& clock, ConsensusMode mode = ConsensusMode::Voter, SessionConfig config = {})
-            : _clock(clock)
+            : _logger("Consensus", config.parentLogger)
+            , _clock(clock)
             , _mode(mode)
-            , _config(config)
+            , _config(std::move(config))
         {}
 
         /// Register a callback for sync events.
@@ -55,7 +58,9 @@ namespace SynTm
             if (_peers.contains(peerId)) {
                 return false;
             }
-            _peers.emplace(peerId, Session(_clock, _config));
+            auto sessionConfig = _config;
+            sessionConfig.parentLogger = Log::Logger(std::format("[-{}]", peerId), _config.parentLogger);
+            _peers.emplace(peerId, Session(_clock, sessionConfig));
 
             // If we have no epoch yet, create one.
             if (!_epoch.IsValid()) {
@@ -68,7 +73,7 @@ namespace SynTm
         /// Remove a peer. Returns false if not found.
         bool RemovePeer(const std::string& peerId)
         {
-            auto erased = _peers.erase(peerId);
+            const auto erased = _peers.erase(peerId);
             if (erased == 0) {
                 return false;
             }
@@ -85,7 +90,7 @@ namespace SynTm
         /// Get a session for a peer (for direct access).
         [[nodiscard]] Session* GetSession(const std::string& peerId)
         {
-            auto it = _peers.find(peerId);
+            const auto it = _peers.find(peerId);
             if (it == _peers.end()) {
                 return nullptr;
             }
@@ -94,7 +99,7 @@ namespace SynTm
 
         [[nodiscard]] const Session* GetSession(const std::string& peerId) const
         {
-            auto it = _peers.find(peerId);
+            const auto it = _peers.find(peerId);
             if (it == _peers.end()) {
                 return nullptr;
             }
@@ -135,16 +140,20 @@ namespace SynTm
         /// Session-level unit tests that operate without a Consensus layer.
         [[nodiscard]] std::optional<ProbeResponse> HandleProbeRequest(const std::string& peerId, const ProbeRequest& req)
         {
-            if (!GetSession(peerId)) {
+            const auto* session = GetSession(peerId);
+            if (!session) {
                 return std::nullopt;
             }
-            Ticks now = _clock.Now();
+
+            const auto now = _clock.Now();
             // Use raw local time for the epoch source: the owner already knows its
             // own time, and a non-owner avoids injecting a discontinuity into the
             // owner's session when it first starts responding with synced time.
-            bool useRaw = _isEpochOwner || peerId == _epochSourcePeerId;
-            Ticks t2 = useRaw ? now : ToSyncedTime(now);
-            Ticks t3 = useRaw ? now : ToSyncedTime(now);
+            const auto useRaw = _isEpochOwner || peerId == _epochSourcePeerId;
+            const auto t2 = useRaw ? now : ToSyncedTime(now);
+            const auto t3 = useRaw ? now : ToSyncedTime(now);
+
+            session->GetLogger().Trace("Consensus: t1={}ns -> t2={}ns", peerId, Log::Sep{req.t1.count()}, Log::Sep{t2.count()});
             return ProbeResponse{.t1 = req.t1, .t2 = t2, .t3 = t3};
         }
 
@@ -159,7 +168,7 @@ namespace SynTm
                 return;
             }
 
-            auto result = session->HandleProbeResponse(resp);
+            const auto result = session->HandleProbeResponse(resp);
 
             // Process epoch merge if the remote provided epoch info.
             if (remoteEpoch) {
@@ -242,8 +251,7 @@ namespace SynTm
             if (_isEpochOwner) {
                 return _clock.Now();
             }
-            const Session* session = GetEpochAlignedSession();
-            if (session) {
+            if (const auto* session = GetEpochAlignedSession()) {
                 return session->RemoteNow();
             }
             // No synced peer — return local time.
@@ -257,8 +265,7 @@ namespace SynTm
             if (_isEpochOwner) {
                 return localTime;
             }
-            const Session* session = GetEpochAlignedSession();
-            if (session) {
+            if (const auto* session = GetEpochAlignedSession()) {
                 return session->ToRemoteTime(localTime);
             }
             return localTime;
@@ -273,8 +280,8 @@ namespace SynTm
         /// Best sync quality across all peers.
         [[nodiscard]] SyncQuality Quality() const noexcept
         {
-            SyncQuality best = SyncQuality::None;
-            for (const auto& [_, session] : _peers) {
+            auto best = SyncQuality::None;
+            for (const auto& session : _peers | std::views::values) {
                 auto q = session.Quality();
                 best = std::max(q, best);
             }
@@ -290,7 +297,7 @@ namespace SynTm
     private:
         void CreateEpoch()
         {
-            Ticks now = _clock.Now();
+            const auto now = _clock.Now();
             // Simple epoch ID: hash of local time.
             _epoch = SyncEpoch{
                 .id          = static_cast<std::uint64_t>(now.count()) ^ 0x5A5A5A5A'5A5A5A5AULL,
@@ -314,7 +321,7 @@ namespace SynTm
             };
 
             // Reset all sessions to re-sync under new epoch.
-            for (auto& [_, session] : _peers) {
+            for (auto& session : _peers | std::views::values) {
                 session.Reset();
             }
             _synced = false;
@@ -324,12 +331,11 @@ namespace SynTm
 
         [[nodiscard]] bool HasAnySyncedPeer() const noexcept
         {
-            for (const auto& [_, session] : _peers) {
-                if (session.State() == SessionState::Synced) {
-                    return true;
-                }
-            }
-            return false;
+            return std::ranges::any_of(
+                _peers | std::views::values,
+                [](const auto& session) {
+                    return session.State() == SessionState::Synced;
+                });
         }
 
         /// Find the best synced session (highest quality).
@@ -338,7 +344,7 @@ namespace SynTm
             const Session* best = nullptr;
             SyncQuality bestQuality = SyncQuality::None;
 
-            for (const auto& [_, session] : _peers) {
+            for (const auto& session : _peers | std::views::values) {
                 auto q = session.Quality();
                 if (q > bestQuality) {
                     bestQuality = q;
@@ -370,6 +376,8 @@ namespace SynTm
                 _eventCallback(event);
             }
         }
+
+        Log::Logger _logger;
 
         IClock& _clock;
         ConsensusMode _mode;

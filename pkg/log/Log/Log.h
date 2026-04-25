@@ -126,6 +126,7 @@ namespace Log
     /// Returns the numeric OS thread ID for the calling thread.
     size_t GetThreadId() noexcept;
 
+    /// Logger with area support. Area is a string label representing a logical component or module, shown in log output to help categorize messages.
     struct AreaSupplier: std::enable_shared_from_this<AreaSupplier>
     {
         virtual ~AreaSupplier() = default;
@@ -151,33 +152,38 @@ namespace Log
         static Logger Default;
 
         Logger() noexcept
-            : _area(DummyAreaSupplier)
+            : _areaSupplier(DummyAreaSupplier)
         {}
 
         explicit Logger(const char* area) noexcept
-            : _area(std::make_shared<ConstAreaSupplier>(area))
+            : _areaSupplier(std::make_shared<ConstAreaSupplier>(area))
         {}
 
         explicit Logger(const char* area, const Logger& parentLogger) noexcept
-            : _area(MakeAreaSupplier(area, parentLogger))
+            : _areaSupplier(MakeAreaSupplier(area, parentLogger))
         {}
 
         explicit Logger(std::string area) noexcept
-            : _area(std::make_shared<StringAreaSupplier>(std::move(area)))
+            : _areaSupplier(std::make_shared<StringAreaSupplier>(std::move(area)))
         {}
 
         explicit Logger(std::string area, const Logger& parentLogger) noexcept
-            : _area(MakeAreaSupplier(std::move(area), parentLogger))
+            : _areaSupplier(MakeAreaSupplier(std::move(area), parentLogger))
         {}
 
-        bool Enabled(const Level level) noexcept
+        [[nodiscard]] const char* GetArea() const noexcept
+        {
+            return _areaSupplier->GetArea();
+        }
+
+        [[nodiscard]] bool Enabled(const Level level) const noexcept
         {
             return Raw()->should_log(Detail::ToSpdLevel(level));
         }
 
         // raw helpers for macros usage
         template <typename T>
-        void Msg(spdlog::source_loc loc, const Level level, T&& msg) noexcept
+        void Msg(spdlog::source_loc loc, const Level level, T&& msg) const noexcept
         {
             if (const auto *area = GetArea()) {
                 loc.filename = area;
@@ -187,7 +193,7 @@ namespace Log
         }
 
         template <typename... Args>
-        void Msg(spdlog::source_loc loc, const Level level, std::format_string<Args...> fmt, Args&&... args) noexcept
+        void Msg(spdlog::source_loc loc, const Level level, std::format_string<Args...> fmt, Args&&... args) const noexcept
         {
             if (const auto *area = GetArea()) {
                 loc.filename = area;
@@ -198,20 +204,20 @@ namespace Log
 
         // raw helpers allowing to use macro w/ passing logger instance as the 1st argument
         template <typename T>
-        void Msg(const spdlog::source_loc loc, const Level level, Logger& logger, T&& msg) noexcept
+        void Msg(const spdlog::source_loc loc, const Level level, Logger& logger, T&& msg) const noexcept
         {
             logger.Msg(loc, level, std::forward<T>(msg));
         }
 
         template <typename... Args>
-        void Msg(const spdlog::source_loc loc, const Level level, Logger& logger, std::format_string<Args...> fmt, Args&&... args) noexcept
+        void Msg(const spdlog::source_loc loc, const Level level, Logger& logger, std::format_string<Args...> fmt, Args&&... args) const noexcept
         {
             logger.Msg(loc, level, fmt, std::forward<Args>(args)...);
         }
 
         // main methods
         template <typename... Args>
-        void Msg(const Src src, const Level level, std::format_string<Args...> fmt, Args&&... args) noexcept
+        void Msg(const Src src, const Level level, std::format_string<Args...> fmt, Args&&... args) const noexcept
         {
             auto loc = Detail::ToSpdLoc(src);
             if (const auto *area = GetArea()) {
@@ -226,52 +232,50 @@ namespace Log
         }
 
         template <typename... Args>
-        void Msg(const Level level, FmtMsg<Args...> fmt, Args&&... args) noexcept
+        void Msg(const Level level, FmtMsg<Args...> fmt, Args&&... args) const noexcept
         {
             Msg(fmt.src, level, std::move(fmt.format), std::forward<Args>(args)...);
         }
 
         template <typename... Args>
-        void Trace(FmtMsg<std::type_identity_t<Args>...> fmt, Args&&... args) noexcept
+        void Trace(FmtMsg<std::type_identity_t<Args>...> fmt, Args&&... args) const noexcept
         {
             Msg(Level::Trace, std::move(fmt), std::forward<Args>(args)...);
         }
 
         template <typename... Args>
-        void Debug(FmtMsg<std::type_identity_t<Args>...> fmt, Args&&... args) noexcept
+        void Debug(FmtMsg<std::type_identity_t<Args>...> fmt, Args&&... args) const noexcept
         {
             Msg(Level::Debug, std::move(fmt), std::forward<Args>(args)...);
         }
 
         template <typename... Args>
-        void Info(FmtMsg<std::type_identity_t<Args>...> fmt, Args&&... args) noexcept
+        void Info(FmtMsg<std::type_identity_t<Args>...> fmt, Args&&... args) const noexcept
         {
             Msg(Level::Info, std::move(fmt), std::forward<Args>(args)...);
         }
 
         template <typename... Args>
-        void Warn(FmtMsg<std::type_identity_t<Args>...> fmt, Args&&... args) noexcept
+        void Warn(FmtMsg<std::type_identity_t<Args>...> fmt, Args&&... args) const noexcept
         {
             Msg(Level::Warn, std::move(fmt), std::forward<Args>(args)...);
         }
 
         template <typename... Args>
-        void Error(FmtMsg<std::type_identity_t<Args>...> fmt, Args&&... args) noexcept
+        void Error(FmtMsg<std::type_identity_t<Args>...> fmt, Args&&... args) const noexcept
         {
             Msg(Level::Error, std::move(fmt), std::forward<Args>(args)...);
         }
 
         template <typename... Args>
-        void Fatal(FmtMsg<std::type_identity_t<Args>...> fmt, Args&&... args) noexcept
+        void Fatal(FmtMsg<std::type_identity_t<Args>...> fmt, Args&&... args) const noexcept
         {
             Msg(Level::Fatal, std::move(fmt), std::forward<Args>(args)...);
         }
 
     private:
         static std::shared_ptr<AreaSupplier> DummyAreaSupplier;
-        std::shared_ptr<AreaSupplier> _area;
-
-        [[nodiscard]] const char* GetArea() const { return _area->GetArea(); }
+        std::shared_ptr<AreaSupplier> _areaSupplier;
 
         static std::shared_ptr<AreaSupplier> MakeAreaSupplier(const char* area, const Logger& parentLogger) noexcept
         {
@@ -290,7 +294,7 @@ namespace Log
         }
 
         // ReSharper disable once CppMemberFunctionMayBeStatic
-        spdlog::logger* Raw() { return Detail::DefaultLoggerRaw(); }
+        spdlog::logger* Raw() const noexcept { return Detail::DefaultLoggerRaw(); }
     };
 
 } // namespace Log
