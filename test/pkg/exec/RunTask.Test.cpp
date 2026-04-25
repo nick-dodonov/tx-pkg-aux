@@ -20,7 +20,7 @@ namespace {
 auto MakeDomain(Exec::RunTask<int> task)
 {
     return std::make_shared<Exec::Domain>(
-        std::move(task), Exec::Domain::Options{.backend = std::make_unique<Exec::LoopTimerBackend>()});
+        std::move(task), Exec::DomainOptions{.backend = std::make_unique<Exec::LoopTimerBackend>()});
 }
 
 // ---------------------------------------------------------------------------

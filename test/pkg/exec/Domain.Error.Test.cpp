@@ -48,7 +48,7 @@ TEST(DomainErrorTest, ExceptionPtrExitsWithFailure)
     auto ex = std::make_exception_ptr(std::runtime_error("test error from sender"));
     auto domain = std::make_shared<Exec::Domain>(
         ErrorSender{ex},
-        Exec::Domain::Options{.backend = std::make_unique<Exec::LoopTimerBackend>()});
+        Exec::DomainOptions{.backend = std::make_unique<Exec::LoopTimerBackend>()});
     TestRunner runner{domain};
 
     runner.DriveStart();
@@ -65,7 +65,7 @@ TEST(DomainErrorTest, UnknownExceptionTypeExitsWithFailure)
     auto ex = std::make_exception_ptr(42); // not derived from std::exception
     auto domain = std::make_shared<Exec::Domain>(
         ErrorSender{ex},
-        Exec::Domain::Options{.backend = std::make_unique<Exec::LoopTimerBackend>()});
+        Exec::DomainOptions{.backend = std::make_unique<Exec::LoopTimerBackend>()});
     TestRunner runner{domain};
 
     runner.DriveStart();

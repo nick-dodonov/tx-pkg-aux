@@ -48,33 +48,38 @@ namespace Exec
 
     void Domain::Completed(int exitCode)
     {
-        _logger.Trace("{}", exitCode);
+        _logger.Debug("{}", exitCode);
         GetRunner()->Exit(exitCode);
     }
 
-    void Domain::Failed(std::exception_ptr ex)
+    void Domain::Failed(const std::exception_ptr& ex)
     {
         const auto msg = Log::ExceptionMessage(ex);
         if (!msg.empty()) {
             _logger.Error("unhandled exception: {}", msg);
         } else {
-            _logger.Error("sender completed with error");
+            _logger.Error("unhandled exception: <unknown>");
         }
-        GetRunner()->Exit(RunLoop::ExitCode::Failure);
-    }
-
-    void DomainReceiver::set_error(std::exception_ptr&& ex) noexcept
-    {
-        domain->Failed(std::move(ex));
+        if (_exitRunner) {
+            GetRunner()->Exit(RunLoop::ExitCode::Failure);
+        } else {
+            _logger.Trace("runner retained");
+        }
     }
 
     void Domain::Stopped()
     {
-        _logger.Trace("");
+        if (_exitRunner) {
+            auto* runner = GetRunner();
+            auto exiting = runner->Exiting();
+            _logger.Trace("runner already exiting={}", exiting.has_value());
 
-        // distinguish between cooperative stop (exit code from coroutine) and forced cancellation
-        if (auto* runner = GetRunner(); !runner->Exiting()) {
-            runner->Exit(RunLoop::ExitCode::Cancelled);
+            // distinguish between cooperative stop (exit code from coroutine) and forced cancellation
+            if (!exiting) {
+                runner->Exit(RunLoop::ExitCode::Cancelled);
+            }
+        } else {
+            _logger.Trace("runner retained");
         }
     }
 }

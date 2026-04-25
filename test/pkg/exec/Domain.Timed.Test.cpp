@@ -19,7 +19,7 @@ template <class F>
 auto MakeDomainWithLoop(F factory)
 {
     return std::make_shared<Exec::Domain>(
-        std::move(factory), Exec::Domain::Options{.backend = std::make_unique<Exec::LoopTimerBackend>()});
+        std::move(factory), Exec::DomainOptions{.backend = std::make_unique<Exec::LoopTimerBackend>()});
 }
 
 } // namespace
@@ -79,7 +79,7 @@ TEST(DelayTest, StopBeforeDelayFiresCancelsCorrectly)
 TEST(DelayTest, TimedLoopContextNowReturnsSteadyClockTime)
 {
     auto domain = std::make_shared<Exec::Domain>(
-        stdexec::just(0), Exec::Domain::Options{.backend = std::make_unique<Exec::LoopTimerBackend>()});
+        stdexec::just(0), Exec::DomainOptions{.backend = std::make_unique<Exec::LoopTimerBackend>()});
 
     const auto before = std::chrono::steady_clock::now();
     const auto t      = exec::now(domain->GetScheduler());

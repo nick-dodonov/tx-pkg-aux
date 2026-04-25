@@ -9,6 +9,21 @@
 
 namespace Exec
 {
+    struct DomainOptions
+    {
+        /// If true, the Domain will call GetRunner()->Exit() when the sender completes or fails.
+        /// Required when multiple Domains are used in the same runner, to avoid one Domain's completion shutting down the whole runner and preventing other Domains from finishing their work.
+        bool retainRunner{};
+
+        /// Timer backend to use. Defaults to nullptr which triggers MakeDefaultBackend()
+        /// — ThreadTimerBackend on desktop, LoopTimerBackend on WASM.
+        /// Pass a custom backend (e.g. LoopTimerBackend for tests) to override.
+        std::unique_ptr<ITimerBackend> backend;
+
+        /// Parent area logger.
+        Log::Logger parentLogger;
+    };
+
     /// Loop handler that drives a sender<int> on a PureLoopContext.
     ///
     /// Bridges the P2300 sender/receiver model with the RunLoop update cycle.
@@ -26,17 +41,6 @@ namespace Exec
         using Scheduler = RunContext::Scheduler;
 
     public:
-        struct Options
-        {
-            /// Timer backend to use. Defaults to nullptr which triggers MakeDefaultBackend()
-            /// — ThreadTimerBackend on desktop, LoopTimerBackend on WASM.
-            /// Pass a custom backend (e.g. LoopTimerBackend for tests) to override.
-            std::unique_ptr<ITimerBackend> backend;
-
-            /// Parent area logger.
-            Log::Logger parentLogger;
-        };
-
         /// Returns the timed scheduler handle for this domain.
         ///
         /// The returned handle satisfies both stdexec::scheduler (for zero-delay
@@ -55,8 +59,9 @@ namespace Exec
         ///   auto domain = std::make_shared<Domain>(stdexec::just(42));
         template <stdexec::sender S>
         requires (!std::invocable<S, Scheduler>)
-        explicit Domain(S sender, Options options = {})
+        explicit Domain(S sender, DomainOptions options = {})
             : _logger(Log::Logger("Domain", options.parentLogger))
+            , _exitRunner(!options.retainRunner)
             , _timerBackend(options.backend ? std::move(options.backend) : MakeDefaultBackend())
             , _scheduler(_timerBackend.get())
         {
@@ -76,8 +81,9 @@ namespace Exec
         ///   });
         template <class F>
         requires std::invocable<F, Scheduler>
-        explicit Domain(F factory, Options options = {})
+        explicit Domain(F factory, DomainOptions options = {})
             : _logger(Log::Logger("Domain", options.parentLogger))
+            , _exitRunner(!options.retainRunner)
             , _timerBackend(options.backend ? std::move(options.backend) : MakeDefaultBackend())
             , _scheduler(_timerBackend.get())
         {
@@ -92,11 +98,11 @@ namespace Exec
         void Update(const RunLoop::UpdateCtx& ctx) override;
 
     private:
-        void Completed(int exitCode);
-        void Failed(std::exception_ptr ex);
-        void Stopped();
-
         friend struct DomainReceiver;
+
+        void Completed(int exitCode);
+        void Failed(const std::exception_ptr& ex);
+        void Stopped();
 
         // ---------------------------------------------------------------
         // Type erasure for the operation state
@@ -130,6 +136,7 @@ namespace Exec
         static std::unique_ptr<ITimerBackend> MakeDefaultBackend();
 
         Log::Logger _logger;
+        bool _exitRunner;
 
         // _timerBackend must be declared before _scheduler — it is initialized first
         // (member init order follows declaration order), and the TimedLoopContext
@@ -174,7 +181,7 @@ namespace Exec
 
         void set_value(int exitCode) const noexcept { domain->Completed(exitCode); }
         void set_stopped() const noexcept { domain->Stopped(); }
-        void set_error(std::exception_ptr&& ex) noexcept;
+        void set_error(std::exception_ptr ex) const noexcept { domain->Failed(ex); }
     };
 
     // Verify DomainReceiver satisfies the P2300 receiver concept:
