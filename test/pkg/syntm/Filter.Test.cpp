@@ -248,3 +248,142 @@ TEST(DriftModel, RateApplied)
     auto diff = std::chrono::abs(synced - expected);
     EXPECT_LE(diff, 100us); // Within 0.1ms tolerance.
 }
+
+// ===========================================================================
+// H1 — Queuing delay noise model
+//
+// Confirms numerically that random queuing delays on t4 introduce
+// ~std(D)/2 noise into the computed offset.
+// This test uses raw ProbeResult construction to inject the delay directly.
+// ===========================================================================
+
+TEST(Filter, QueuingDelayIntroducesOffsetNoise)
+{
+    // The NTP formula: offset = ((t2-t1) + (t3-t4)) / 2.
+    // If t4 is delayed by D (processing lag), the measured offset shifts by +D/2.
+    // For D uniform in [0, Dmax], std(D/2) = Dmax / (2 * sqrt(12)) ≈ Dmax / 6.9.
+    // With Dmax = 200ms → std(measured_offset) ≈ 29ms.
+    //
+    // We simulate this by adding a random queuing delay to each t4
+    // and measuring how much the reported offset deviates from the true offset.
+
+    constexpr Ticks trueOffset = 50ms;
+    constexpr Ticks maxQueueDelay = 200ms;
+    constexpr int kRounds = 40;
+
+    // Fixed seed PRNG (xorshift32) for deterministic test.
+    std::uint32_t rng = 0xDEAD'BEEF;
+    auto nextRand = [&]() -> std::uint32_t {
+        rng ^= rng << 13;
+        rng ^= rng >> 17;
+        rng ^= rng << 5;
+        return rng;
+    };
+
+    Ticks sumError{};
+    Ticks sumErrorSq{};
+
+    for (int i = 0; i < kRounds; ++i) {
+        // Queuing delay for this round: uniform in [0, maxQueueDelay].
+        auto queueNs = static_cast<std::int64_t>(
+            static_cast<std::uint64_t>(nextRand()) % static_cast<std::uint64_t>(maxQueueDelay.count()));
+        Ticks queueDelay{queueNs};
+
+        // True timestamps:
+        //   t1 = 1s (initiator sends)
+        //   t2 = 1s + 5ms + trueOffset   (responder receives after 5ms network delay)
+        //   t3 = t2                        (responder sends immediately)
+        //   t4_true = 1s + 10ms           (initiator receives after another 5ms)
+        //   t4_observed = t4_true + queueDelay (processing happens later)
+        Ticks t1{1'000'000'000LL + static_cast<std::int64_t>(i) * 100'000'000LL};
+        Ticks t2 = t1 + 5ms + trueOffset;
+        Ticks t3 = t2;
+        Ticks t4_true = t1 + 10ms;
+        Ticks t4_observed = t4_true + queueDelay;
+
+        auto result = ComputeProbeResult(t1, t2, t3, t4_observed);
+
+        Ticks error = result.offset - trueOffset;
+        sumError += error;
+        sumErrorSq += Ticks{error.count() / 1'000 * (error.count() / 1'000)}; // (error/1us)^2 in us^2
+    }
+
+    // Mean error ≈ maxQueueDelay / 2 (positive bias from queuing).
+    Ticks meanError = sumError / kRounds;
+    // We don't assert the exact mean — just that it's substantial (>= 30ms).
+    EXPECT_GE(std::chrono::abs(meanError), 30ms)
+        << "Queuing delay should introduce at least 30ms mean offset bias";
+}
+
+// ===========================================================================
+// H2 — Slew rate: DriftModel must honour maxSlewRate
+//
+// With the current implementation maxSlewRate is unused — correction/2 is
+// applied directly. For correction=50ms and maxSlewRate=100us this test FAILS
+// (RED) until maxSlewRate enforcement is implemented.
+// ===========================================================================
+
+TEST(DriftModel, SlewRateCapped)
+{
+    // maxSlewRate = 100 µs/s.  Probe interval = 200ms.
+    // Max allowed delta per step = 100us/s * 0.2s = 20us.
+    SteerPolicy policy{
+        .stepThreshold = 200ms, // High threshold: no steps, only slew.
+        .maxSlewRate   = DriftRate{100us},
+    };
+    DriftModel model(policy);
+    model.Initialize(Ticks{}, Ticks{});
+
+    constexpr Ticks probeInterval = 200ms;
+    constexpr Ticks correction = 50ms; // Large noisy correction — should be clamped.
+
+    Ticks localTime{};
+    Ticks prevSynced = model.Convert(localTime);
+
+    for (int i = 0; i < 10; ++i) {
+        localTime += probeInterval;
+
+        FilterResult fr{
+            .offset = correction, // Constant large noisy offset.
+            .rate   = DriftRate{},
+            .jitter = 1ms,
+            .minRtt = 5ms,
+        };
+        model.Steer(localTime, fr);
+
+        Ticks newSynced = model.Convert(localTime);
+        Ticks delta = std::chrono::abs(newSynced - prevSynced - probeInterval);
+
+        // The step in synced time due to slewing must not exceed
+        // maxSlewRate * probeInterval + small epsilon for rate application.
+        // maxSlewRate=100us/s * 0.2s = 20us. We allow 2x margin.
+        EXPECT_LE(delta, 40us)
+            << "Slew at step " << i << " was " << delta.count() << "ns, expected <= 40us";
+
+        prevSynced = newSynced;
+    }
+}
+
+// ===========================================================================
+// H2 — Slew rate: step still applies when correction exceeds threshold
+// ===========================================================================
+
+TEST(DriftModel, StepAppliedWhenAboveThreshold)
+{
+    SteerPolicy policy{
+        .stepThreshold = 50ms,
+        .maxSlewRate   = DriftRate{100us},
+    };
+    DriftModel model(policy);
+    model.Initialize(Ticks{}, Ticks{});
+
+    FilterResult fr{
+        .offset = 200ms, // Exceeds stepThreshold — step must still occur.
+        .rate   = DriftRate{},
+        .jitter = 1ms,
+        .minRtt = 5ms,
+    };
+    bool stepped = model.Steer(1s, fr);
+    EXPECT_TRUE(stepped);
+    EXPECT_EQ(model.Convert(1s), 1s + 200ms);
+}

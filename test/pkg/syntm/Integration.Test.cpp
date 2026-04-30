@@ -13,7 +13,9 @@
 #include "SynTm/Types.h"
 
 #include <array>
+#include <cmath>
 #include <cstddef>
+#include <cstdint>
 #include <gtest/gtest.h>
 #include <string>
 #include <utility>
@@ -646,6 +648,255 @@ TEST(Integration, BothSidesSameEpochTime)
     // Owner's synced time equals its local time.
     auto ownerDiff = std::chrono::abs(nodeA.syncClock.Now() - nodeA.clock.Now());
     EXPECT_LE(ownerDiff, 1ms);
+}
+
+// ===========================================================================
+// H1 — TwoNodeWithQueuingDelay
+//
+// Simulates peerlab conditions: probes are sent and received on a fast clock
+// but only processed 0-200ms later in the tick loop. This is the root cause
+// of the 20-200ms sync divergence observed in the demo.
+//
+// With receivedAt=nullopt (no fix): error must be >= 20ms (confirms H1 red).
+// After fix (receivedAt provided): error must be <= 5ms (green).
+//
+// The test exercises Consensus::HandleProbeRequest / HandleProbeResponse
+// with explicit receivedAt timestamps, matching the peerlab fix path.
+// ===========================================================================
+
+namespace
+{
+    /// Probe round where processing is delayed by queueDelay on each side.
+    /// When useReceivedAt=true, the true receive timestamp is passed to
+    /// the Consensus calls. When false, no override is given (current bug).
+    void ProbeRoundWithQueueDelay(
+        SimNode& a, const std::string& peerOnA,
+        SimNode& b, const std::string& peerOnB,
+        Ticks networkDelay,
+        Ticks queueDelayA, // processing lag at A (t4 bias)
+        Ticks queueDelayB, // processing lag at B (t2 bias)
+        bool useReceivedAt)
+    {
+        // A sends request.
+        auto req = a.consensus.MakeProbeRequest(peerOnA);
+        if (!req) {
+            return;
+        }
+
+        // Network to B.
+        a.clock.Advance(networkDelay);
+        b.clock.Advance(networkDelay);
+
+        // Request arrives at B — capture true t2 BEFORE queue delay.
+        Ticks trueT2 = b.clock.Now();
+
+        // B processes after queue delay.
+        a.clock.Advance(queueDelayB);
+        b.clock.Advance(queueDelayB);
+
+        std::optional<ProbeResponse> resp;
+        if (useReceivedAt) {
+            resp = b.consensus.HandleProbeRequest(peerOnB, *req, trueT2);
+        } else {
+            resp = b.consensus.HandleProbeRequest(peerOnB, *req);
+        }
+        if (!resp) {
+            return;
+        }
+
+        // Network back to A.
+        a.clock.Advance(networkDelay);
+        b.clock.Advance(networkDelay);
+
+        // Response arrives at A — capture true t4 BEFORE queue delay.
+        Ticks trueT4 = a.clock.Now();
+
+        // A processes after queue delay.
+        a.clock.Advance(queueDelayA);
+        b.clock.Advance(queueDelayA);
+
+        if (useReceivedAt) {
+            a.consensus.HandleProbeResponse(peerOnA, *resp, b.consensus.OurEpochInfo(), trueT4);
+        } else {
+            a.consensus.HandleProbeResponse(peerOnA, *resp, b.consensus.OurEpochInfo());
+        }
+    }
+}
+
+TEST(Integration, TwoNodeWithQueuingDelay_ConfirmsBug)
+{
+    // Confirms H1: queuing delays produce large sync error without the fix.
+    // Uses ASYMMETRIC delays — symmetric delays cancel in NTP formula:
+    //   offset_error = (queueDelayB_at_responder - queueDelayA_at_initiator) / 2
+    // With queueDelayA=0ms and queueDelayB=160ms:
+    //   offset_error = (160ms - 0ms) / 2 = 80ms per probe.
+    //
+    // This test should PASS even before the implementation fix (confirms the bug).
+    auto config = FastConfig();
+    config.filterWindowSize = 8;
+    config.minSamplesForSync = 4;
+
+    // A: epoch owner (lower start time).
+    SimNode nodeA("A", 100ms, ConsensusMode::Voter, config);
+    SimNode nodeB("B", 100ms + 50ms, ConsensusMode::Voter, config); // B 50ms ahead.
+
+    nodeA.consensus.AddPeer("B");
+    nodeB.consensus.AddPeer("A");
+
+    constexpr Ticks networkDelay = 3ms;
+    // Asymmetric: B delays processing requests by 160ms, A processes immediately.
+    // Applies to BOTH probe directions to create systematic bias.
+    constexpr Ticks queueDelayAtInitiator = 0ms;
+    constexpr Ticks queueDelayAtResponder = 160ms;
+    std::vector<SimNode*> all = {&nodeA, &nodeB};
+
+    // Run 30 probe rounds without receivedAt fix.
+    for (int i = 0; i < 30; ++i) {
+        ProbeRoundWithQueueDelay(nodeA, "B", nodeB, "A",
+            networkDelay, queueDelayAtInitiator, queueDelayAtResponder, false);
+        AdvanceAll(all, 50ms);
+        ProbeRoundWithQueueDelay(nodeB, "A", nodeA, "B",
+            networkDelay, queueDelayAtInitiator, queueDelayAtResponder, false);
+        AdvanceAll(all, 50ms);
+    }
+
+    EXPECT_TRUE(nodeA.consensus.IsSynced());
+
+    nodeA.syncClock.Update();
+    nodeB.syncClock.Update();
+
+    auto diff = std::chrono::abs(nodeA.syncClock.Now() - nodeB.syncClock.Now());
+    // Without fix: 80ms offset bias → synced times diverge by ~80ms.
+    EXPECT_GE(diff, 20ms)
+        << "Without fix, synced time should diverge by >= 20ms due to queuing bias";
+}
+
+TEST(Integration, TwoNodeWithQueuingDelay_FixedWithReceivedAt)
+{
+    // Confirms H1 fix: with receivedAt provided, sync error drops below 5ms
+    // even with 160ms asymmetric queuing delay.
+    // RED until Consensus::HandleProbeRequest/Response accept receivedAt.
+    auto config = FastConfig();
+    config.filterWindowSize = 8;
+    config.minSamplesForSync = 4;
+
+    SimNode nodeA("A", 100ms, ConsensusMode::Voter, config);
+    SimNode nodeB("B", 100ms + 50ms, ConsensusMode::Voter, config);
+
+    nodeA.consensus.AddPeer("B");
+    nodeB.consensus.AddPeer("A");
+
+    constexpr Ticks networkDelay = 3ms;
+    constexpr Ticks queueDelayAtInitiator = 0ms;
+    constexpr Ticks queueDelayAtResponder = 160ms;
+    std::vector<SimNode*> all = {&nodeA, &nodeB};
+
+    // Run 30 probe rounds WITH receivedAt fix.
+    for (int i = 0; i < 30; ++i) {
+        ProbeRoundWithQueueDelay(nodeA, "B", nodeB, "A",
+            networkDelay, queueDelayAtInitiator, queueDelayAtResponder, true);
+        AdvanceAll(all, 50ms);
+        ProbeRoundWithQueueDelay(nodeB, "A", nodeA, "B",
+            networkDelay, queueDelayAtInitiator, queueDelayAtResponder, true);
+        AdvanceAll(all, 50ms);
+    }
+
+    EXPECT_TRUE(nodeA.consensus.IsSynced());
+
+    nodeA.syncClock.Update();
+    nodeB.syncClock.Update();
+
+    auto diff = std::chrono::abs(nodeA.syncClock.Now() - nodeB.syncClock.Now());
+    EXPECT_LE(diff, 5ms)
+        << "With receivedAt fix, synced time divergence should be <= 5ms";
+}
+
+// ===========================================================================
+// H2 — SlowSlewStability
+//
+// After convergence, noisy probes (jitter ±30ms) should NOT cause the
+// synced time to oscillate wildly. With maxSlewRate enforcement the
+// output should be stable to within 2ms stddev.
+//
+// RED until DriftModel::maxSlewRate enforcement is implemented.
+// ===========================================================================
+
+TEST(Integration, SlowSlewStability)
+{
+    auto config = FastConfig();
+    config.filterWindowSize = 8;
+    config.stepThreshold = 200ms;
+    config.maxSlewRate = DriftRate{500us}; // 500 µs/s.
+
+    SimNode nodeA("A", 1s, ConsensusMode::Voter, config);
+    SimNode nodeB("B", 1s + 20ms, ConsensusMode::Voter, config);
+
+    nodeA.consensus.AddPeer("B");
+    nodeB.consensus.AddPeer("A");
+
+    constexpr Ticks delay = 3ms;
+    std::vector<SimNode*> all = {&nodeA, &nodeB};
+
+    // Converge first.
+    for (int i = 0; i < 20; ++i) {
+        ProbeRound(nodeA, "B", nodeB, "A", delay, delay);
+        AdvanceAll(all, 50ms);
+        ProbeRound(nodeB, "A", nodeA, "B", delay, delay);
+        AdvanceAll(all, 50ms);
+    }
+    ASSERT_TRUE(nodeA.consensus.IsSynced());
+
+    // Now collect synced time samples under noisy probes (random extra delay).
+    std::uint32_t rng = 0xFEED'FACE;
+    auto nextRand = [&]() -> std::uint32_t {
+        rng ^= rng << 13;
+        rng ^= rng >> 17;
+        rng ^= rng << 5;
+        return rng;
+    };
+
+    // Use independent delays for initiator and responder to create
+    // genuine measurement noise. Symmetric delays would cancel out.
+    constexpr Ticks maxJitter = 30ms;
+    constexpr int kMeasurements = 20;
+    std::array<Ticks, kMeasurements> samples{};
+
+    for (int i = 0; i < kMeasurements; ++i) {
+        // Independent jitter for each side of the probe.
+        auto jitterA = Ticks{static_cast<std::int64_t>(
+            static_cast<std::uint64_t>(nextRand()) % static_cast<std::uint64_t>(maxJitter.count()))};
+        auto jitterB = Ticks{static_cast<std::int64_t>(
+            static_cast<std::uint64_t>(nextRand()) % static_cast<std::uint64_t>(maxJitter.count()))};
+
+        ProbeRoundWithQueueDelay(nodeA, "B", nodeB, "A", delay, jitterA, jitterB, false);
+        AdvanceAll(all, 50ms);
+
+        nodeA.syncClock.Update();
+        // Record the difference between A's synced time and A's raw clock.
+        // For epoch owner (A), syncedNow == local. For B it's the estimate.
+        // We track B's syncClock − A's syncClock to measure agreement.
+        nodeB.syncClock.Update();
+        samples[i] = nodeA.syncClock.Now() - nodeB.syncClock.Now();
+    }
+
+    // Compute mean and stddev of the difference samples.
+    std::int64_t sum = 0;
+    for (auto s : samples) {
+        sum += s.count();
+    }
+    std::int64_t mean = sum / kMeasurements;
+
+    std::int64_t varSum = 0;
+    for (auto s : samples) {
+        std::int64_t d = s.count() - mean;
+        varSum += d * d / 1'000'000; // scale to avoid overflow (units: us²)
+    }
+    std::int64_t stddevUs = static_cast<std::int64_t>(
+        std::sqrt(static_cast<double>(varSum / kMeasurements)));
+
+    // With maxSlewRate enforcement, synced time should be stable to within 2ms.
+    EXPECT_LE(stddevUs, 2000LL)
+        << "Synced time stddev = " << stddevUs << " µs, expected <= 2000 µs (2ms)";
 }
 
 // ===========================================================================

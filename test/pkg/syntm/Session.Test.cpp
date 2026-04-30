@@ -514,3 +514,240 @@ TEST(Filter, DriftRate_NoOverflowWhenWindowSpansSeconds)
     EXPECT_NEAR(rate, 1.0, 0.01)
         << "computed rate=" << result.rate.count() << "ns/s (" << rate << ")";
 }
+
+// ===========================================================================
+// H1 — Queuing delay: explicit t4 override eliminates bias
+//
+// Without receivedAt override, t4 is captured at processing time, not at
+// actual receive time. If 100ms of queuing delay passes, the measured
+// offset is biased by +50ms. With receivedAt, the true t4 is used.
+//
+// Both sub-cases (biased and corrected) are in the same test fixture so
+// the expected values are directly comparable.
+// ===========================================================================
+
+TEST(Session, ExplicitT4CorrectsBias)
+{
+    FakeClock clockA;
+    FakeClock clockB;
+    clockA.SetNow(1s);
+    clockB.SetNow(1s + 50ms); // B is 50ms ahead.
+
+    SessionConfig config;
+    config.minSamplesForSync = 2;
+    config.filterWindowSize = 4;
+    config.stepThreshold = 500ms; // Disable steps to observe raw slew.
+
+    Session sessionA_biased(clockA, config);
+    Session sessionA_corrected(clockA, config);
+    Session sessionB1(clockB, config);
+    Session sessionB2(clockB, config);
+
+    constexpr Ticks networkDelay = 5ms;
+    constexpr Ticks queueDelay = 100ms; // Simulated processing lag at initiator.
+
+    // Simulate several probes accumulating bias.
+    for (int i = 0; i < 5; ++i) {
+        // Step 1: A sends request.
+        auto req1 = sessionA_biased.MakeProbeRequest();
+        auto req2 = sessionA_corrected.MakeProbeRequest();
+
+        // Step 2: Network to B.
+        clockA.Advance(networkDelay);
+        clockB.Advance(networkDelay);
+
+        // Step 3: B responds.
+        auto resp1 = sessionB1.HandleProbeRequest(req1);
+        auto resp2 = sessionB2.HandleProbeRequest(req2);
+
+        // Step 4: Network back to A (response arrives at trueT4).
+        clockA.Advance(networkDelay);
+        clockB.Advance(networkDelay);
+
+        Ticks trueT4 = clockA.Now(); // Actual receive time.
+
+        // Step 5: Simulate queuing delay — clock advances before processing.
+        clockA.Advance(queueDelay);
+
+        // Biased: no override — t4 = clockA.Now() (includes queue delay).
+        sessionA_biased.HandleProbeResponse(resp1);
+
+        // Corrected: use trueT4 via receivedAt override.
+        sessionA_corrected.HandleProbeResponse(resp2, trueT4);
+
+        clockA.Advance(50ms);
+        clockB.Advance(50ms + queueDelay);
+    }
+
+    // True offset = 50ms.
+    // Biased session: t4 is inflated by queueDelay → offset error ≈ +50ms.
+    // Corrected session: t4 is accurate → offset error < 2ms.
+
+    Ticks biasedEstimate = sessionA_biased.RemoteNow();
+    Ticks correctedEstimate = sessionA_corrected.RemoteNow();
+    Ticks local = clockA.Now();
+
+    // Biased must have a large error from the true target (local + 50ms).
+    Ticks biasedError = std::chrono::abs(biasedEstimate - (local + 50ms));
+    EXPECT_GE(biasedError, 30ms)
+        << "Biased session should have >= 30ms error without receivedAt";
+
+    // Corrected must be close to the true offset.
+    Ticks correctedError = std::chrono::abs(correctedEstimate - (local + 50ms));
+    EXPECT_LE(correctedError, 5ms)
+        << "Corrected session should have < 5ms error with receivedAt";
+}
+
+// ===========================================================================
+// H1 — Queuing delay: explicit t2 on responder eliminates bias
+//
+// The responder's t2 should be the actual receive time, not when processing
+// occurs. Simulates a responder that queues incoming messages and processes
+// them 80ms later.
+// ===========================================================================
+
+TEST(Session, ExplicitT2CorrectsBias)
+{
+    FakeClock clockA;
+    FakeClock clockB;
+    clockA.SetNow(1s);
+    clockB.SetNow(1s + 50ms); // B is 50ms ahead.
+
+    SessionConfig config;
+    config.minSamplesForSync = 2;
+    config.filterWindowSize = 4;
+    config.stepThreshold = 500ms;
+
+    Session sessionA_biased(clockA, config);
+    Session sessionA_corrected(clockA, config);
+    Session sessionB_biased(clockB, config);
+    Session sessionB_corrected(clockB, config);
+
+    constexpr Ticks networkDelay = 5ms;
+    constexpr Ticks queueDelayB = 80ms; // B processes messages 80ms after receipt.
+
+    for (int i = 0; i < 5; ++i) {
+        auto req1 = sessionA_biased.MakeProbeRequest();
+        auto req2 = sessionA_corrected.MakeProbeRequest();
+
+        clockA.Advance(networkDelay);
+        clockB.Advance(networkDelay);
+
+        // Request arrives at B at trueT2.
+        Ticks trueT2 = clockB.Now();
+
+        // B processes message after queue delay.
+        clockA.Advance(queueDelayB);
+        clockB.Advance(queueDelayB);
+
+        // Biased: HandleProbeRequest uses _clock.Now() → t2 = trueT2 + queueDelayB.
+        auto resp_biased = sessionB_biased.HandleProbeRequest(req1);
+
+        // Corrected: pass the real receive time.
+        auto resp_corrected = sessionB_corrected.HandleProbeRequest(req2, trueT2);
+
+        clockA.Advance(networkDelay);
+        clockB.Advance(networkDelay);
+
+        sessionA_biased.HandleProbeResponse(resp_biased);
+        sessionA_corrected.HandleProbeResponse(resp_corrected);
+
+        clockA.Advance(100ms);
+        clockB.Advance(100ms);
+    }
+
+    Ticks local = clockA.Now();
+
+    Ticks biasedError = std::chrono::abs(sessionA_biased.RemoteNow() - (local + 50ms));
+    EXPECT_GE(biasedError, 20ms)
+        << "Biased responder should have >= 20ms error (queueDelayB/2)";
+
+    Ticks correctedError = std::chrono::abs(sessionA_corrected.RemoteNow() - (local + 50ms));
+    EXPECT_LE(correctedError, 5ms)
+        << "Corrected responder should have < 5ms error with explicit t2";
+}
+
+// ===========================================================================
+// H3 — t2 != t3 in HandleProbeRequest
+//
+// When the responder stamps both t2 (receive) and t3 (send) from the same
+// clock.Now() snapshot, t2 == t3 always. The correct behaviour is t3 >= t2.
+// ===========================================================================
+
+TEST(Session, HandleProbeRequest_T2NotEqualT3)
+{
+    FakeClock clockA;
+    FakeClock clockB;
+    clockA.SetNow(1s);
+    clockB.SetNow(1s);
+
+    Session sessionA(clockA, {});
+    Session sessionB(clockB, {});
+
+    auto req = sessionA.MakeProbeRequest();
+
+    // Advance B's clock to simulate that some time passes between
+    // receiving the request (trueT2) and the responder sending (t3).
+    Ticks trueT2 = clockB.Now();
+    clockB.Advance(1ms); // 1ms processing time.
+
+    // With explicit receivedAt = trueT2, t3 is captured inside HandleProbeRequest
+    // at the current clock time (= trueT2 + 1ms), so t3 > t2.
+    auto resp = sessionB.HandleProbeRequest(req, trueT2);
+
+    EXPECT_LT(resp.t2, resp.t3)
+        << "t2 should be the receive timestamp, t3 the send timestamp";
+    EXPECT_EQ(resp.t2, trueT2);
+    EXPECT_GE(resp.t3 - resp.t2, 1ms);
+}
+
+// ===========================================================================
+// H4 — SessionDiagnostics: GetDiagnostics returns correct stats
+//
+// RED until SessionDiagnostics struct and Session::GetDiagnostics() exist.
+// ===========================================================================
+
+TEST(Session, GetDiagnosticsReflectsHistory)
+{
+    FakeClock clockA;
+    FakeClock clockB;
+    clockA.SetNow(1s);
+    clockB.SetNow(1s + 20ms); // 20ms offset.
+
+    SessionConfig config;
+    config.minSamplesForSync = 3;
+    config.filterWindowSize = 8;
+    config.stepThreshold = 500ms;
+
+    Session sessionA(clockA, config);
+    Session sessionB(clockB, config);
+
+    constexpr Ticks delay = 4ms;
+
+    for (int i = 0; i < 5; ++i) {
+        auto req = sessionA.MakeProbeRequest();
+        clockA.Advance(delay);
+        clockB.Advance(delay);
+        auto resp = sessionB.HandleProbeRequest(req);
+        clockA.Advance(delay);
+        clockB.Advance(delay);
+        sessionA.HandleProbeResponse(resp);
+        clockA.Advance(100ms);
+        clockB.Advance(100ms);
+    }
+
+    auto diag = sessionA.GetDiagnostics();
+
+    EXPECT_EQ(diag.sampleCount, 5u);
+    EXPECT_EQ(diag.stepCount, 0u);
+
+    // RTT should be ~8ms for 4ms one-way delay.
+    EXPECT_GE(diag.rttMin, 7ms);
+    EXPECT_LE(diag.rttMax, 10ms);
+    EXPECT_GE(diag.rttMean, 7ms);
+    EXPECT_LE(diag.rttMean, 10ms);
+
+    // Offset should be near 20ms (the true B–A offset).
+    auto offsetError = std::chrono::abs(diag.offsetMean - 20ms);
+    EXPECT_LE(offsetError, 3ms);
+}

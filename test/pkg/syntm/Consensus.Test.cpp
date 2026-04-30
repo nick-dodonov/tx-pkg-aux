@@ -311,3 +311,168 @@ TEST(Consensus, EmitsSyncLostOnLastPeerRemoved)
     EXPECT_EQ(events.back(), SyncEvent::SyncLost);
     EXPECT_FALSE(nodeA.IsSynced());
 }
+
+// ===========================================================================
+// H4 — GetSessionDiagnostics delegates to Session::GetDiagnostics
+//
+// RED until Consensus::GetSessionDiagnostics() is implemented.
+// ===========================================================================
+
+TEST(Consensus, GetSessionDiagnosticsDelegatesToSession)
+{
+    FakeClock clockA;
+    FakeClock clockB;
+    clockA.SetNow(1s);
+    clockB.SetNow(1s + 15ms); // 15ms offset.
+
+    SessionConfig config;
+    config.minSamplesForSync = 2;
+    config.filterWindowSize = 4;
+    config.stepThreshold = 500ms;
+
+    Consensus nodeA(clockA, ConsensusMode::Voter, config);
+    Consensus nodeB(clockB, ConsensusMode::Voter, config);
+
+    nodeA.AddPeer("B");
+    nodeB.AddPeer("A");
+
+    constexpr Ticks delay = 3ms;
+
+    for (int i = 0; i < 4; ++i) {
+        SimulateConsensusProbeRound(nodeA, clockA, "B", nodeB, clockB, "A", delay);
+        clockA.Advance(100ms);
+        clockB.Advance(100ms);
+    }
+
+    // GetSessionDiagnostics should return the same as direct session access.
+    auto* session = nodeA.GetSession("B");
+    ASSERT_NE(session, nullptr);
+
+    auto diagDirect = session->GetDiagnostics();
+    auto diagViaConsensusOpt = nodeA.GetSessionDiagnostics("B");
+    ASSERT_TRUE(diagViaConsensusOpt.has_value());
+    const auto& diagViaConsensus = *diagViaConsensusOpt;
+
+    EXPECT_EQ(diagDirect.sampleCount, diagViaConsensus.sampleCount);
+    EXPECT_EQ(diagDirect.rttMin, diagViaConsensus.rttMin);
+    EXPECT_EQ(diagDirect.rttMean, diagViaConsensus.rttMean);
+    EXPECT_EQ(diagDirect.offsetMean, diagViaConsensus.offsetMean);
+    EXPECT_EQ(diagDirect.stepCount, diagViaConsensus.stepCount);
+
+    // Sanity: sample count should be > 0 and rttMin reasonable.
+    EXPECT_GT(diagViaConsensus.sampleCount, 0u);
+    EXPECT_GE(diagViaConsensus.rttMin, 5ms);  // 2 * 3ms delay.
+    EXPECT_LE(diagViaConsensus.rttMin, 10ms);
+
+    // Return nullopt for unknown peer.
+    auto unknown = nodeA.GetSessionDiagnostics("nobody");
+    EXPECT_FALSE(unknown.has_value());
+}
+
+// ===========================================================================
+// H1 — Consensus::HandleProbeRequest passes receivedAt to session
+//
+// Verifies that when a receivedAt timestamp is supplied, the probe response
+// reflects t2=receivedAt (not the delayed processing time) and t3>=t2.
+// RED until Consensus::HandleProbeRequest accepts receivedAt.
+// ===========================================================================
+
+TEST(Consensus, HandleProbeRequest_ReceivedAtPassedThrough)
+{
+    FakeClock clockA;
+    FakeClock clockB;
+    clockA.SetNow(1s);
+    clockB.SetNow(1s);
+
+    Consensus nodeA(clockA);
+    Consensus nodeB(clockB);
+
+    nodeA.AddPeer("B");
+    nodeB.AddPeer("A");
+
+    auto req = nodeA.MakeProbeRequest("B");
+    ASSERT_TRUE(req.has_value());
+
+    // Request arrives at B. Capture true receive time.
+    Ticks trueT2 = clockB.Now();
+
+    // B's clock advances (simulates queuing).
+    clockB.Advance(50ms);
+
+    // Without receivedAt: t2 = current clock = trueT2 + 50ms.
+    auto respNoOverride = nodeB.HandleProbeRequest("A", *req);
+    ASSERT_TRUE(respNoOverride.has_value());
+    EXPECT_GE(respNoOverride->t2, trueT2 + 49ms)
+        << "Without override, t2 should reflect the delayed processing time";
+
+    // With receivedAt: t2 = trueT2, t3 = current clock >= trueT2 + 50ms.
+    auto respWithOverride = nodeB.HandleProbeRequest("A", *req, trueT2);
+    ASSERT_TRUE(respWithOverride.has_value());
+    EXPECT_EQ(respWithOverride->t2, trueT2)
+        << "With receivedAt, t2 should be the exact receive timestamp";
+    EXPECT_GT(respWithOverride->t3, respWithOverride->t2)
+        << "t3 must be after t2 (responder sends after receiving)";
+}
+
+// ===========================================================================
+// H1 — Consensus::HandleProbeResponse passes receivedAt to session
+//
+// Verifies that the t4 override flows through to offset computation.
+// RED until Consensus::HandleProbeResponse accepts receivedAt.
+// ===========================================================================
+
+TEST(Consensus, HandleProbeResponse_ReceivedAtPassedThrough)
+{
+    FakeClock clockA;
+    FakeClock clockB;
+    clockA.SetNow(1s);
+    clockB.SetNow(1s + 30ms); // B is 30ms ahead.
+
+    SessionConfig config;
+    config.minSamplesForSync = 1;
+    config.filterWindowSize = 4;
+    config.stepThreshold = 500ms;
+
+    Consensus nodeA(clockA, ConsensusMode::Voter, config);
+    Consensus nodeB(clockB, ConsensusMode::Voter, config);
+
+    nodeA.AddPeer("B");
+    nodeB.AddPeer("A");
+
+    constexpr Ticks netDelay = 5ms;
+
+    auto req = nodeA.MakeProbeRequest("B");
+    ASSERT_TRUE(req.has_value());
+
+    clockA.Advance(netDelay);
+    clockB.Advance(netDelay);
+
+    auto resp = nodeB.HandleProbeRequest("A", *req);
+    ASSERT_TRUE(resp.has_value());
+
+    clockA.Advance(netDelay);
+    clockB.Advance(netDelay);
+
+    // True t4 = clockA.Now() at this point.
+    Ticks trueT4 = clockA.Now();
+
+    // Simulate 80ms queue delay — clock advances before processing.
+    clockA.Advance(80ms);
+
+    // With override: use trueT4.
+    nodeA.HandleProbeResponse("B", *resp, nodeB.OurEpochInfo(), trueT4);
+
+    auto* session = nodeA.GetSession("B");
+    ASSERT_NE(session, nullptr);
+
+    // The session's drift model should be initialized now.
+    EXPECT_TRUE(session->GetDriftModel().IsInitialized());
+
+    // Synced estimate should be close to local + 30ms (true offset).
+    Ticks synced = session->RemoteNow();
+    Ticks local = clockA.Now();
+    auto error = std::chrono::abs(synced - (local + 30ms));
+    EXPECT_LE(error, 5ms)
+        << "With receivedAt, offset estimate should be close to 30ms, got "
+        << (synced - local).count() << "ns";
+}
