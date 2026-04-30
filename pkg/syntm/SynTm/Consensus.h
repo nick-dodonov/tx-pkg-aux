@@ -138,37 +138,52 @@ namespace SynTm
         ///
         /// Session::HandleProbeRequest() (always raw) is intentionally kept for
         /// Session-level unit tests that operate without a Consensus layer.
-        [[nodiscard]] std::optional<ProbeResponse> HandleProbeRequest(const std::string& peerId, const ProbeRequest& req)
+        ///
+        /// @param receivedAt  Actual network-arrival time for the request (t2).
+        ///                    When provided, eliminates queuing-delay bias (H1).
+        ///                    When std::nullopt, current clock time is used.
+        [[nodiscard]] std::optional<ProbeResponse> HandleProbeRequest(
+            const std::string& peerId,
+            const ProbeRequest& req,
+            std::optional<Ticks> receivedAt = std::nullopt)
         {
             const auto* session = GetSession(peerId);
             if (!session) {
                 return std::nullopt;
             }
 
-            const auto now = _clock.Now();
-            // Use raw local time for the epoch source: the owner already knows its
-            // own time, and a non-owner avoids injecting a discontinuity into the
-            // owner's session when it first starts responding with synced time.
             const auto useRaw = _isEpochOwner || peerId == _epochSourcePeerId;
-            const auto t2 = useRaw ? now : ToSyncedTime(now);
-            const auto t3 = useRaw ? now : ToSyncedTime(now);
 
-            session->GetLogger().Trace("Consensus: t1={}ns -> t2={}ns", peerId, Log::Sep{req.t1.count()}, Log::Sep{t2.count()});
+            // t2 = actual receive time (H1 fix: use receivedAt if supplied).
+            const auto nowAtReceive = receivedAt.value_or(_clock.Now());
+            const auto t2 = useRaw ? nowAtReceive : ToSyncedTime(nowAtReceive);
+
+            // t3 = current clock time when building the response (H3 fix: not same as t2).
+            const auto nowAtSend = _clock.Now();
+            const auto t3 = useRaw ? nowAtSend : ToSyncedTime(nowAtSend);
+
+            session->GetLogger().Trace("Consensus: t1={}ns -> t2={}ns t3={}ns",
+                Log::Sep{req.t1.count()}, Log::Sep{t2.count()}, Log::Sep{t3.count()});
             return ProbeResponse{.t1 = req.t1, .t2 = t2, .t3 = t3};
         }
 
         /// Handle a probe response from a peer, plus their epoch info.
+        ///
+        /// @param receivedAt  Actual network-arrival time for the response (t4).
+        ///                    When provided, eliminates queuing-delay bias (H1).
+        ///                    When std::nullopt, current clock time is used.
         void HandleProbeResponse(
             const std::string& peerId,
             const ProbeResponse& resp,
-            std::optional<EpochInfo> remoteEpoch = std::nullopt)
+            std::optional<EpochInfo> remoteEpoch = std::nullopt,
+            std::optional<Ticks> receivedAt = std::nullopt)
         {
             auto* session = GetSession(peerId);
             if (!session) {
                 return;
             }
 
-            const auto result = session->HandleProbeResponse(resp);
+            const auto result = session->HandleProbeResponse(resp, receivedAt);
 
             // Process epoch merge if the remote provided epoch info.
             if (remoteEpoch) {
@@ -189,6 +204,18 @@ namespace SynTm
                 // Session returned to Synced after a resync episode.
                 EmitEvent(SyncEvent::ResyncCompleted);
             }
+        }
+
+        /// Return a session's diagnostics snapshot.
+        /// Returns std::nullopt if the peer is not found.
+        [[nodiscard]] std::optional<SessionDiagnostics> GetSessionDiagnostics(
+            const std::string& peerId) const
+        {
+            const auto* session = GetSession(peerId);
+            if (!session) {
+                return std::nullopt;
+            }
+            return session->GetDiagnostics();
         }
 
         // -------------------------------------------------------------------
@@ -290,6 +317,15 @@ namespace SynTm
 
         /// Number of connected peers.
         [[nodiscard]] std::size_t PeerCount() const noexcept { return _peers.size(); }
+
+        /// Invoke callback for each peer ID.
+        template <typename Fn>
+        void ForEachPeer(Fn&& fn) const
+        {
+            for (const auto& [peerId, _] : _peers) {
+                fn(peerId);
+            }
+        }
 
         /// Consensus mode.
         [[nodiscard]] ConsensusMode Mode() const noexcept { return _mode; }

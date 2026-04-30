@@ -10,7 +10,10 @@
 #include "Log/Sep.h"
 
 #include <cassert>
+#include <cstddef>
 #include <cstdint>
+#include <limits>
+#include <optional>
 
 namespace SynTm
 {
@@ -34,6 +37,21 @@ namespace SynTm
         }
         return "Unknown";
     }
+
+    /// Per-link sync diagnostics snapshot (immutable).
+    struct SessionDiagnostics
+    {
+        Ticks rttMin{std::numeric_limits<std::int64_t>::max()};
+        Ticks rttMax{};
+        Ticks rttMean{};
+        Ticks offsetMean{};
+        Ticks jitter{};
+        std::size_t sampleCount = 0;
+        std::uint32_t stepCount = 0;
+        Ticks lastCorrection{};
+        Ticks lastSlewAmount{};
+        DriftRate estimatedRate{};
+    };
 
     /// Per-link synchronization session.
     ///
@@ -92,14 +110,26 @@ namespace SynTm
 
         /// Handle an incoming probe request from a remote peer.
         /// Returns a response to send back.
-        [[nodiscard]] ProbeResponse HandleProbeRequest(const ProbeRequest& req) const
+        ///
+        /// @param req      The probe request received from the initiator.
+        /// @param receivedAt  The timestamp at which the request was received on the
+        ///                    transport (t2). When supplied this is the exact network-
+        ///                    arrival time, which eliminates queuing-delay bias (H1).
+        ///                    When std::nullopt the current clock time is used.
+        [[nodiscard]] ProbeResponse HandleProbeRequest(
+            const ProbeRequest& req,
+            std::optional<Ticks> receivedAt = std::nullopt)
         {
-            const auto t2 = _clock.Now();
-            _logger.Trace("t1={}ns -> t2={}ns", Log::Sep{req.t1.count()}, Log::Sep{t2.count()});
+            // t2 = actual receive time (network arrival), not processing time.
+            const auto t2 = receivedAt.value_or(_clock.Now());
+            // t3 = current time when building the response (after any processing delay).
+            const auto t3 = _clock.Now();
+            _logger.Trace("t1={}ns -> t2={}ns t3={}ns", Log::Sep{req.t1.count()},
+                Log::Sep{t2.count()}, Log::Sep{t3.count()});
             return ProbeResponse{
                 .t1 = req.t1,
                 .t2 = t2,
-                .t3 = _clock.Now(), // Capture tx time separately for accuracy.
+                .t3 = t3,
             };
         }
 
@@ -116,14 +146,32 @@ namespace SynTm
             bool exitedResyncing = false;
         };
 
-        [[nodiscard]] ProbeHandleResult HandleProbeResponse(const ProbeResponse& resp)
+        /// Handle an incoming probe response.
+        ///
+        /// @param resp       The probe response from the responder.
+        /// @param receivedAt The timestamp at which the response was received on the
+        ///                   transport (t4). When supplied this is the exact network-
+        ///                   arrival time, which eliminates queuing-delay bias (H1).
+        ///                   When std::nullopt the current clock time is used.
+        [[nodiscard]] ProbeHandleResult HandleProbeResponse(
+            const ProbeResponse& resp,
+            std::optional<Ticks> receivedAt = std::nullopt)
         {
-            const auto t4 = _clock.Now();
+            // t4 = actual receive time (network arrival), not processing time.
+            const auto t4 = receivedAt.value_or(_clock.Now());
             const auto probe = ComputeProbeResult(resp.t1, resp.t2, resp.t3, t4);
             _logger.Trace("result: offset={}ns rtt={}ns", Log::Sep{probe.offset.count()}, Log::Sep{probe.rtt.count()});
 
             const auto filterResult = _filter.AddSample(t4, probe);
             const auto sampleCount = filterResult.sampleCount;
+
+            // Update cumulative RTT stats for diagnostics.
+            if (probe.rtt < _diagRttMin) { _diagRttMin = probe.rtt; }
+            if (probe.rtt > _diagRttMax) { _diagRttMax = probe.rtt; }
+            _diagRttSum += probe.rtt;
+            _diagOffsetSum += probe.offset;
+            _diagLastJitter = filterResult.jitter;
+            ++_diagSampleCount;
 
             _logger.Trace("filter: offset={}ns rate={}ns/s ({:.6f}) jitter={}ns minRtt={}ns sampleCount={}",
                 Log::Sep{filterResult.offset.count()}, filterResult.rate.count(), filterResult.rate.ToDouble(),
@@ -205,6 +253,25 @@ namespace SynTm
         /// Access the underlying drift model (for inspection/testing).
         [[nodiscard]] const DriftModel& GetDriftModel() const noexcept { return _driftModel; }
 
+        /// Return a diagnostic snapshot of this session.
+        [[nodiscard]] SessionDiagnostics GetDiagnostics() const noexcept
+        {
+            SessionDiagnostics d;
+            d.sampleCount = _diagSampleCount;
+            d.stepCount = _driftModel.StepCount();
+            d.lastCorrection = _driftModel.LastCorrection();
+            d.lastSlewAmount = _driftModel.LastSlewAmount();
+            d.estimatedRate = _driftModel.Rate();
+            if (_diagSampleCount > 0) {
+                d.rttMin = _diagRttMin;
+                d.rttMax = _diagRttMax;
+                d.rttMean = _diagRttSum / static_cast<std::int64_t>(_diagSampleCount);
+                d.offsetMean = _diagOffsetSum / static_cast<std::int64_t>(_diagSampleCount);
+            }
+            d.jitter = _diagLastJitter;
+            return d;
+        }
+
         /// Access config.
         [[nodiscard]] const SessionConfig& Config() const noexcept { return _config; }
 
@@ -216,6 +283,12 @@ namespace SynTm
             _everProbed = false;
             _filter.Reset();
             _driftModel.Reset();
+            _diagSampleCount = 0;
+            _diagRttMin = Ticks{std::numeric_limits<std::int64_t>::max()};
+            _diagRttMax = {};
+            _diagRttSum = {};
+            _diagOffsetSum = {};
+            _diagLastJitter = {};
         }
 
     private:
@@ -252,5 +325,13 @@ namespace SynTm
         SessionState _state = SessionState::Idle;
         Ticks _lastProbeSentAt{};
         bool _everProbed = false;
+
+        // Cumulative stats for GetDiagnostics().
+        std::size_t _diagSampleCount = 0;
+        Ticks _diagRttMin{std::numeric_limits<std::int64_t>::max()};
+        Ticks _diagRttMax{};
+        Ticks _diagRttSum{};
+        Ticks _diagOffsetSum{};
+        Ticks _diagLastJitter{};
     };
 }
