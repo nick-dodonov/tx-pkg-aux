@@ -69,6 +69,7 @@ namespace SynTm
             // Target synced time from the filter.
             Ticks targetSynced = localTime + result.offset;
             Ticks correction = targetSynced - currentSynced;
+            _lastCorrection = correction;
 
             // Check step occurrence based on absolute correction magnitude.
             _logger.Trace("correction={}ns threshold={}ns currentSynced={} targetSynced={}",
@@ -80,28 +81,52 @@ namespace SynTm
                 _baseLocal = localTime;
                 _baseSynced = targetSynced;
                 _rate = result.rate;
+                ++_stepCount;
+                _lastSlewAmount = correction; // Full correction on step.
                 _logger.Trace("STEP baseLocal={} baseSynced={} rate={}ns/s ({:.6f})",
                     Log::Sep{_baseLocal.count()}, Log::Sep{_baseSynced.count()}, _rate.count(), _rate.ToDouble());
                 return true; // Step occurred.
             }
 
-            // Slew: adjust the base to gradually incorporate the correction.
-            // We blend the rate from the filter and add a slew component.
+            // Slew: adjust the base to incorporate the correction gradually,
+            // limited by maxSlewRate to prevent noisy probes from causing
+            // large instantaneous jumps in synced time.
             _rate = result.rate;
 
-            // Apply a fraction of the correction to baseSynced.
-            // Slew factor: apply correction over time proportional
-            // to the correction magnitude / max slew rate.
-            // For simplicity, apply 50% of the correction immediately
-            // to baseSynced and let the rate handle the rest.
-            Ticks slewAmount = correction / 2;
+            // Compute the elapsed time since the last steer call to derive
+            // the maximum allowed slew delta for this interval.
+            // maxSlewRate is in ns/s; elapsed is in ns → maxDelta in ns.
+            Ticks elapsed = localTime - _baseLocal;
+            Ticks maxDelta{};
+            if (elapsed > Ticks{} && _policy.maxSlewRate.count() > 0) {
+                // maxDelta = maxSlewRate [ns/s] * elapsed [ns] / 1e9
+                auto wide = static_cast<__int128>(_policy.maxSlewRate.count()) *
+                            static_cast<__int128>(elapsed.count());
+                maxDelta = Ticks{static_cast<std::int64_t>(
+                    wide / static_cast<__int128>(DriftRate::period::den))};
+            } else {
+                // First call or zero elapsed: fall back to 50% of correction.
+                maxDelta = std::chrono::abs(correction) / 2;
+            }
+
+            // Clamp correction to [-maxDelta, +maxDelta].
+            Ticks slewAmount;
+            if (correction > maxDelta) {
+                slewAmount = maxDelta;
+            } else if (correction < -maxDelta) {
+                slewAmount = -maxDelta;
+            } else {
+                slewAmount = correction;
+            }
+            _lastSlewAmount = slewAmount;
 
             // Re-base to current time.
             _baseSynced = currentSynced + slewAmount;
             _baseLocal = localTime;
 
-            _logger.Trace("slew slewAmount={}ns newBaseSynced={} rate={}ns/s ({:.6f})",
-                Log::Sep{slewAmount.count()}, Log::Sep{_baseSynced.count()}, _rate.count(), _rate.ToDouble());
+            _logger.Trace("slew slewAmount={}ns (max={}ns) newBaseSynced={} rate={}ns/s ({:.6f})",
+                Log::Sep{slewAmount.count()}, Log::Sep{maxDelta.count()},
+                Log::Sep{_baseSynced.count()}, _rate.count(), _rate.ToDouble());
 
             return false; // Smooth correction.
         }
@@ -134,6 +159,15 @@ namespace SynTm
         /// Read current policy.
         [[nodiscard]] const SteerPolicy& Policy() const noexcept { return _policy; }
 
+        /// Number of step corrections applied since construction or last Reset().
+        [[nodiscard]] std::uint32_t StepCount() const noexcept { return _stepCount; }
+
+        /// Last correction computed (targetSynced - currentSynced).
+        [[nodiscard]] Ticks LastCorrection() const noexcept { return _lastCorrection; }
+
+        /// Last slew amount actually applied (clamped correction).
+        [[nodiscard]] Ticks LastSlewAmount() const noexcept { return _lastSlewAmount; }
+
     private:
         Log::Logger _logger;
         SteerPolicy _policy;
@@ -141,5 +175,8 @@ namespace SynTm
         Ticks _baseLocal{};
         Ticks _baseSynced{};
         DriftRate _rate{};
+        std::uint32_t _stepCount = 0;
+        Ticks _lastCorrection{};
+        Ticks _lastSlewAmount{};
     };
 }
