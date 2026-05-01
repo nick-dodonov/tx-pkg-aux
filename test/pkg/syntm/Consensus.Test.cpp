@@ -38,7 +38,8 @@ namespace
         clockB.Advance(oneWayDelay);
 
         // A processes B's reply; pass B's epoch for offset conversion.
-        nodeA.HandleSyncPulse(peerIdOnA, *replyOpt, std::nullopt, nodeB.OurEpochInfo());
+        auto nextReplyPulse = nodeA.HandleSyncPulse(peerIdOnA, *replyOpt, std::nullopt, nodeB.OurEpochInfo());
+        ASSERT_FALSE(nextReplyPulse.has_value());
     }
 }
 
@@ -466,7 +467,8 @@ TEST(Consensus, HandleSyncPulse_T4ReceivedAtAffectsOffset)
     clockA.Advance(80ms);
 
     // With trueT4 override: offset should be close to 30ms.
-    nodeA.HandleSyncPulse("B", *replyOpt, trueT4, nodeB.OurEpochInfo());
+    auto nextReplyPulse = nodeA.HandleSyncPulse("B", *replyOpt, trueT4, nodeB.OurEpochInfo());
+    ASSERT_FALSE(nextReplyPulse.has_value());
 
     auto* session = nodeA.GetSession("B");
     ASSERT_NE(session, nullptr);

@@ -8,6 +8,7 @@
 #include "SynTm/Integrate.h"
 #include "SynTm/SyncClock.h"
 #include "Log/Log.h"
+#include "pkg/syntm/SynTm/Integrate.h"
 
 #include <array>
 #include <cstddef>
@@ -48,16 +49,16 @@ namespace Demo
         /// Send a probe request if the session says it's time.
         void TryProbe()
         {
-            if (!_consensus.ShouldProbe(_peerId)) {
+            if (!_consensus.ShouldInitiateProbe(_peerId)) {
                 return;
             }
-            auto req = _consensus.MakeProbeRequest(_peerId);
+            auto req = _consensus.MakePulse(_peerId);
             if (!req) {
                 return;
             }
             auto epoch = _consensus.OurEpochInfo();
             std::array<std::byte, 128> raw{};
-            auto n = SynTm::WriteSyncProbeRequest(raw, epoch, *req);
+            auto n = SynTm::WriteSyncPulse(raw, epoch, *req);
             if (n == 0) {
                 return;
             }
@@ -123,19 +124,17 @@ namespace Demo
             // Always process the remote epoch.
             _consensus.HandleRemoteEpoch(parsed->epoch);
 
-            if (parsed->type == SynTm::SyncMessageType::ProbeRequest && parsed->request) {
-                auto resp = _consensus.HandleProbeRequest(_peerId, *parsed->request);
+            if (parsed->pulse) {
+                auto resp = _consensus.HandleSyncPulse(_peerId, *parsed->pulse);
                 if (resp) {
                     auto epoch = _consensus.OurEpochInfo();
                     std::array<std::byte, 128> raw{};
-                    auto n = SynTm::WriteSyncProbeResponse(raw, epoch, *resp);
+                    auto n = SynTm::WriteSyncPulse(raw, epoch, *resp);
                     if (n > 0) {
                         auto wrapped = WrapSyncProbe(std::span<const std::byte>(raw.data(), n));
                         SendBytes(wrapped);
                     }
                 }
-            } else if (parsed->type == SynTm::SyncMessageType::ProbeResponse && parsed->response) {
-                _consensus.HandleProbeResponse(_peerId, *parsed->response, parsed->epoch);
             }
         }
 

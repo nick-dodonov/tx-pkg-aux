@@ -319,7 +319,8 @@ namespace SynTm
             if (!_epochSourcePeerId.empty()) {
                 const auto* session = GetSession(_epochSourcePeerId);
                 const auto it = _peerEpochOffsets.find(_epochSourcePeerId);
-                if (session && session->Quality() >= SyncQuality::Low
+                if (session
+                    && session->Quality() >= SyncQuality::Low
                     && it != _peerEpochOffsets.end()) {
                     return session->RemoteNow() + it->second;
                 }
@@ -328,7 +329,7 @@ namespace SynTm
             // Fall back: best session among peers with a known epochOffset.
             const Session* bestSession = nullptr;
             Ticks bestOffset{};
-            SyncQuality bestQuality = SyncQuality::None;
+            auto bestQuality = SyncQuality::None;
             for (const auto& [pid, sess] : _peers) {
                 const auto q = sess.Quality();
                 const auto it = _peerEpochOffsets.find(pid);
