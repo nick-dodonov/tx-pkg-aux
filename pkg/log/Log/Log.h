@@ -294,7 +294,7 @@ namespace Log
         }
 
         // ReSharper disable once CppMemberFunctionMayBeStatic
-        spdlog::logger* Raw() const noexcept { return Detail::DefaultLoggerRaw(); }
+        [[nodiscard]] spdlog::logger* Raw() const noexcept { return Detail::DefaultLoggerRaw(); }
     };
 
 } // namespace Log

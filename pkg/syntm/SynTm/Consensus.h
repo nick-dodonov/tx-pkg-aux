@@ -26,7 +26,28 @@ namespace SynTm
     /// Multi-link consensus manager.
     ///
     /// Owns per-link Sessions and aggregates their results into a single
-    /// synchronized time. Handles epoch propagation and group merges.
+    /// epoch-relative synchronized time. Handles epoch propagation and group merges.
+    ///
+    /// ## Time architecture
+    ///
+    /// Each peer has an independent steady clock with an arbitrary origin.
+    /// These clocks are never directly comparable.
+    ///
+    ///   Session::RemoteNow()   — remote peer's local steady time (estimated via
+    ///                            NTP formula). NOT comparable to local time;
+    ///                            the raw difference is always large and arbitrary.
+    ///
+    ///   Consensus::SyncedNow() — epoch-relative time shared across all peers in
+    ///                            the group. Computed as:
+    ///                              session.RemoteNow() + peerEpochOffset
+    ///                            where peerEpochOffset = remote.(SyncedNow - LocalNow)
+    ///                            propagated via EpochInfo.epochOffset.
+    ///
+    ///   epochOffset = SyncedNow() - LocalNow() — unique per peer (reflects the
+    ///                            difference between this peer's clock origin and
+    ///                            the epoch owner's). Zero for the epoch owner.
+    ///                            To compare sync quality across peers, compare
+    ///                            SyncedNow() values directly (it's possible only in tests/labs where all peers are in the same process).
     ///
     /// This class is NOT thread-safe. The caller must serialize calls
     /// (typically from a single event loop / exec::Domain).

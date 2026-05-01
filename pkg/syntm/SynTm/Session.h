@@ -226,7 +226,14 @@ namespace SynTm
             return _clock.Now();
         }
 
-        /// Estimated current time on the remote peer.
+        /// Estimated current time on the remote peer's local steady clock.
+        ///
+        /// NOTE: This value is NOT comparable to LocalNow() — each peer has an
+        /// independent steady clock with an arbitrary origin. The raw difference
+        /// (RemoteNow - LocalNow) is always large and meaningless as a health metric.
+        ///
+        /// For epoch-relative time that is comparable across all peers, use
+        /// Consensus::SyncedNow() instead.
         [[nodiscard]] Ticks RemoteNow() const noexcept
         {
             return ToRemoteTime(_clock.Now());
