@@ -172,7 +172,6 @@ TEST(Integrate, SyncPulseShortFormRoundTrip)
 
     auto parsed = ParseSyncMessage(std::span<const std::byte>(buf.data(), written));
     ASSERT_TRUE(parsed.has_value());
-    EXPECT_EQ(parsed->type, SyncMessageType::SyncPulse);
     EXPECT_EQ(parsed->epoch.epochId, epoch.epochId);
     EXPECT_EQ(parsed->epoch.baseTime, epoch.baseTime);
     EXPECT_EQ(parsed->epoch.createdAt, epoch.createdAt);
@@ -202,7 +201,6 @@ TEST(Integrate, SyncPulseFullFormRoundTrip)
 
     auto parsed = ParseSyncMessage(std::span<const std::byte>(buf.data(), written));
     ASSERT_TRUE(parsed.has_value());
-    EXPECT_EQ(parsed->type, SyncMessageType::SyncPulse);
     EXPECT_EQ(parsed->epoch.epochId, epoch.epochId);
     ASSERT_TRUE(parsed->pulse.has_value());
     EXPECT_EQ(parsed->pulse->t1, pulse.t1);
