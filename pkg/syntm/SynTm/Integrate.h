@@ -1,5 +1,4 @@
 #pragma once
-#include "Consensus.h"
 #include "Epoch.h"
 #include "Probe.h"
 #include "Types.h"
@@ -20,7 +19,7 @@ namespace SynTm
 
     /// Fixed-size header prepended to sync messages.
     ///
-    /// Layout (31 bytes):
+    /// Layout (39 bytes):
     ///   [0]     version (1 byte, currently 1)
     ///   [1]     message type (1 byte)
     ///   [2..9]  epoch id (8 bytes LE)
@@ -28,15 +27,16 @@ namespace SynTm
     ///   [18..25] epoch createdAt (8 bytes LE)
     ///   [26..29] epoch memberCount (4 bytes LE)
     ///   [30]    reserved (1 byte, 0)
-    ///   [31..N] SyncPulse payload:
+    ///   [31..38] epoch offset (8 bytes LE, sender's SyncedNow - LocalNow)
+    ///   [39..N] SyncPulse payload:
     ///             8 bytes  (ShortWireSize) → t1 only, no echo
     ///            24 bytes  (FullWireSize)  → t1 + echo_t1 + echo_t2
     ///
-    /// Total: 39 bytes (short) or 55 bytes (full)
+    /// Total: 47 bytes (short) or 63 bytes (full)
     struct SyncHeader
     {
         static constexpr std::uint8_t CurrentVersion = 1;
-        static constexpr std::size_t MetaSize = 31; // Up to and including reserved byte.
+        static constexpr std::size_t MetaSize = 39; // Up to and including epoch offset.
 
         std::uint8_t version = CurrentVersion;
         SyncMessageType type = SyncMessageType::SyncPulse;
@@ -57,6 +57,7 @@ namespace SynTm
         std::uint32_t mc = epoch.memberCount;
         std::memcpy(buf.data() + 26, &mc, sizeof(mc));
         buf[30] = std::byte{0}; // Reserved.
+        Detail::WriteLE64(buf, 31, epoch.epochOffset);
     }
 
     /// Serialize a sync header + SyncPulse into a buffer.
@@ -104,6 +105,7 @@ namespace SynTm
             .baseTime    = Detail::ReadLE64(buf, 10),
             .createdAt   = Detail::ReadLE64(buf, 18),
             .memberCount = 0,
+            .epochOffset = Detail::ReadLE64(buf, 31),
         };
         std::uint32_t mc = 0;
         std::memcpy(&mc, buf.data() + 26, sizeof(mc));

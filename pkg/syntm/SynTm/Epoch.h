@@ -58,7 +58,14 @@ namespace SynTm
         Ticks createdAt{};
         std::uint32_t memberCount = 0;
 
-        static constexpr std::size_t WireSize = sizeof(std::uint64_t) + sizeof(Ticks) * 2 + sizeof(std::uint32_t);
+        /// Sender's epoch offset: (SyncedNow - LocalNow) at send time.
+        /// Zero for the epoch owner. Relayed by intermediate nodes so that
+        /// receivers can compute transitively correct synced time without
+        /// modifying raw SyncPulse timestamps.
+        Ticks epochOffset{};
+
+        static constexpr std::size_t WireSize =
+            sizeof(std::uint64_t) + sizeof(Ticks) * 3 + sizeof(std::uint32_t);
     };
 
     /// Create an EpochInfo from a SyncEpoch.

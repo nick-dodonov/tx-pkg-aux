@@ -952,3 +952,297 @@ TEST(Integration, MultiHopChainCommonTime)
     EXPECT_LE(diffAC, 15ms) << "A vs C diverged (2 hops): " << diffAC.count() << "ns";
 }
 
+// ===========================================================================
+// Transitivity tests — these verify the failure modes of the SyncPulse
+// protocol in multi-peer scenarios:
+//
+//  T1. Passive peer (larger ID) must still converge: ShouldInitiateProbe must
+//      not gate on Active role — both sides initiate periodically.
+//  T1b. Same as T1 but via ShouldInitiateProbe gate (mirrors peerlab ProbeAll).
+//  T2. Three-node chain A↔B↔C: all three agree on a single epoch time even
+//      though A and C are not directly connected.
+//  T3. When a node adopts a new/stronger epoch (e.g. C joins B), already-
+//      converged sessions must NOT be destroyed.
+//  T4. Star topology: hub B connected to A, C, D — all peripherals converge
+//      to the same synced time via B.
+// ===========================================================================
+
+// T1 — Passive peer syncs when both sides initiate (baseline symmetric test)
+TEST(Transitivity, PassivePeerSyncs)
+{
+    // B("B") > A("A") so B is lexicographically Passive.
+    // Both sides call MakePulse directly (as PulseRound does), verifying that
+    // the Session/_awaitingReply mechanism allows both sides to sync.
+    // Offset 150ms > stepThreshold 100ms → step correction on first sample → fast convergence.
+    auto config = FastConfig();
+
+    SimNode nodeA("A", 1s,         ConsensusMode::Voter, config);
+    SimNode nodeB("B", 1s + 150ms, ConsensusMode::Voter, config);
+
+    nodeA.consensus.AddPeer("B");
+    nodeB.consensus.AddPeer("A");
+
+    constexpr Ticks delay = 3ms;
+    std::vector<SimNode*> all = {&nodeA, &nodeB};
+
+    // Both sides initiate (symmetric probing).
+    for (int i = 0; i < 12; ++i) {
+        PulseRound(nodeA, "B", nodeB, "A", delay, delay);
+        AdvanceAll(all, 50ms);
+        PulseRound(nodeB, "A", nodeA, "B", delay, delay);
+        AdvanceAll(all, 50ms);
+    }
+
+    EXPECT_TRUE(nodeA.consensus.IsSynced()) << "A must be synced";
+    EXPECT_TRUE(nodeB.consensus.IsSynced()) << "B (Passive) must also be synced";
+
+    nodeA.syncClock.Update();
+    nodeB.syncClock.Update();
+
+    auto diff = std::chrono::abs(nodeA.syncClock.Now() - nodeB.syncClock.Now());
+    EXPECT_LE(diff, 5ms) << "A vs B synced time diverged: " << diff.count() << "ns";
+}
+
+// T1b — ShouldInitiateProbe must not gate on Active/Passive role
+//
+// Simulates peerlab's ProbeAll: only call MakePulse when ShouldInitiateProbe
+// returns true. Before the fix ShouldInitiateProbe returned false for the
+// Passive side (B > A), so B never initiated and its DriftModel was never
+// updated → B.IsSynced() remained false.
+TEST(Transitivity, ShouldInitiateProbeAllowsBothSides)
+{
+    auto config = FastConfig();
+
+    SimNode nodeA("A", 1s,         ConsensusMode::Voter, config);
+    SimNode nodeB("B", 1s + 150ms, ConsensusMode::Voter, config);
+
+    nodeA.consensus.AddPeer("B");
+    nodeB.consensus.AddPeer("A");
+
+    constexpr Ticks delay = 3ms;
+    std::vector<SimNode*> all = {&nodeA, &nodeB};
+
+    for (int i = 0; i < 30; ++i) {
+        // Mirror peerlab ProbeAll: initiate only when ShouldInitiateProbe says so.
+        if (nodeA.consensus.ShouldInitiateProbe("B")) {
+            PulseRound(nodeA, "B", nodeB, "A", delay, delay);
+        }
+        if (nodeB.consensus.ShouldInitiateProbe("A")) {
+            PulseRound(nodeB, "A", nodeA, "B", delay, delay);
+        }
+        AdvanceAll(all, 50ms);
+    }
+
+    EXPECT_TRUE(nodeA.consensus.IsSynced()) << "A must be synced";
+    EXPECT_TRUE(nodeB.consensus.IsSynced()) << "B must be synced via symmetric probing";
+
+    nodeA.syncClock.Update();
+    nodeB.syncClock.Update();
+
+    auto diff = std::chrono::abs(nodeA.syncClock.Now() - nodeB.syncClock.Now());
+    EXPECT_LE(diff, 5ms) << "A vs B diverged: " << diff.count() << "ns";
+}
+
+// T2 — Three-node chain with different offsets: all converge to same synced time
+TEST(Transitivity, ThreeNodeChainCommonTime)
+{
+    // A ↔ B ↔ C (A and C not directly connected).
+    // All three nodes have different local clocks.
+    // After convergence all three must report the same synced time.
+    auto config = FastConfig();
+
+    // Offsets > stepThreshold (100ms) ensure step corrections on first sample.
+    // B relays A's epoch to C via OurEpochInfo().epochOffset.
+    SimNode nodeA("A", 1s,         ConsensusMode::Voter, config);
+    SimNode nodeB("B", 1s + 150ms, ConsensusMode::Voter, config);
+    SimNode nodeC("C", 1s + 300ms, ConsensusMode::Voter, config);
+
+    nodeA.consensus.AddPeer("B");
+    nodeB.consensus.AddPeer("A");
+    nodeB.consensus.AddPeer("C");
+    nodeC.consensus.AddPeer("B");
+
+    constexpr Ticks delay = 1ms;
+    std::vector<SimNode*> all = {&nodeA, &nodeB, &nodeC};
+
+    for (int i = 0; i < 14; ++i) {
+        PulseRound(nodeA, "B", nodeB, "A", delay, delay);
+        AdvanceAll(all, 40ms);
+        PulseRound(nodeB, "C", nodeC, "B", delay, delay);
+        AdvanceAll(all, 40ms);
+        PulseRound(nodeB, "A", nodeA, "B", delay, delay);
+        AdvanceAll(all, 40ms);
+        PulseRound(nodeC, "B", nodeB, "C", delay, delay);
+        AdvanceAll(all, 40ms);
+    }
+
+    EXPECT_TRUE(nodeA.consensus.IsSynced()) << "A must be synced";
+    EXPECT_TRUE(nodeB.consensus.IsSynced()) << "B must be synced";
+    EXPECT_TRUE(nodeC.consensus.IsSynced()) << "C must be synced";
+
+    // All share the same epoch.
+    EXPECT_EQ(nodeA.consensus.Epoch().id, nodeB.consensus.Epoch().id);
+    EXPECT_EQ(nodeB.consensus.Epoch().id, nodeC.consensus.Epoch().id);
+
+    nodeA.syncClock.Update();
+    nodeB.syncClock.Update();
+    nodeC.syncClock.Update();
+
+    auto diffAB = std::chrono::abs(nodeA.syncClock.Now() - nodeB.syncClock.Now());
+    auto diffBC = std::chrono::abs(nodeB.syncClock.Now() - nodeC.syncClock.Now());
+    auto diffAC = std::chrono::abs(nodeA.syncClock.Now() - nodeC.syncClock.Now());
+    EXPECT_LE(diffAB, 10ms) << "A vs B: " << diffAB.count() << "ns";
+    EXPECT_LE(diffBC, 10ms) << "B vs C: " << diffBC.count() << "ns";
+    EXPECT_LE(diffAC, 15ms) << "A vs C (2-hop): " << diffAC.count() << "ns";
+}
+
+// T3 — Epoch adoption must not destroy already-converged sessions
+TEST(Transitivity, EpochChangeDoesNotLosePeer)
+{
+    // Scenario: A and B converge, then C (with the oldest epoch) joins B.
+    // C.epoch.createdAt = 300ms, established BEFORE Phase 1, so it is
+    // older than both A (1s) and B (1.5s) and wins when exchanges begin.
+    //
+    // Without session preservation: when B adopts C's epoch, all sessions
+    // are reset. B forces a cold resync with A and the warm DriftModel is lost.
+    //
+    // With the epochOffset approach: sessions are never reset. AdoptEpoch only
+    // clears _peerEpochOffsets. Fresh offsets arrive with the next pulse cycle.
+    auto config = FastConfig();
+
+    SimNode nodeA("A", 1s,     ConsensusMode::Voter, config);
+    SimNode nodeB("B", 1500ms, ConsensusMode::Voter, config);
+    SimNode nodeC("C", 300ms,  ConsensusMode::Voter, config);
+
+    nodeA.consensus.AddPeer("B");
+    nodeB.consensus.AddPeer("A");
+    // Register C's peer now so epoch.createdAt is captured at 300ms (oldest).
+    nodeC.consensus.AddPeer("B");
+
+    constexpr Ticks delay = 1ms;
+    std::vector<SimNode*> all = {&nodeA, &nodeB, &nodeC};
+
+    // Phase 1: A ↔ B converge (no C traffic). A.epoch (1s) wins over B.epoch (1.5s).
+    for (int i = 0; i < 10; ++i) {
+        PulseRound(nodeA, "B", nodeB, "A", delay, delay);
+        AdvanceAll(all, 50ms);
+        PulseRound(nodeB, "A", nodeA, "B", delay, delay);
+        AdvanceAll(all, 50ms);
+    }
+    ASSERT_TRUE(nodeA.consensus.IsSynced()) << "A must be synced before C joins";
+    ASSERT_TRUE(nodeB.consensus.IsSynced()) << "B must be synced before C joins";
+    ASSERT_FALSE(nodeC.consensus.IsSynced()) << "C must not be synced yet";
+
+    // Phase 2: B discovers C. C.epoch (0.3s) is the oldest → it wins.
+    nodeB.consensus.AddPeer("C");
+
+    for (int i = 0; i < 20; ++i) {
+        PulseRound(nodeA, "B", nodeB, "A", delay, delay);
+        AdvanceAll(all, 30ms);
+        PulseRound(nodeB, "C", nodeC, "B", delay, delay);
+        AdvanceAll(all, 30ms);
+        PulseRound(nodeB, "A", nodeA, "B", delay, delay);
+        AdvanceAll(all, 30ms);
+        PulseRound(nodeC, "B", nodeB, "C", delay, delay);
+        AdvanceAll(all, 30ms);
+    }
+
+    EXPECT_TRUE(nodeA.consensus.IsSynced()) << "A must remain synced after epoch change";
+    EXPECT_TRUE(nodeB.consensus.IsSynced()) << "B must remain synced after epoch change";
+    EXPECT_TRUE(nodeC.consensus.IsSynced()) << "C must be synced";
+
+    // All must share C's (oldest) epoch.
+    EXPECT_EQ(nodeA.consensus.Epoch().id, nodeB.consensus.Epoch().id);
+    EXPECT_EQ(nodeB.consensus.Epoch().id, nodeC.consensus.Epoch().id);
+
+    nodeA.syncClock.Update();
+    nodeB.syncClock.Update();
+    nodeC.syncClock.Update();
+
+    auto diffAB = std::chrono::abs(nodeA.syncClock.Now() - nodeB.syncClock.Now());
+    auto diffBC = std::chrono::abs(nodeB.syncClock.Now() - nodeC.syncClock.Now());
+    auto diffAC = std::chrono::abs(nodeA.syncClock.Now() - nodeC.syncClock.Now());
+    EXPECT_LE(diffAB, 15ms) << "A vs B after epoch change: " << diffAB.count() << "ns";
+    EXPECT_LE(diffBC, 10ms) << "B vs C: " << diffBC.count() << "ns";
+    EXPECT_LE(diffAC, 20ms) << "A vs C (2-hop): " << diffAC.count() << "ns";
+}
+
+// T4 — Star topology: hub B, spokes A, C, D — all converge to same synced time
+TEST(Transitivity, StarTopology)
+{
+    auto config = FastConfig();
+
+    // Offsets 200/350/500ms > stepThreshold → step corrections on first sample.
+    SimNode nodeA("A", 1s,         ConsensusMode::Voter, config);
+    SimNode nodeB("B", 1s + 200ms, ConsensusMode::Voter, config);
+    SimNode nodeC("C", 1s + 350ms, ConsensusMode::Voter, config);
+    SimNode nodeD("D", 1s + 500ms, ConsensusMode::Voter, config);
+
+    // Star: all spokes connect to B only.
+    nodeA.consensus.AddPeer("B");
+    nodeB.consensus.AddPeer("A");
+    nodeB.consensus.AddPeer("C");
+    nodeB.consensus.AddPeer("D");
+    nodeC.consensus.AddPeer("B");
+    nodeD.consensus.AddPeer("B");
+
+    constexpr Ticks delay = 1ms;
+    std::vector<SimNode*> all = {&nodeA, &nodeB, &nodeC, &nodeD};
+
+    // Phase 1: warm up A↔B so B.session["A"] reaches High quality before
+    // relaying epoch-relative epochOffset to C and D.
+    for (int i = 0; i < 5; ++i) {
+        PulseRound(nodeA, "B", nodeB, "A", delay, delay);
+        AdvanceAll(all, 40ms);
+        PulseRound(nodeB, "A", nodeA, "B", delay, delay);
+        AdvanceAll(all, 40ms);
+    }
+
+    // Phase 2: full star — B relays A-time to all spokes via epochOffset.
+    for (int i = 0; i < 15; ++i) {
+        PulseRound(nodeA, "B", nodeB, "A", delay, delay);
+        AdvanceAll(all, 40ms);
+        PulseRound(nodeB, "C", nodeC, "B", delay, delay);
+        AdvanceAll(all, 40ms);
+        PulseRound(nodeB, "D", nodeD, "B", delay, delay);
+        AdvanceAll(all, 40ms);
+        PulseRound(nodeB, "A", nodeA, "B", delay, delay);
+        AdvanceAll(all, 40ms);
+        PulseRound(nodeC, "B", nodeB, "C", delay, delay);
+        AdvanceAll(all, 40ms);
+        PulseRound(nodeD, "B", nodeB, "D", delay, delay);
+        AdvanceAll(all, 40ms);
+    }
+
+    EXPECT_TRUE(nodeA.consensus.IsSynced()) << "A (spoke) must be synced";
+    EXPECT_TRUE(nodeB.consensus.IsSynced()) << "B (hub) must be synced";
+    EXPECT_TRUE(nodeC.consensus.IsSynced()) << "C (spoke) must be synced";
+    EXPECT_TRUE(nodeD.consensus.IsSynced()) << "D (spoke) must be synced";
+
+    // All share the same epoch.
+    EXPECT_EQ(nodeA.consensus.Epoch().id, nodeB.consensus.Epoch().id);
+    EXPECT_EQ(nodeB.consensus.Epoch().id, nodeC.consensus.Epoch().id);
+    EXPECT_EQ(nodeC.consensus.Epoch().id, nodeD.consensus.Epoch().id);
+
+    nodeA.syncClock.Update();
+    nodeB.syncClock.Update();
+    nodeC.syncClock.Update();
+    nodeD.syncClock.Update();
+
+    auto diffAB = std::chrono::abs(nodeA.syncClock.Now() - nodeB.syncClock.Now());
+    auto diffBC = std::chrono::abs(nodeB.syncClock.Now() - nodeC.syncClock.Now());
+    auto diffBD = std::chrono::abs(nodeB.syncClock.Now() - nodeD.syncClock.Now());
+    auto diffAC = std::chrono::abs(nodeA.syncClock.Now() - nodeC.syncClock.Now());
+    auto diffAD = std::chrono::abs(nodeA.syncClock.Now() - nodeD.syncClock.Now());
+    // diffAB: B directly synced to A. B participates in more PulseRounds per
+    // iteration than A (hub bias), creating an ~8ms/iter artificial drift.
+    // Tolerance matches MultiHopChainCommonTime to account for this effect.
+    EXPECT_LE(diffAB, 10ms) << "A vs B: " << diffAB.count() << "ns";
+    // diffBC/BD: C/D sync via B's epochOffset — 1 direct hop from B.
+    EXPECT_LE(diffBC, 15ms) << "B vs C: " << diffBC.count() << "ns";
+    EXPECT_LE(diffBD, 15ms) << "B vs D: " << diffBD.count() << "ns";
+    // diffAC/AD: full 2-hop error budget (A→B→C/D).
+    EXPECT_LE(diffAC, 20ms) << "A vs C (via hub): " << diffAC.count() << "ns";
+    EXPECT_LE(diffAD, 20ms) << "A vs D (via hub): " << diffAD.count() << "ns";
+}
+

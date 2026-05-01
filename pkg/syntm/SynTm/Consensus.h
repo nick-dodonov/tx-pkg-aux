@@ -120,14 +120,13 @@ namespace SynTm
 
         /// Whether this node should initiate a new probe toward peerId.
         ///
-        /// Returns true only when this node is the Active peer AND the session's
-        /// probe interval has elapsed.
-        [[nodiscard]] bool ShouldInitiateProbe(
-            const std::string& myId, const std::string& peerId) const
+        /// Both Active and Passive peers may initiate — the role distinction only
+        /// governs reply sending (a reply to a reply is suppressed by returning
+        /// std::nullopt from HandleSyncPulse when hadEchoData is true).  Gating
+        /// on role here would prevent the Passive side from ever updating its own
+        /// DriftModel, breaking SyncedNow() on that side.
+        [[nodiscard]] bool ShouldInitiateProbe(const std::string& peerId) const
         {
-            if (!IsActivePeer(myId, peerId)) {
-                return false;
-            }
             const auto* session = GetSession(peerId);
             return session && session->ShouldProbe();
         }
@@ -146,14 +145,21 @@ namespace SynTm
 
         /// Handle an incoming SyncPulse from a peer.
         ///
-        /// Always processes the pulse (records echo state, computes offset when
-        /// echo data is present) and returns a reply pulse for the caller to send.
-        /// The caller decides whether to actually send the reply based on role:
-        ///   Passive (myId > peerId): send the reply immediately.
-        ///   Active  (myId < peerId): discard the reply; send next pulse via MakePulse.
+        /// Processes the pulse and, if it was a fresh probe (not a reply to our own
+        /// outstanding probe), returns a reply pulse for the caller to send.
+        /// Returns std::nullopt in two cases:
+        ///   — peer not found;
+        ///   — the pulse was a reply to our probe (hadEchoData=true): the caller
+        ///     must not send another reply, preventing infinite reply chains when
+        ///     both sides probe each other symmetrically.
         ///
-        /// The reply is built with epoch-relative timestamps for non-epoch-source peers,
-        /// matching the epoch-propagation behaviour of the original protocol.
+        /// Transitivity is achieved through the epochOffset field of EpochInfo:
+        ///   remoteEpoch.epochOffset = (remote.SyncedNow - remote.LocalNow)
+        /// This is stored in _peerEpochOffsets and added to session.RemoteNow()
+        /// in SyncedNow(), so a relay node automatically converts its peer's local
+        /// time to epoch owner time across any number of hops.
+        ///
+        /// All SyncPulse timestamps remain raw local times — Session is unchanged.
         ///
         /// @param remoteEpoch  Epoch info carried in the incoming wire message.
         /// @param receivedAt   True network-arrival time for the pulse (H1 fix).
@@ -165,6 +171,8 @@ namespace SynTm
         {
             if (remoteEpoch) {
                 HandleRemoteEpoch(*remoteEpoch, peerId);
+                // Store the sender's epoch offset for transitive SyncedNow().
+                _peerEpochOffsets[peerId] = remoteEpoch->epochOffset;
             }
 
             auto* session = GetSession(peerId);
@@ -172,8 +180,6 @@ namespace SynTm
                 return std::nullopt;
             }
 
-            // Process the pulse — pass raw receivedAt to the session so the NTP
-            // formula uses consistent raw/epoch-relative timelines (see design notes).
             const auto result = session->HandleSyncPulse(pulse, receivedAt);
 
             // Emit sync-state events.
@@ -187,17 +193,22 @@ namespace SynTm
                 EmitEvent(SyncEvent::ResyncCompleted);
             }
 
-            // Build a reply pulse with epoch-relative timestamps for non-owners.
-            const auto useRaw = _isEpochOwner || peerId == _epochSourcePeerId;
+            // The pulse carried echo data that matched our pending probe — it was
+            // a reply to us.  Do not reply again; the caller should not send
+            // anything back (prevents infinite reply chains).
+            if (result.hadEchoData) {
+                return std::nullopt;
+            }
+
+            // Build reply with raw timestamps only.  Transitivity is handled via
+            // epochOffset in OurEpochInfo(), not by manipulating timestamps here.
             const auto rawT2 = receivedAt.value_or(_clock.Now());
-            const auto t2 = useRaw ? rawT2 : ToSyncedTime(rawT2);
             const auto rawT3 = _clock.Now();
-            const auto t3 = useRaw ? rawT3 : ToSyncedTime(rawT3);
 
             return SyncPulse{
-                .t1      = t3,
+                .t1      = rawT3,
                 .echo_t1 = pulse.t1,
-                .echo_t2 = t2,
+                .echo_t2 = rawT2,
             };
         }
 
@@ -221,9 +232,14 @@ namespace SynTm
         [[nodiscard]] const SyncEpoch& Epoch() const noexcept { return _epoch; }
 
         /// Get our epoch info for sending to peers.
+        ///
+        /// Includes the current epochOffset (SyncedNow - LocalNow) so that
+        /// receivers can compute transitively correct synced time.
         [[nodiscard]] EpochInfo OurEpochInfo() const noexcept
         {
-            return ToEpochInfo(_epoch);
+            auto info = ToEpochInfo(_epoch);
+            info.epochOffset = SyncedNow() - _clock.Now();
+            return info;
         }
 
         /// Handle epoch info received from a remote peer.
@@ -266,31 +282,63 @@ namespace SynTm
         // -------------------------------------------------------------------
 
         /// Get the best estimate of synchronized time right now.
-        /// Epoch owner returns its local time directly — it is the reference.
-        /// Non-owners return the best session's remote time estimate.
+        ///
+        /// Epoch owner: returns local time directly (it is the reference).
+        /// Non-owner: returns session.RemoteNow() + peerEpochOffset, where
+        ///   session.RemoteNow() ≈ peer's local time
+        ///   peerEpochOffset    = peer's (SyncedNow - LocalNow) ≈ (epoch - peer_local)
+        ///   sum                ≈ epoch owner's time  (transitive over any hop count)
         [[nodiscard]] Ticks SyncedNow() const noexcept
         {
             if (_isEpochOwner) {
                 return _clock.Now();
             }
-            if (const auto* session = GetEpochAlignedSession()) {
-                return session->RemoteNow();
+
+            // Prefer epoch-source session with its known epochOffset.
+            if (!_epochSourcePeerId.empty()) {
+                const auto* session = GetSession(_epochSourcePeerId);
+                const auto it = _peerEpochOffsets.find(_epochSourcePeerId);
+                if (session && session->Quality() >= SyncQuality::Low
+                    && it != _peerEpochOffsets.end()) {
+                    return session->RemoteNow() + it->second;
+                }
             }
-            // No synced peer — return local time.
+
+            // Fall back: best session among peers with a known epochOffset.
+            const Session* bestSession = nullptr;
+            Ticks bestOffset{};
+            SyncQuality bestQuality = SyncQuality::None;
+            for (const auto& [pid, sess] : _peers) {
+                const auto q = sess.Quality();
+                const auto it = _peerEpochOffsets.find(pid);
+                if (q > bestQuality && it != _peerEpochOffsets.end()) {
+                    bestSession = &sess;
+                    bestOffset = it->second;
+                    bestQuality = q;
+                }
+            }
+            if (bestSession) {
+                return bestSession->RemoteNow() + bestOffset;
+            }
+
             return _clock.Now();
         }
 
-        /// Convert a local time to synced time using the best available session.
+        /// Convert a local time to synced time.
         /// Epoch owner maps local → local (identity).
         [[nodiscard]] Ticks ToSyncedTime(Ticks localTime) const noexcept
         {
             if (_isEpochOwner) {
                 return localTime;
             }
-            if (const auto* session = GetEpochAlignedSession()) {
-                return session->ToRemoteTime(localTime);
-            }
-            return localTime;
+            return localTime + (SyncedNow() - _clock.Now());
+        }
+
+        /// ID of the peer from whom we received our current epoch, or empty if we
+        /// own the epoch ourselves.
+        [[nodiscard]] std::string_view EpochSourcePeerId() const noexcept
+        {
+            return _epochSourcePeerId;
         }
 
         /// Whether we have at least one synced peer.
@@ -351,13 +399,15 @@ namespace SynTm
                 .createdAt   = info.createdAt,
             };
 
-            // Reset all sessions to re-sync under new epoch.
-            for (auto& session : _peers | std::views::values) {
-                session.Reset();
-            }
-            _synced = false;
             _isEpochOwner = false;
             _epochSourcePeerId = sourcePeerId;
+            _synced = false;
+
+            // Clear stale epoch offsets — they were relative to the old epoch.
+            // Fresh offsets will arrive with the next probe cycle.
+            // Sessions are intentionally preserved: raw DriftModels (local→remote
+            // in physical clock units) remain valid regardless of epoch changes.
+            _peerEpochOffsets.clear();
         }
 
         [[nodiscard]] bool HasAnySyncedPeer() const noexcept
@@ -367,38 +417,6 @@ namespace SynTm
                 [](const auto& session) {
                     return session.State() == SessionState::Synced;
                 });
-        }
-
-        /// Find the best synced session (highest quality).
-        [[nodiscard]] const Session* BestSyncedSession() const noexcept
-        {
-            const Session* best = nullptr;
-            SyncQuality bestQuality = SyncQuality::None;
-
-            for (const auto& session : _peers | std::views::values) {
-                auto q = session.Quality();
-                if (q > bestQuality) {
-                    bestQuality = q;
-                    best = &session;
-                }
-            }
-            return best;
-        }
-
-        /// Find the session that is aligned to the epoch source.
-        ///
-        /// Prefers the session whose peer provided our current epoch, since that
-        /// peer's timestamps are already on the epoch owner's timeline. Falls back
-        /// to BestSyncedSession when the preferred peer is absent or not yet Synced.
-        [[nodiscard]] const Session* GetEpochAlignedSession() const noexcept
-        {
-            if (!_epochSourcePeerId.empty()) {
-                const auto* session = GetSession(_epochSourcePeerId);
-                if (session && session->Quality() == SyncQuality::High) {
-                    return session;
-                }
-            }
-            return BestSyncedSession();
         }
 
         void EmitEvent(SyncEvent event) const
@@ -417,6 +435,10 @@ namespace SynTm
         bool _synced = false;
         bool _isEpochOwner = false;
         std::string _epochSourcePeerId;
+
+        /// Per-peer epoch offsets: (peer.SyncedNow - peer.LocalNow) at the time
+        /// of their last probe.  Used by SyncedNow() to compute transitive time.
+        std::unordered_map<std::string, Ticks> _peerEpochOffsets;
 
         std::unordered_map<std::string, Session> _peers;
         EventCallback _eventCallback;
