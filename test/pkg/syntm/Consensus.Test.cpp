@@ -18,25 +18,27 @@ using namespace std::chrono_literals;
 
 namespace
 {
-    void SimulateConsensusProbeRound(
+    void SimulateConsensusPulseRound(
         Consensus& nodeA, FakeClock& clockA, const std::string& peerIdOnA,
         Consensus& nodeB, FakeClock& clockB, const std::string& peerIdOnB,
         Ticks oneWayDelay)
     {
-        // A probes B.
-        auto reqOpt = nodeA.MakeProbeRequest(peerIdOnA);
-        ASSERT_TRUE(reqOpt.has_value());
+        // A sends pulse to B.
+        auto pulseOpt = nodeA.MakePulse(peerIdOnA);
+        ASSERT_TRUE(pulseOpt.has_value());
 
         clockA.Advance(oneWayDelay);
         clockB.Advance(oneWayDelay);
 
-        auto respOpt = nodeB.HandleProbeRequest(peerIdOnB, *reqOpt);
-        ASSERT_TRUE(respOpt.has_value());
+        // B processes pulse and returns a reply (Passive role echoes back).
+        auto replyOpt = nodeB.HandleSyncPulse(peerIdOnB, *pulseOpt);
+        ASSERT_TRUE(replyOpt.has_value());
 
         clockA.Advance(oneWayDelay);
         clockB.Advance(oneWayDelay);
 
-        nodeA.HandleProbeResponse(peerIdOnA, *respOpt, nodeB.OurEpochInfo());
+        // A processes B's reply; pass B's epoch for offset conversion.
+        nodeA.HandleSyncPulse(peerIdOnA, *replyOpt, std::nullopt, nodeB.OurEpochInfo());
     }
 }
 
@@ -139,12 +141,12 @@ TEST(Consensus, TwoNodeConvergence)
 
     for (int i = 0; i < 6; ++i) {
         // A probes B.
-        SimulateConsensusProbeRound(nodeA, clockA, "B", nodeB, clockB, "A", delay);
+        SimulateConsensusPulseRound(nodeA, clockA, "B", nodeB, clockB, "A", delay);
         clockA.Advance(100ms);
         clockB.Advance(100ms);
 
         // B probes A.
-        SimulateConsensusProbeRound(nodeB, clockB, "A", nodeA, clockA, "B", delay); //NOLINT(readability-suspicious-call-argument)
+        SimulateConsensusPulseRound(nodeB, clockB, "A", nodeA, clockA, "B", delay); //NOLINT(readability-suspicious-call-argument)
         clockA.Advance(100ms);
         clockB.Advance(100ms);
     }
@@ -183,25 +185,25 @@ TEST(Consensus, ThreeNodeChainPropagation)
 
     for (int i = 0; i < 8; ++i) {
         // A ↔ B probes.
-        SimulateConsensusProbeRound(nodeA, clockA, "B", nodeB, clockB, "A", delay);
+        SimulateConsensusPulseRound(nodeA, clockA, "B", nodeB, clockB, "A", delay);
         clockA.Advance(50ms);
         clockB.Advance(50ms);
         clockC.Advance(50ms);
 
         // B ↔ C probes.
-        SimulateConsensusProbeRound(nodeB, clockB, "C", nodeC, clockC, "B", delay); //NOLINT(readability-suspicious-call-argument)
+        SimulateConsensusPulseRound(nodeB, clockB, "C", nodeC, clockC, "B", delay); //NOLINT(readability-suspicious-call-argument)
         clockA.Advance(50ms);
         clockB.Advance(50ms);
         clockC.Advance(50ms);
 
         // B ↔ A probes (reverse).
-        SimulateConsensusProbeRound(nodeB, clockB, "A", nodeA, clockA, "B", delay); //NOLINT(readability-suspicious-call-argument)
+        SimulateConsensusPulseRound(nodeB, clockB, "A", nodeA, clockA, "B", delay); //NOLINT(readability-suspicious-call-argument)
         clockA.Advance(50ms);
         clockB.Advance(50ms);
         clockC.Advance(50ms);
 
         // C ↔ B probes (reverse).
-        SimulateConsensusProbeRound(nodeC, clockC, "B", nodeB, clockB, "C", delay);
+        SimulateConsensusPulseRound(nodeC, clockC, "B", nodeB, clockB, "C", delay);
         clockA.Advance(50ms);
         clockB.Advance(50ms);
         clockC.Advance(50ms);
@@ -296,7 +298,7 @@ TEST(Consensus, EmitsSyncLostOnLastPeerRemoved)
 
     // Converge.
     for (int i = 0; i < 5; ++i) {
-        SimulateConsensusProbeRound(nodeA, clockA, "B", nodeB, clockB, "A", delay);
+        SimulateConsensusPulseRound(nodeA, clockA, "B", nodeB, clockB, "A", delay);
         clockA.Advance(100ms);
         clockB.Advance(100ms);
     }
@@ -339,7 +341,7 @@ TEST(Consensus, GetSessionDiagnosticsDelegatesToSession)
     constexpr Ticks delay = 3ms;
 
     for (int i = 0; i < 4; ++i) {
-        SimulateConsensusProbeRound(nodeA, clockA, "B", nodeB, clockB, "A", delay);
+        SimulateConsensusPulseRound(nodeA, clockA, "B", nodeB, clockB, "A", delay);
         clockA.Advance(100ms);
         clockB.Advance(100ms);
     }
@@ -370,14 +372,13 @@ TEST(Consensus, GetSessionDiagnosticsDelegatesToSession)
 }
 
 // ===========================================================================
-// H1 — Consensus::HandleProbeRequest passes receivedAt to session
+// H1 — Consensus::HandleSyncPulse passes receivedAt to session (Passive t2)
 //
-// Verifies that when a receivedAt timestamp is supplied, the probe response
-// reflects t2=receivedAt (not the delayed processing time) and t3>=t2.
-// RED until Consensus::HandleProbeRequest accepts receivedAt.
+// When B (Passive) calls HandleSyncPulse with an explicit receivedAt, the
+// echo_t2 in the reply must equal that timestamp, not the delayed clock time.
 // ===========================================================================
 
-TEST(Consensus, HandleProbeRequest_ReceivedAtPassedThrough)
+TEST(Consensus, HandleSyncPulse_ReceivedAtPassedThrough)
 {
     FakeClock clockA;
     FakeClock clockB;
@@ -390,38 +391,42 @@ TEST(Consensus, HandleProbeRequest_ReceivedAtPassedThrough)
     nodeA.AddPeer("B");
     nodeB.AddPeer("A");
 
-    auto req = nodeA.MakeProbeRequest("B");
-    ASSERT_TRUE(req.has_value());
+    // A sends a pulse (Active = "A" < "B").
+    auto pulseOpt = nodeA.MakePulse("B");
+    ASSERT_TRUE(pulseOpt.has_value());
 
-    // Request arrives at B. Capture true receive time.
+    // Capture true receive time on B's side before any queue delay.
     Ticks trueT2 = clockB.Now();
 
-    // B's clock advances (simulates queuing).
+    // Simulate 50ms queue delay at B.
     clockB.Advance(50ms);
 
-    // Without receivedAt: t2 = current clock = trueT2 + 50ms.
-    auto respNoOverride = nodeB.HandleProbeRequest("A", *req);
-    ASSERT_TRUE(respNoOverride.has_value());
-    EXPECT_GE(respNoOverride->t2, trueT2 + 49ms)
-        << "Without override, t2 should reflect the delayed processing time";
+    // Without receivedAt: _lastReceivedAt = clockB.Now() = trueT2 + 50ms.
+    auto replyNoOverride = nodeB.HandleSyncPulse("A", *pulseOpt);
+    ASSERT_TRUE(replyNoOverride.has_value());
+    // echo_t2 should reflect the delayed clock (biased).
+    ASSERT_TRUE(replyNoOverride->echo_t2.has_value());
+    EXPECT_GE(*replyNoOverride->echo_t2, trueT2 + 49ms)
+        << "Without override, echo_t2 should reflect the delayed processing time";
 
-    // With receivedAt: t2 = trueT2, t3 = current clock >= trueT2 + 50ms.
-    auto respWithOverride = nodeB.HandleProbeRequest("A", *req, trueT2);
-    ASSERT_TRUE(respWithOverride.has_value());
-    EXPECT_EQ(respWithOverride->t2, trueT2)
-        << "With receivedAt, t2 should be the exact receive timestamp";
-    EXPECT_GT(respWithOverride->t3, respWithOverride->t2)
-        << "t3 must be after t2 (responder sends after receiving)";
+    // With receivedAt = trueT2: echo_t2 = trueT2, t1 (= t3) >= trueT2 + 50ms.
+    auto replyWithOverride = nodeB.HandleSyncPulse("A", *pulseOpt, trueT2);
+    ASSERT_TRUE(replyWithOverride.has_value());
+    ASSERT_TRUE(replyWithOverride->echo_t2.has_value());
+    EXPECT_EQ(*replyWithOverride->echo_t2, trueT2)
+        << "With receivedAt, echo_t2 should be the exact receive timestamp";
+    EXPECT_GT(replyWithOverride->t1, *replyWithOverride->echo_t2)
+        << "t1 (send time) must be after echo_t2 (receive time)";
 }
 
 // ===========================================================================
-// H1 — Consensus::HandleProbeResponse passes receivedAt to session
+// H1 — Consensus::HandleSyncPulse passes receivedAt to session (Active t4)
 //
-// Verifies that the t4 override flows through to offset computation.
-// RED until Consensus::HandleProbeResponse accepts receivedAt.
+// When A (Active) calls HandleSyncPulse on a reply with an explicit
+// receivedAt, the offset computation uses that time as t4.
 // ===========================================================================
 
-TEST(Consensus, HandleProbeResponse_ReceivedAtPassedThrough)
+TEST(Consensus, HandleSyncPulse_T4ReceivedAtAffectsOffset)
 {
     FakeClock clockA;
     FakeClock clockB;
@@ -441,14 +446,15 @@ TEST(Consensus, HandleProbeResponse_ReceivedAtPassedThrough)
 
     constexpr Ticks netDelay = 5ms;
 
-    auto req = nodeA.MakeProbeRequest("B");
-    ASSERT_TRUE(req.has_value());
+    // Round 1: A sends, B replies.
+    auto pulse = nodeA.MakePulse("B");
+    ASSERT_TRUE(pulse.has_value());
 
     clockA.Advance(netDelay);
     clockB.Advance(netDelay);
 
-    auto resp = nodeB.HandleProbeRequest("A", *req);
-    ASSERT_TRUE(resp.has_value());
+    auto replyOpt = nodeB.HandleSyncPulse("A", *pulse);
+    ASSERT_TRUE(replyOpt.has_value());
 
     clockA.Advance(netDelay);
     clockB.Advance(netDelay);
@@ -459,16 +465,13 @@ TEST(Consensus, HandleProbeResponse_ReceivedAtPassedThrough)
     // Simulate 80ms queue delay — clock advances before processing.
     clockA.Advance(80ms);
 
-    // With override: use trueT4.
-    nodeA.HandleProbeResponse("B", *resp, nodeB.OurEpochInfo(), trueT4);
+    // With trueT4 override: offset should be close to 30ms.
+    nodeA.HandleSyncPulse("B", *replyOpt, trueT4, nodeB.OurEpochInfo());
 
     auto* session = nodeA.GetSession("B");
     ASSERT_NE(session, nullptr);
 
-    // The session's drift model should be initialized now.
-    EXPECT_TRUE(session->GetDriftModel().IsInitialized());
-
-    // Synced estimate should be close to local + 30ms (true offset).
+    // Synced estimate should be close to local + 30ms.
     Ticks synced = session->RemoteNow();
     Ticks local = clockA.Now();
     auto error = std::chrono::abs(synced - (local + 30ms));

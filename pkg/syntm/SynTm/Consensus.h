@@ -107,103 +107,98 @@ namespace SynTm
         }
 
         // -------------------------------------------------------------------
-        // Probe exchange (delegated to per-peer Session)
+        // Probe exchange (SyncPulse — delegated to per-peer Session)
         // -------------------------------------------------------------------
 
-        /// Check if a specific peer needs probing.
-        [[nodiscard]] bool ShouldProbe(const std::string& peerId) const
+        /// Deterministic role assignment: the node with the lexicographically
+        /// smaller ID is Active (initiates probes); the other is Passive (replies).
+        [[nodiscard]] static bool IsActivePeer(
+            const std::string& myId, const std::string& remoteId) noexcept
         {
+            return myId < remoteId;
+        }
+
+        /// Whether this node should initiate a new probe toward peerId.
+        ///
+        /// Returns true only when this node is the Active peer AND the session's
+        /// probe interval has elapsed.
+        [[nodiscard]] bool ShouldInitiateProbe(
+            const std::string& myId, const std::string& peerId) const
+        {
+            if (!IsActivePeer(myId, peerId)) {
+                return false;
+            }
             const auto* session = GetSession(peerId);
             return session && session->ShouldProbe();
         }
 
-        /// Create a probe request for a peer.
-        [[nodiscard]] std::optional<ProbeRequest> MakeProbeRequest(const std::string& peerId)
+        /// Create a SyncPulse to send toward peerId (Active role).
+        ///
+        /// Includes an echo of the last pulse received from peerId when available.
+        [[nodiscard]] std::optional<SyncPulse> MakePulse(const std::string& peerId)
         {
             auto* session = GetSession(peerId);
             if (!session) {
                 return std::nullopt;
             }
-            return session->MakeProbeRequest();
+            return session->MakePulse();
         }
 
-        /// Handle an incoming probe request from a peer.
+        /// Handle an incoming SyncPulse from a peer.
         ///
-        /// The epoch owner always replies with local time (which equals epoch time).
-        /// A non-owner replies with raw local time to its epoch source peer so that
-        /// the source's session never sees a transition from raw to epoch-relative
-        /// timestamps — which would cause a spurious step. For all other peers the
-        /// non-owner replies with epoch-relative time (ToSyncedTime), enabling
-        /// transitive synchronisation analogous to NTP stratum propagation.
+        /// Always processes the pulse (records echo state, computes offset when
+        /// echo data is present) and returns a reply pulse for the caller to send.
+        /// The caller decides whether to actually send the reply based on role:
+        ///   Passive (myId > peerId): send the reply immediately.
+        ///   Active  (myId < peerId): discard the reply; send next pulse via MakePulse.
         ///
-        /// Session::HandleProbeRequest() (always raw) is intentionally kept for
-        /// Session-level unit tests that operate without a Consensus layer.
+        /// The reply is built with epoch-relative timestamps for non-epoch-source peers,
+        /// matching the epoch-propagation behaviour of the original protocol.
         ///
-        /// @param receivedAt  Actual network-arrival time for the request (t2).
-        ///                    When provided, eliminates queuing-delay bias (H1).
-        ///                    When std::nullopt, current clock time is used.
-        [[nodiscard]] std::optional<ProbeResponse> HandleProbeRequest(
+        /// @param remoteEpoch  Epoch info carried in the incoming wire message.
+        /// @param receivedAt   True network-arrival time for the pulse (H1 fix).
+        [[nodiscard]] std::optional<SyncPulse> HandleSyncPulse(
             const std::string& peerId,
-            const ProbeRequest& req,
-            std::optional<Ticks> receivedAt = std::nullopt)
+            const SyncPulse& pulse,
+            std::optional<Ticks> receivedAt = std::nullopt,
+            std::optional<EpochInfo> remoteEpoch = std::nullopt)
         {
-            const auto* session = GetSession(peerId);
-            if (!session) {
-                return std::nullopt;
-            }
-
-            const auto useRaw = _isEpochOwner || peerId == _epochSourcePeerId;
-
-            // t2 = actual receive time (H1 fix: use receivedAt if supplied).
-            const auto nowAtReceive = receivedAt.value_or(_clock.Now());
-            const auto t2 = useRaw ? nowAtReceive : ToSyncedTime(nowAtReceive);
-
-            // t3 = current clock time when building the response (H3 fix: not same as t2).
-            const auto nowAtSend = _clock.Now();
-            const auto t3 = useRaw ? nowAtSend : ToSyncedTime(nowAtSend);
-
-            session->GetLogger().Trace("Consensus: t1={}ns -> t2={}ns t3={}ns",
-                Log::Sep{req.t1.count()}, Log::Sep{t2.count()}, Log::Sep{t3.count()});
-            return ProbeResponse{.t1 = req.t1, .t2 = t2, .t3 = t3};
-        }
-
-        /// Handle a probe response from a peer, plus their epoch info.
-        ///
-        /// @param receivedAt  Actual network-arrival time for the response (t4).
-        ///                    When provided, eliminates queuing-delay bias (H1).
-        ///                    When std::nullopt, current clock time is used.
-        void HandleProbeResponse(
-            const std::string& peerId,
-            const ProbeResponse& resp,
-            std::optional<EpochInfo> remoteEpoch = std::nullopt,
-            std::optional<Ticks> receivedAt = std::nullopt)
-        {
-            auto* session = GetSession(peerId);
-            if (!session) {
-                return;
-            }
-
-            const auto result = session->HandleProbeResponse(resp, receivedAt);
-
-            // Process epoch merge if the remote provided epoch info.
             if (remoteEpoch) {
                 HandleRemoteEpoch(*remoteEpoch, peerId);
             }
 
-            // Emit ResyncStarted only when the session first enters Resyncing —
-            // not on every individual step within the same episode.
+            auto* session = GetSession(peerId);
+            if (!session) {
+                return std::nullopt;
+            }
+
+            // Process the pulse — pass raw receivedAt to the session so the NTP
+            // formula uses consistent raw/epoch-relative timelines (see design notes).
+            const auto result = session->HandleSyncPulse(pulse, receivedAt);
+
+            // Emit sync-state events.
             if (result.enteredResyncing) {
                 EmitEvent(SyncEvent::ResyncStarted);
             }
-
-            // Check if we've just acquired sync for the first time (or after SyncLost).
             if (!_synced && HasAnySyncedPeer()) {
                 _synced = true;
                 EmitEvent(SyncEvent::SyncAcquired);
             } else if (_synced && result.exitedResyncing) {
-                // Session returned to Synced after a resync episode.
                 EmitEvent(SyncEvent::ResyncCompleted);
             }
+
+            // Build a reply pulse with epoch-relative timestamps for non-owners.
+            const auto useRaw = _isEpochOwner || peerId == _epochSourcePeerId;
+            const auto rawT2 = receivedAt.value_or(_clock.Now());
+            const auto t2 = useRaw ? rawT2 : ToSyncedTime(rawT2);
+            const auto rawT3 = _clock.Now();
+            const auto t3 = useRaw ? rawT3 : ToSyncedTime(rawT3);
+
+            return SyncPulse{
+                .t1      = t3,
+                .echo_t1 = pulse.t1,
+                .echo_t2 = t2,
+            };
         }
 
         /// Return a session's diagnostics snapshot.

@@ -10,35 +10,37 @@ using namespace SynTm;
 using namespace std::chrono_literals;
 
 // ===========================================================================
-// Helper: simulate a probe round-trip between two sessions
+// Helper: simulate a SyncPulse round-trip between two sessions
 // ===========================================================================
 
 namespace
 {
-    /// Simulate one complete probe exchange:
-    ///   initiator sends request → responder handles → initiator handles response.
+    /// Simulate one complete SyncPulse exchange (Active → Passive → Active):
+    ///   initiator sends pulse → responder handles + replies → initiator handles reply.
     /// Both clocks advance by `oneWayDelay` for each leg.
-    Session::ProbeHandleResult SimulateProbeRound(
+    /// Returns the PulseHandleResult from the initiator processing the reply.
+    Session::PulseHandleResult SimulatePulseRound(
         Session& initiator, FakeClock& initiatorClock,
         Session& responder, FakeClock& responderClock,
         Ticks oneWayDelay)
     {
-        // Step 1: Initiator creates request.
-        auto req = initiator.MakeProbeRequest();
+        // Step 1: Active creates pulse (includes echo of last received, if any).
+        auto pulse = initiator.MakePulse();
 
         // Step 2: Network delay (initiator → responder).
         initiatorClock.Advance(oneWayDelay);
         responderClock.Advance(oneWayDelay);
 
-        // Step 3: Responder handles request.
-        auto resp = responder.HandleProbeRequest(req);
+        // Step 3: Responder records the echo data and builds a reply.
+        responder.HandleSyncPulse(pulse);
+        auto reply = responder.MakePulse();
 
         // Step 4: Network delay (responder → initiator).
         initiatorClock.Advance(oneWayDelay);
         responderClock.Advance(oneWayDelay);
 
-        // Step 5: Initiator handles response.
-        return initiator.HandleProbeResponse(resp);
+        // Step 5: Initiator handles reply (computes offset from echo).
+        return initiator.HandleSyncPulse(reply);
     }
 }
 
@@ -58,7 +60,7 @@ TEST(Session, TransitionsToProbing)
 {
     FakeClock clock;
     Session session(clock);
-    [[maybe_unused]] auto req1 = session.MakeProbeRequest();
+    [[maybe_unused]] auto req1 = session.MakePulse();
     EXPECT_EQ(session.State(), SessionState::Probing);
 }
 
@@ -76,7 +78,7 @@ TEST(Session, ShouldProbeRespectsInterval)
     config.probeIntervalMin = 100ms;
     Session session(clock, config);
 
-    [[maybe_unused]] auto req1 = session.MakeProbeRequest();
+    [[maybe_unused]] auto req1 = session.MakePulse();
     EXPECT_FALSE(session.ShouldProbe()); // Just sent.
 
     clock.Advance(50ms); // 50ms — not yet.
@@ -107,7 +109,7 @@ TEST(Session, ConvergesWithZeroOffset)
     constexpr Ticks delay = 5ms; // 5ms one-way.
 
     for (int i = 0; i < 5; ++i) {
-        SimulateProbeRound(sessionA, clockA, sessionB, clockB, delay);
+        SimulatePulseRound(sessionA, clockA, sessionB, clockB, delay);
 
         // Advance time between probes.
         clockA.Advance(100ms);
@@ -144,7 +146,7 @@ TEST(Session, ConvergesWithOffset)
     constexpr Ticks delay = 5ms; // 5ms one-way.
 
     for (int i = 0; i < 5; ++i) {
-        SimulateProbeRound(sessionA, clockA, sessionB, clockB, delay);
+        SimulatePulseRound(sessionA, clockA, sessionB, clockB, delay);
         clockA.Advance(100ms);
         clockB.Advance(100ms);
     }
@@ -180,10 +182,10 @@ TEST(Session, HandlesPacketLoss)
     constexpr Ticks delay = 5ms;
 
     // Send 2 good probes.
-    SimulateProbeRound(sessionA, clockA, sessionB, clockB, delay);
+    SimulatePulseRound(sessionA, clockA, sessionB, clockB, delay);
     clockA.Advance(100ms);
     clockB.Advance(100ms);
-    SimulateProbeRound(sessionA, clockA, sessionB, clockB, delay);
+    SimulatePulseRound(sessionA, clockA, sessionB, clockB, delay);
     clockA.Advance(100ms);
     clockB.Advance(100ms);
 
@@ -193,7 +195,7 @@ TEST(Session, HandlesPacketLoss)
 
     // Send 3 more good probes.
     for (int i = 0; i < 3; ++i) {
-        SimulateProbeRound(sessionA, clockA, sessionB, clockB, delay);
+        SimulatePulseRound(sessionA, clockA, sessionB, clockB, delay);
         clockA.Advance(100ms);
         clockB.Advance(100ms);
     }
@@ -225,7 +227,7 @@ TEST(Session, CompensatesDrift)
     // B drifts +100ppm relative to A.
     // After each 100ms interval, B advances 100ms + 10µs.
     for (int i = 0; i < 10; ++i) {
-        SimulateProbeRound(sessionA, clockA, sessionB, clockB, delay);
+        SimulatePulseRound(sessionA, clockA, sessionB, clockB, delay);
         clockA.Advance(100ms);
         clockB.Advance(100ms + 10us); // 100ppm faster.
     }
@@ -266,7 +268,7 @@ TEST(Session, DetectsStep)
 
     // Converge first.
     for (int i = 0; i < 4; ++i) {
-        SimulateProbeRound(sessionA, clockA, sessionB, clockB, delay);
+        SimulatePulseRound(sessionA, clockA, sessionB, clockB, delay);
         clockA.Advance(100ms);
         clockB.Advance(100ms);
     }
@@ -278,7 +280,7 @@ TEST(Session, DetectsStep)
     // Feed enough probes with the new offset to overcome the filter window.
     bool gotStep = false;
     for (int i = 0; i < 5; ++i) {
-        auto result = SimulateProbeRound(sessionA, clockA, sessionB, clockB, delay);
+        auto result = SimulatePulseRound(sessionA, clockA, sessionB, clockB, delay);
         if (result.stepped) {
             gotStep = true;
             break;
@@ -299,7 +301,7 @@ TEST(Session, ResetClearsState)
     FakeClock clock;
     Session session(clock);
 
-    [[maybe_unused]] auto req = session.MakeProbeRequest();
+    [[maybe_unused]] auto req = session.MakePulse();
     EXPECT_NE(session.State(), SessionState::Idle);
 
     session.Reset();
@@ -334,7 +336,7 @@ TEST(Session, StepResetsFilterAndResultCount)
 
     // Converge to Synced.
     for (int i = 0; i < 4; ++i) {
-        SimulateProbeRound(sessionA, clockA, sessionB, clockB, delay);
+        SimulatePulseRound(sessionA, clockA, sessionB, clockB, delay);
         clockA.Advance(100ms);
         clockB.Advance(100ms);
     }
@@ -345,7 +347,7 @@ TEST(Session, StepResetsFilterAndResultCount)
 
     bool gotStep = false;
     for (int i = 0; i < 5; ++i) {
-        auto result = SimulateProbeRound(sessionA, clockA, sessionB, clockB, delay);
+        auto result = SimulatePulseRound(sessionA, clockA, sessionB, clockB, delay);
         clockA.Advance(10ms);
         clockB.Advance(10ms);
         if (result.stepped) {
@@ -359,7 +361,7 @@ TEST(Session, StepResetsFilterAndResultCount)
 
     // After the reset, a single further probe must NOT immediately transition
     // to Synced (minSamplesForSync=2 requires 2 post-step results).
-    auto r = SimulateProbeRound(sessionA, clockA, sessionB, clockB, delay);
+    auto r = SimulatePulseRound(sessionA, clockA, sessionB, clockB, delay);
     EXPECT_FALSE(r.stepped);
     EXPECT_EQ(sessionA.State(), SessionState::Resyncing); // still waiting for 2nd result
 }
@@ -389,7 +391,7 @@ TEST(Session, LargeOffset_ConvergesWithoutInfiniteStepping)
 
     // Run plenty of probes.
     for (int i = 0; i < 40; ++i) {
-        SimulateProbeRound(sessionA, clockA, sessionB, clockB, delay);
+        SimulatePulseRound(sessionA, clockA, sessionB, clockB, delay);
         clockA.Advance(100ms);
         clockB.Advance(100ms);
     }
@@ -399,7 +401,7 @@ TEST(Session, LargeOffset_ConvergesWithoutInfiniteStepping)
     // Once synced, no more stepping should occur.
     int stepsAfterSync = 0;
     for (int i = 0; i < 10; ++i) {
-        auto result = SimulateProbeRound(sessionA, clockA, sessionB, clockB, delay);
+        auto result = SimulatePulseRound(sessionA, clockA, sessionB, clockB, delay);
         if (result.stepped) {
             ++stepsAfterSync;
         }
@@ -432,7 +434,7 @@ TEST(Session, EnteredResyncing_OnlyOnFirstStepOfEpisode)
 
     // Converge.
     for (int i = 0; i < 5; ++i) {
-        SimulateProbeRound(sessionA, clockA, sessionB, clockB, delay);
+        SimulatePulseRound(sessionA, clockA, sessionB, clockB, delay);
         clockA.Advance(100ms);
         clockB.Advance(100ms);
     }
@@ -442,9 +444,9 @@ TEST(Session, EnteredResyncing_OnlyOnFirstStepOfEpisode)
     clockB.Advance(200ms);
 
     // Collect the first step.
-    Session::ProbeHandleResult firstStep;
+    Session::PulseHandleResult firstStep;
     for (int i = 0; i < 5; ++i) {
-        firstStep = SimulateProbeRound(sessionA, clockA, sessionB, clockB, delay);
+        firstStep = SimulatePulseRound(sessionA, clockA, sessionB, clockB, delay);
         clockA.Advance(10ms);
         clockB.Advance(10ms);
         if (firstStep.stepped) {
@@ -459,7 +461,7 @@ TEST(Session, EnteredResyncing_OnlyOnFirstStepOfEpisode)
     ASSERT_EQ(sessionA.State(), SessionState::Resyncing);
 
     for (int i = 0; i < 5; ++i) {
-        auto r = SimulateProbeRound(sessionA, clockA, sessionB, clockB, delay);
+        auto r = SimulatePulseRound(sessionA, clockA, sessionB, clockB, delay);
         clockA.Advance(10ms);
         clockB.Advance(10ms);
         if (r.stepped) {
@@ -546,21 +548,24 @@ TEST(Session, ExplicitT4CorrectsBias)
     constexpr Ticks networkDelay = 5ms;
     constexpr Ticks queueDelay = 100ms; // Simulated processing lag at initiator.
 
-    // Simulate several probes accumulating bias.
+    // Each round: A sends pulse → B replies → A processes reply.
+    // The queue delay inflates A's t4 (receive time of B's reply) in the biased case.
     for (int i = 0; i < 5; ++i) {
-        // Step 1: A sends request.
-        auto req1 = sessionA_biased.MakeProbeRequest();
-        auto req2 = sessionA_corrected.MakeProbeRequest();
+        // Step 1: A sends pulse.
+        auto pulse1 = sessionA_biased.MakePulse();
+        auto pulse2 = sessionA_corrected.MakePulse();
 
         // Step 2: Network to B.
         clockA.Advance(networkDelay);
         clockB.Advance(networkDelay);
 
-        // Step 3: B responds.
-        auto resp1 = sessionB1.HandleProbeRequest(req1);
-        auto resp2 = sessionB2.HandleProbeRequest(req2);
+        // Step 3: B receives and builds reply immediately.
+        sessionB1.HandleSyncPulse(pulse1);
+        auto reply1 = sessionB1.MakePulse();
+        sessionB2.HandleSyncPulse(pulse2);
+        auto reply2 = sessionB2.MakePulse();
 
-        // Step 4: Network back to A (response arrives at trueT4).
+        // Step 4: Network back to A (reply arrives at trueT4).
         clockA.Advance(networkDelay);
         clockB.Advance(networkDelay);
 
@@ -570,29 +575,26 @@ TEST(Session, ExplicitT4CorrectsBias)
         clockA.Advance(queueDelay);
 
         // Biased: no override — t4 = clockA.Now() (includes queue delay).
-        sessionA_biased.HandleProbeResponse(resp1);
+        sessionA_biased.HandleSyncPulse(reply1);
 
         // Corrected: use trueT4 via receivedAt override.
-        sessionA_corrected.HandleProbeResponse(resp2, trueT4);
+        sessionA_corrected.HandleSyncPulse(reply2, trueT4);
 
         clockA.Advance(50ms);
         clockB.Advance(50ms + queueDelay);
     }
 
     // True offset = 50ms.
-    // Biased session: t4 is inflated by queueDelay → offset error ≈ +50ms.
-    // Corrected session: t4 is accurate → offset error < 2ms.
-
+    // Biased session: t4 inflated → offset error ≈ +queueDelay/2.
+    // Corrected session: t4 accurate → offset error < 5ms.
     Ticks biasedEstimate = sessionA_biased.RemoteNow();
     Ticks correctedEstimate = sessionA_corrected.RemoteNow();
     Ticks local = clockA.Now();
 
-    // Biased must have a large error from the true target (local + 50ms).
     Ticks biasedError = std::chrono::abs(biasedEstimate - (local + 50ms));
     EXPECT_GE(biasedError, 30ms)
         << "Biased session should have >= 30ms error without receivedAt";
 
-    // Corrected must be close to the true offset.
     Ticks correctedError = std::chrono::abs(correctedEstimate - (local + 50ms));
     EXPECT_LE(correctedError, 5ms)
         << "Corrected session should have < 5ms error with receivedAt";
@@ -627,30 +629,32 @@ TEST(Session, ExplicitT2CorrectsBias)
     constexpr Ticks queueDelayB = 80ms; // B processes messages 80ms after receipt.
 
     for (int i = 0; i < 5; ++i) {
-        auto req1 = sessionA_biased.MakeProbeRequest();
-        auto req2 = sessionA_corrected.MakeProbeRequest();
+        auto pulse1 = sessionA_biased.MakePulse();
+        auto pulse2 = sessionA_corrected.MakePulse();
 
         clockA.Advance(networkDelay);
         clockB.Advance(networkDelay);
 
-        // Request arrives at B at trueT2.
+        // Pulse arrives at B at trueT2.
         Ticks trueT2 = clockB.Now();
 
         // B processes message after queue delay.
         clockA.Advance(queueDelayB);
         clockB.Advance(queueDelayB);
 
-        // Biased: HandleProbeRequest uses _clock.Now() → t2 = trueT2 + queueDelayB.
-        auto resp_biased = sessionB_biased.HandleProbeRequest(req1);
+        // Biased: HandleSyncPulse uses _clock.Now() → echo_t2 = trueT2 + queueDelayB.
+        sessionB_biased.HandleSyncPulse(pulse1);
+        auto reply_biased = sessionB_biased.MakePulse();
 
         // Corrected: pass the real receive time.
-        auto resp_corrected = sessionB_corrected.HandleProbeRequest(req2, trueT2);
+        sessionB_corrected.HandleSyncPulse(pulse2, trueT2);
+        auto reply_corrected = sessionB_corrected.MakePulse();
 
         clockA.Advance(networkDelay);
         clockB.Advance(networkDelay);
 
-        sessionA_biased.HandleProbeResponse(resp_biased);
-        sessionA_corrected.HandleProbeResponse(resp_corrected);
+        sessionA_biased.HandleSyncPulse(reply_biased);
+        sessionA_corrected.HandleSyncPulse(reply_corrected);
 
         clockA.Advance(100ms);
         clockB.Advance(100ms);
@@ -668,13 +672,14 @@ TEST(Session, ExplicitT2CorrectsBias)
 }
 
 // ===========================================================================
-// H3 — t2 != t3 in HandleProbeRequest
+// H3 — echo_t2 != t3 in SyncPulse reply
 //
-// When the responder stamps both t2 (receive) and t3 (send) from the same
-// clock.Now() snapshot, t2 == t3 always. The correct behaviour is t3 >= t2.
+// When the responder processes a pulse late (explicit receivedAt), the stored
+// echo_t2 should reflect the actual receive time, while t1 (= t3) in the
+// reply is stamped at send time. Verifies echo_t2 < t1 when processing delay exists.
 // ===========================================================================
 
-TEST(Session, HandleProbeRequest_T2NotEqualT3)
+TEST(Session, HandleSyncPulse_EchoT2BeforeT3)
 {
     FakeClock clockA;
     FakeClock clockB;
@@ -684,21 +689,22 @@ TEST(Session, HandleProbeRequest_T2NotEqualT3)
     Session sessionA(clockA, {});
     Session sessionB(clockB, {});
 
-    auto req = sessionA.MakeProbeRequest();
+    auto pulse = sessionA.MakePulse();
 
-    // Advance B's clock to simulate that some time passes between
-    // receiving the request (trueT2) and the responder sending (t3).
+    // Advance B's clock to simulate time passing between receive (trueT2) and send (t3).
     Ticks trueT2 = clockB.Now();
     clockB.Advance(1ms); // 1ms processing time.
 
-    // With explicit receivedAt = trueT2, t3 is captured inside HandleProbeRequest
-    // at the current clock time (= trueT2 + 1ms), so t3 > t2.
-    auto resp = sessionB.HandleProbeRequest(req, trueT2);
+    // HandleSyncPulse records trueT2 as _lastReceivedAt (= echo_t2 in reply).
+    // MakePulse then stamps t1 = clockB.Now() = trueT2 + 1ms (= t3).
+    sessionB.HandleSyncPulse(pulse, trueT2);
+    auto reply = sessionB.MakePulse();
 
-    EXPECT_LT(resp.t2, resp.t3)
-        << "t2 should be the receive timestamp, t3 the send timestamp";
-    EXPECT_EQ(resp.t2, trueT2);
-    EXPECT_GE(resp.t3 - resp.t2, 1ms);
+    ASSERT_TRUE(reply.echo_t2.has_value());
+    EXPECT_LT(*reply.echo_t2, reply.t1)
+        << "echo_t2 should be the receive timestamp, reply.t1 the send timestamp";
+    EXPECT_EQ(*reply.echo_t2, trueT2);
+    EXPECT_GE(reply.t1 - *reply.echo_t2, 1ms);
 }
 
 // ===========================================================================
@@ -725,13 +731,14 @@ TEST(Session, GetDiagnosticsReflectsHistory)
     constexpr Ticks delay = 4ms;
 
     for (int i = 0; i < 5; ++i) {
-        auto req = sessionA.MakeProbeRequest();
+        auto pulse = sessionA.MakePulse();
         clockA.Advance(delay);
         clockB.Advance(delay);
-        auto resp = sessionB.HandleProbeRequest(req);
+        sessionB.HandleSyncPulse(pulse);
+        auto reply = sessionB.MakePulse();
         clockA.Advance(delay);
         clockB.Advance(delay);
-        sessionA.HandleProbeResponse(resp);
+        sessionA.HandleSyncPulse(reply);
         clockA.Advance(100ms);
         clockB.Advance(100ms);
     }

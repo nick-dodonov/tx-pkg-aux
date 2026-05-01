@@ -153,60 +153,70 @@ TEST(Probe, ComputeResultWithProcessingDelay)
 // Probe — serialization round-trip
 // ===========================================================================
 
-TEST(ProbeSerialization, RequestRoundTrip)
+TEST(ProbeSerialization, ShortFormRoundTrip)
 {
-    ProbeRequest req{.t1 = Ticks{123'456'789'012'345LL}};
-    std::array<std::byte, ProbeRequest::WireSize> buf{};
+    SyncPulse pulse{.t1 = Ticks{123'456'789'012'345LL}};
+    std::array<std::byte, SyncPulse::ShortWireSize> buf{};
 
-    auto written = WriteTo(buf, req);
-    EXPECT_EQ(written, ProbeRequest::WireSize);
+    auto written = WriteTo(buf, pulse);
+    EXPECT_EQ(written, SyncPulse::ShortWireSize);
 
-    auto decoded = ReadProbeRequest(buf);
+    auto decoded = ReadSyncPulse(std::span<const std::byte>(buf));
     ASSERT_TRUE(decoded.has_value());
-    EXPECT_EQ(decoded->t1, req.t1);
+    EXPECT_EQ(decoded->t1, pulse.t1);
+    EXPECT_FALSE(decoded->HasEcho());
 }
 
-TEST(ProbeSerialization, ResponseRoundTrip)
+TEST(ProbeSerialization, FullFormRoundTrip)
 {
-    ProbeResponse resp{
-        .t1 = Ticks{111'111'111'111LL},
-        .t2 = Ticks{222'222'222'222LL},
-        .t3 = Ticks{333'333'333'333LL},
+    SyncPulse pulse{
+        .t1     = Ticks{111'111'111'111LL},
+        .echo_t1 = Ticks{222'222'222'222LL},
+        .echo_t2 = Ticks{333'333'333'333LL},
     };
-    std::array<std::byte, ProbeResponse::WireSize> buf{};
+    std::array<std::byte, SyncPulse::FullWireSize> buf{};
 
-    auto written = WriteTo(buf, resp);
-    EXPECT_EQ(written, ProbeResponse::WireSize);
+    auto written = WriteTo(buf, pulse);
+    EXPECT_EQ(written, SyncPulse::FullWireSize);
 
-    auto decoded = ReadProbeResponse(buf);
+    auto decoded = ReadSyncPulse(std::span<const std::byte>(buf));
     ASSERT_TRUE(decoded.has_value());
-    EXPECT_EQ(decoded->t1, resp.t1);
-    EXPECT_EQ(decoded->t2, resp.t2);
-    EXPECT_EQ(decoded->t3, resp.t3);
+    EXPECT_EQ(decoded->t1, pulse.t1);
+    ASSERT_TRUE(decoded->echo_t1.has_value());
+    ASSERT_TRUE(decoded->echo_t2.has_value());
+    EXPECT_EQ(*decoded->echo_t1, *pulse.echo_t1);
+    EXPECT_EQ(*decoded->echo_t2, *pulse.echo_t2);
+    EXPECT_TRUE(decoded->HasEcho());
 }
 
-TEST(ProbeSerialization, RequestBufferTooSmall)
+TEST(ProbeSerialization, ShortBufferTooSmall)
 {
-    ProbeRequest req{.t1 = Ticks{42}};
-    std::array<std::byte, 4> buf{}; // Too small.
-    EXPECT_EQ(WriteTo(buf, req), 0u);
-    EXPECT_FALSE(ReadProbeRequest(std::span<const std::byte>(buf)).has_value());
+    SyncPulse pulse{.t1 = Ticks{42}};
+    std::array<std::byte, 4> buf{}; // Too small (need ShortWireSize = 8).
+    EXPECT_EQ(WriteTo(buf, pulse), 0u);
+    EXPECT_FALSE(ReadSyncPulse(std::span<const std::byte>(buf)).has_value());
 }
 
-TEST(ProbeSerialization, ResponseBufferTooSmall)
+TEST(ProbeSerialization, FullBufferTooSmall)
 {
-    ProbeResponse resp{};
-    std::array<std::byte, 16> buf{}; // Too small (need 24).
-    EXPECT_EQ(WriteTo(buf, resp), 0u);
-    EXPECT_FALSE(ReadProbeResponse(std::span<const std::byte>(buf)).has_value());
+    SyncPulse pulse{
+        .t1     = Ticks{1},
+        .echo_t1 = Ticks{2},
+        .echo_t2 = Ticks{3},
+    };
+    std::array<std::byte, 16> buf{}; // Too small (need FullWireSize = 24).
+    EXPECT_EQ(WriteTo(buf, pulse), 0u);
+    // ReadSyncPulse with fewer than ShortWireSize bytes returns nullopt.
+    std::array<std::byte, 4> tooSmall{};
+    EXPECT_FALSE(ReadSyncPulse(std::span<const std::byte>(tooSmall)).has_value());
 }
 
 TEST(ProbeSerialization, NegativeValues)
 {
-    ProbeRequest req{.t1 = Ticks{-999'999'999LL}};
-    std::array<std::byte, ProbeRequest::WireSize> buf{};
-    [[maybe_unused]] auto written = WriteTo(buf, req);
-    auto decoded = ReadProbeRequest(buf);
+    SyncPulse pulse{.t1 = Ticks{-999'999'999LL}};
+    std::array<std::byte, SyncPulse::ShortWireSize> buf{};
+    [[maybe_unused]] auto written = WriteTo(buf, pulse);
+    auto decoded = ReadSyncPulse(std::span<const std::byte>(buf));
     ASSERT_TRUE(decoded.has_value());
     EXPECT_EQ(decoded->t1, Ticks{-999'999'999LL});
 }

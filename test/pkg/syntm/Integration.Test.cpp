@@ -61,27 +61,27 @@ namespace
         Ticks delayBtoA;
     };
 
-    /// Helper: simulate a bidirectional probe round between two SimNodes.
-    void ProbeRound(SimNode& a, const std::string& peerOnA,
+    /// Helper: simulate a bidirectional pulse round between two SimNodes.
+    void PulseRound(SimNode& a, const std::string& peerOnA,
                     SimNode& b, const std::string& peerOnB,
                     Ticks delayAtoB, Ticks delayBtoA)
     {
         // A → B.
-        auto req = a.consensus.MakeProbeRequest(peerOnA);
-        if (!req) {
+        auto pulseOpt = a.consensus.MakePulse(peerOnA);
+        if (!pulseOpt) {
             return;
         }
         a.clock.Advance(delayAtoB);
         b.clock.Advance(delayAtoB);
 
-        auto resp = b.consensus.HandleProbeRequest(peerOnB, *req);
-        if (!resp) {
+        auto replyOpt = b.consensus.HandleSyncPulse(peerOnB, *pulseOpt);
+        if (!replyOpt) {
             return;
         }
         a.clock.Advance(delayBtoA);
         b.clock.Advance(delayBtoA);
 
-        a.consensus.HandleProbeResponse(peerOnA, *resp, b.consensus.OurEpochInfo());
+        a.consensus.HandleSyncPulse(peerOnA, *replyOpt, std::nullopt, b.consensus.OurEpochInfo());
     }
 
     /// Advance all node clocks, applying per-node drift factor.
@@ -125,9 +125,9 @@ TEST(Integration, TwoNodeOffset)
     std::vector<SimNode*> all = {&nodeA, &nodeB};
 
     for (int i = 0; i < 8; ++i) {
-        ProbeRound(nodeA, "B", nodeB, "A", delay, delay);
+        PulseRound(nodeA, "B", nodeB, "A", delay, delay);
         AdvanceAll(all, 50ms);
-        ProbeRound(nodeB, "A", nodeA, "B", delay, delay);
+        PulseRound(nodeB, "A", nodeA, "B", delay, delay);
         AdvanceAll(all, 50ms);
     }
 
@@ -174,13 +174,13 @@ TEST(Integration, ThreeNodeChain)
     std::vector<SimNode*> all = {&nodeA, &nodeB, &nodeC};
 
     for (int i = 0; i < 10; ++i) {
-        ProbeRound(nodeA, "B", nodeB, "A", delay, delay);
+        PulseRound(nodeA, "B", nodeB, "A", delay, delay);
         AdvanceAll(all, 30ms);
-        ProbeRound(nodeB, "C", nodeC, "B", delay, delay);
+        PulseRound(nodeB, "C", nodeC, "B", delay, delay);
         AdvanceAll(all, 30ms);
-        ProbeRound(nodeB, "A", nodeA, "B", delay, delay);
+        PulseRound(nodeB, "A", nodeA, "B", delay, delay);
         AdvanceAll(all, 30ms);
-        ProbeRound(nodeC, "B", nodeB, "C", delay, delay);
+        PulseRound(nodeC, "B", nodeB, "C", delay, delay);
         AdvanceAll(all, 30ms);
     }
 
@@ -220,16 +220,16 @@ TEST(Integration, GroupMerge)
     std::vector<SimNode*> group2 = {&nodeC, &nodeD};
 
     for (int i = 0; i < 5; ++i) {
-        ProbeRound(nodeA, "B", nodeB, "A", delay, delay);
+        PulseRound(nodeA, "B", nodeB, "A", delay, delay);
         AdvanceAll(group1, 30ms);
         AdvanceAll(group2, 30ms);
-        ProbeRound(nodeB, "A", nodeA, "B", delay, delay);
+        PulseRound(nodeB, "A", nodeA, "B", delay, delay);
         AdvanceAll(group1, 30ms);
         AdvanceAll(group2, 30ms);
-        ProbeRound(nodeC, "D", nodeD, "C", delay, delay);
+        PulseRound(nodeC, "D", nodeD, "C", delay, delay);
         AdvanceAll(group1, 30ms);
         AdvanceAll(group2, 30ms);
-        ProbeRound(nodeD, "C", nodeC, "D", delay, delay);
+        PulseRound(nodeD, "C", nodeC, "D", delay, delay);
         AdvanceAll(group1, 30ms);
         AdvanceAll(group2, 30ms);
     }
@@ -248,14 +248,14 @@ TEST(Integration, GroupMerge)
     std::vector<SimNode*> all = {&nodeA, &nodeB, &nodeC, &nodeD};
 
     for (int i = 0; i < 5; ++i) {
-        ProbeRound(nodeB, "C", nodeC, "B", delay, delay);
+        PulseRound(nodeB, "C", nodeC, "B", delay, delay);
         AdvanceAll(all, 30ms);
-        ProbeRound(nodeC, "B", nodeB, "C", delay, delay);
+        PulseRound(nodeC, "B", nodeB, "C", delay, delay);
         AdvanceAll(all, 30ms);
         // Continue internal probes.
-        ProbeRound(nodeC, "D", nodeD, "C", delay, delay);
+        PulseRound(nodeC, "D", nodeD, "C", delay, delay);
         AdvanceAll(all, 30ms);
-        ProbeRound(nodeD, "C", nodeC, "D", delay, delay);
+        PulseRound(nodeD, "C", nodeC, "D", delay, delay);
         AdvanceAll(all, 30ms);
     }
 
@@ -293,9 +293,9 @@ TEST(Integration, ViewerTracksVoter)
     std::vector<SimNode*> all = {&voter, &viewer};
 
     for (int i = 0; i < 6; ++i) {
-        ProbeRound(viewer, "V", voter, "W", delay, delay);
+        PulseRound(viewer, "V", voter, "W", delay, delay);
         AdvanceAll(all, 50ms);
-        ProbeRound(voter, "W", viewer, "V", delay, delay);
+        PulseRound(voter, "W", viewer, "V", delay, delay);
         AdvanceAll(all, 50ms);
     }
 
@@ -324,46 +324,44 @@ TEST(Integration, WireFormatEndToEnd)
     constexpr Ticks delay = 3ms;
     std::vector<SimNode*> all = {&nodeA, &nodeB};
 
-    // Simulate probe exchange using wire-format serialization.
+    // Simulate pulse exchange using wire-format serialization.
     for (int i = 0; i < 6; ++i) {
-        auto req = nodeA.consensus.MakeProbeRequest("B");
-        ASSERT_TRUE(req.has_value());
+        // A creates a pulse.
+        auto pulseOpt = nodeA.consensus.MakePulse("B");
+        ASSERT_TRUE(pulseOpt.has_value());
 
-        // Serialize request.
-        std::array<std::byte, 128> reqBuf{};
-        auto reqBytes = WriteSyncProbeRequest(reqBuf, nodeA.consensus.OurEpochInfo(), *req);
-        ASSERT_GT(reqBytes, 0u);
-
-        AdvanceAll(all, delay);
-
-        // Parse request on B's side.
-        auto parsedReq = ParseSyncMessage(
-            std::span<const std::byte>(reqBuf.data(), reqBytes));
-        ASSERT_TRUE(parsedReq.has_value());
-        ASSERT_TRUE(parsedReq->request.has_value());
-
-        // Handle epoch from header.
-        nodeB.consensus.HandleRemoteEpoch(parsedReq->epoch);
-
-        auto resp = nodeB.consensus.HandleProbeRequest("A", *parsedReq->request);
-        ASSERT_TRUE(resp.has_value());
-
-        // Serialize response.
-        std::array<std::byte, 128> respBuf{};
-        auto respBytes = WriteSyncProbeResponse(
-            respBuf, nodeB.consensus.OurEpochInfo(), *resp);
-        ASSERT_GT(respBytes, 0u);
+        // Serialize pulse.
+        std::array<std::byte, 128> pulseBuf{};
+        auto pulseBytes = WriteSyncPulse(pulseBuf, nodeA.consensus.OurEpochInfo(), *pulseOpt);
+        ASSERT_GT(pulseBytes, 0u);
 
         AdvanceAll(all, delay);
 
-        // Parse response on A's side.
-        auto parsedResp = ParseSyncMessage(
-            std::span<const std::byte>(respBuf.data(), respBytes));
-        ASSERT_TRUE(parsedResp.has_value());
-        ASSERT_TRUE(parsedResp->response.has_value());
+        // Parse on B's side.
+        auto parsedMsg = ParseSyncMessage(
+            std::span<const std::byte>(pulseBuf.data(), pulseBytes));
+        ASSERT_TRUE(parsedMsg.has_value());
+        ASSERT_TRUE(parsedMsg->pulse.has_value());
 
-        nodeA.consensus.HandleProbeResponse(
-            "B", *parsedResp->response, parsedResp->epoch);
+        // B handles the pulse and builds a reply.
+        nodeB.consensus.HandleRemoteEpoch(parsedMsg->epoch);
+        auto replyOpt = nodeB.consensus.HandleSyncPulse("A", *parsedMsg->pulse);
+        ASSERT_TRUE(replyOpt.has_value());
+
+        // Serialize reply.
+        std::array<std::byte, 128> replyBuf{};
+        auto replyBytes = WriteSyncPulse(replyBuf, nodeB.consensus.OurEpochInfo(), *replyOpt);
+        ASSERT_GT(replyBytes, 0u);
+
+        AdvanceAll(all, delay);
+
+        // Parse reply on A's side.
+        auto parsedReply = ParseSyncMessage(
+            std::span<const std::byte>(replyBuf.data(), replyBytes));
+        ASSERT_TRUE(parsedReply.has_value());
+        ASSERT_TRUE(parsedReply->pulse.has_value());
+
+        nodeA.consensus.HandleSyncPulse("B", *parsedReply->pulse, std::nullopt, parsedReply->epoch);
 
         AdvanceAll(all, 50ms);
     }
@@ -391,9 +389,9 @@ TEST(Integration, DriftCompensation)
     std::vector<SimNode*> all = {&nodeA, &nodeB};
 
     for (int i = 0; i < 12; ++i) {
-        ProbeRound(nodeA, "B", nodeB, "A", delay, delay);
+        PulseRound(nodeA, "B", nodeB, "A", delay, delay);
         AdvanceAll(all, 100ms);
-        ProbeRound(nodeB, "A", nodeA, "B", delay, delay);
+        PulseRound(nodeB, "A", nodeA, "B", delay, delay);
         AdvanceAll(all, 100ms);
     }
 
@@ -427,9 +425,9 @@ TEST(Integration, SyncAcquiredEvent)
     std::vector<SimNode*> all = {&nodeA, &nodeB};
 
     for (int i = 0; i < 6; ++i) {
-        ProbeRound(nodeA, "B", nodeB, "A", delay, delay);
+        PulseRound(nodeA, "B", nodeB, "A", delay, delay);
         AdvanceAll(all, 50ms);
-        ProbeRound(nodeB, "A", nodeA, "B", delay, delay);
+        PulseRound(nodeB, "A", nodeA, "B", delay, delay);
         AdvanceAll(all, 50ms);
     }
 
@@ -462,9 +460,9 @@ TEST(Integration, TruncTimeCrossNode)
     std::vector<SimNode*> all = {&nodeA, &nodeB};
 
     for (int i = 0; i < 6; ++i) {
-        ProbeRound(nodeA, "B", nodeB, "A", delay, delay);
+        PulseRound(nodeA, "B", nodeB, "A", delay, delay);
         AdvanceAll(all, 50ms);
-        ProbeRound(nodeB, "A", nodeA, "B", delay, delay);
+        PulseRound(nodeB, "A", nodeA, "B", delay, delay);
         AdvanceAll(all, 50ms);
     }
 
@@ -507,9 +505,9 @@ TEST(Integration, TwoNodeLargeOffset_ConvergesAndStabilizes)
     // Run until both sides are Synced (up to 60 rounds).
     int rounds = 0;
     for (; rounds < 60; ++rounds) {
-        ProbeRound(nodeA, "B", nodeB, "A", delay, delay);
+        PulseRound(nodeA, "B", nodeB, "A", delay, delay);
         AdvanceAll(all, 100ms);
-        ProbeRound(nodeB, "A", nodeA, "B", delay, delay);
+        PulseRound(nodeB, "A", nodeA, "B", delay, delay);
         AdvanceAll(all, 100ms);
         if (nodeA.consensus.IsSynced() && nodeB.consensus.IsSynced()) {
             break;
@@ -524,9 +522,9 @@ TEST(Integration, TwoNodeLargeOffset_ConvergesAndStabilizes)
     nodeB.events.clear();
 
     for (int i = 0; i < 20; ++i) {
-        ProbeRound(nodeA, "B", nodeB, "A", delay, delay);
+        PulseRound(nodeA, "B", nodeB, "A", delay, delay);
         AdvanceAll(all, 100ms);
-        ProbeRound(nodeB, "A", nodeA, "B", delay, delay);
+        PulseRound(nodeB, "A", nodeA, "B", delay, delay);
         AdvanceAll(all, 100ms);
     }
 
@@ -566,9 +564,9 @@ TEST(Integration, Resynced_FiresOncePerEpisode)
 
     // Converge first (bidirectional).
     for (int i = 0; i < 10; ++i) {
-        ProbeRound(nodeA, "B", nodeB, "A", delay, delay);
+        PulseRound(nodeA, "B", nodeB, "A", delay, delay);
         AdvanceAll(all, 50ms);
-        ProbeRound(nodeB, "A", nodeA, "B", delay, delay);
+        PulseRound(nodeB, "A", nodeA, "B", delay, delay);
         AdvanceAll(all, 50ms);
     }
     ASSERT_TRUE(nodeA.consensus.IsSynced());
@@ -582,9 +580,9 @@ TEST(Integration, Resynced_FiresOncePerEpisode)
 
     // Run a bunch of probes through the resync episode (bidirectional).
     for (int i = 0; i < 20; ++i) {
-        ProbeRound(nodeA, "B", nodeB, "A", delay, delay);
+        PulseRound(nodeA, "B", nodeB, "A", delay, delay);
         AdvanceAll(all, 50ms);
-        ProbeRound(nodeB, "A", nodeA, "B", delay, delay);
+        PulseRound(nodeB, "A", nodeA, "B", delay, delay);
         AdvanceAll(all, 50ms);
     }
 
@@ -626,9 +624,9 @@ TEST(Integration, BothSidesSameEpochTime)
     std::vector<SimNode*> all = {&nodeA, &nodeB};
 
     for (int i = 0; i < 10; ++i) {
-        ProbeRound(nodeA, "B", nodeB, "A", delayAtoB, delayBtoA);
+        PulseRound(nodeA, "B", nodeB, "A", delayAtoB, delayBtoA);
         AdvanceAll(all, 80ms);
-        ProbeRound(nodeB, "A", nodeA, "B", delayBtoA, delayAtoB); //NOLINT(readability-suspicious-call-argument)
+        PulseRound(nodeB, "A", nodeA, "B", delayBtoA, delayAtoB); //NOLINT(readability-suspicious-call-argument)
         AdvanceAll(all, 80ms);
     }
 
@@ -666,10 +664,10 @@ TEST(Integration, BothSidesSameEpochTime)
 
 namespace
 {
-    /// Probe round where processing is delayed by queueDelay on each side.
+    /// Pulse round where processing is delayed by queueDelay on each side.
     /// When useReceivedAt=true, the true receive timestamp is passed to
-    /// the Consensus calls. When false, no override is given (current bug).
-    void ProbeRoundWithQueueDelay(
+    /// the Consensus calls. When false, no override is given (confirms the bug).
+    void PulseRoundWithQueueDelay(
         SimNode& a, const std::string& peerOnA,
         SimNode& b, const std::string& peerOnB,
         Ticks networkDelay,
@@ -677,9 +675,9 @@ namespace
         Ticks queueDelayB, // processing lag at B (t2 bias)
         bool useReceivedAt)
     {
-        // A sends request.
-        auto req = a.consensus.MakeProbeRequest(peerOnA);
-        if (!req) {
+        // A sends pulse.
+        auto pulseOpt = a.consensus.MakePulse(peerOnA);
+        if (!pulseOpt) {
             return;
         }
 
@@ -687,20 +685,20 @@ namespace
         a.clock.Advance(networkDelay);
         b.clock.Advance(networkDelay);
 
-        // Request arrives at B — capture true t2 BEFORE queue delay.
+        // Pulse arrives at B — capture true t2 BEFORE queue delay.
         Ticks trueT2 = b.clock.Now();
 
         // B processes after queue delay.
         a.clock.Advance(queueDelayB);
         b.clock.Advance(queueDelayB);
 
-        std::optional<ProbeResponse> resp;
+        std::optional<SyncPulse> replyOpt;
         if (useReceivedAt) {
-            resp = b.consensus.HandleProbeRequest(peerOnB, *req, trueT2);
+            replyOpt = b.consensus.HandleSyncPulse(peerOnB, *pulseOpt, trueT2);
         } else {
-            resp = b.consensus.HandleProbeRequest(peerOnB, *req);
+            replyOpt = b.consensus.HandleSyncPulse(peerOnB, *pulseOpt);
         }
-        if (!resp) {
+        if (!replyOpt) {
             return;
         }
 
@@ -708,7 +706,7 @@ namespace
         a.clock.Advance(networkDelay);
         b.clock.Advance(networkDelay);
 
-        // Response arrives at A — capture true t4 BEFORE queue delay.
+        // Reply arrives at A — capture true t4 BEFORE queue delay.
         Ticks trueT4 = a.clock.Now();
 
         // A processes after queue delay.
@@ -716,9 +714,9 @@ namespace
         b.clock.Advance(queueDelayA);
 
         if (useReceivedAt) {
-            a.consensus.HandleProbeResponse(peerOnA, *resp, b.consensus.OurEpochInfo(), trueT4);
+            a.consensus.HandleSyncPulse(peerOnA, *replyOpt, trueT4, b.consensus.OurEpochInfo());
         } else {
-            a.consensus.HandleProbeResponse(peerOnA, *resp, b.consensus.OurEpochInfo());
+            a.consensus.HandleSyncPulse(peerOnA, *replyOpt, std::nullopt, b.consensus.OurEpochInfo());
         }
     }
 }
@@ -752,10 +750,10 @@ TEST(Integration, TwoNodeWithQueuingDelay_ConfirmsBug)
 
     // Run 30 probe rounds without receivedAt fix.
     for (int i = 0; i < 30; ++i) {
-        ProbeRoundWithQueueDelay(nodeA, "B", nodeB, "A",
+        PulseRoundWithQueueDelay(nodeA, "B", nodeB, "A",
             networkDelay, queueDelayAtInitiator, queueDelayAtResponder, false);
         AdvanceAll(all, 50ms);
-        ProbeRoundWithQueueDelay(nodeB, "A", nodeA, "B",
+        PulseRoundWithQueueDelay(nodeB, "A", nodeA, "B",
             networkDelay, queueDelayAtInitiator, queueDelayAtResponder, false);
         AdvanceAll(all, 50ms);
     }
@@ -793,10 +791,10 @@ TEST(Integration, TwoNodeWithQueuingDelay_FixedWithReceivedAt)
 
     // Run 30 probe rounds WITH receivedAt fix.
     for (int i = 0; i < 30; ++i) {
-        ProbeRoundWithQueueDelay(nodeA, "B", nodeB, "A",
+        PulseRoundWithQueueDelay(nodeA, "B", nodeB, "A",
             networkDelay, queueDelayAtInitiator, queueDelayAtResponder, true);
         AdvanceAll(all, 50ms);
-        ProbeRoundWithQueueDelay(nodeB, "A", nodeA, "B",
+        PulseRoundWithQueueDelay(nodeB, "A", nodeA, "B",
             networkDelay, queueDelayAtInitiator, queueDelayAtResponder, true);
         AdvanceAll(all, 50ms);
     }
@@ -839,9 +837,9 @@ TEST(Integration, SlowSlewStability)
 
     // Converge first.
     for (int i = 0; i < 20; ++i) {
-        ProbeRound(nodeA, "B", nodeB, "A", delay, delay);
+        PulseRound(nodeA, "B", nodeB, "A", delay, delay);
         AdvanceAll(all, 50ms);
-        ProbeRound(nodeB, "A", nodeA, "B", delay, delay);
+        PulseRound(nodeB, "A", nodeA, "B", delay, delay);
         AdvanceAll(all, 50ms);
     }
     ASSERT_TRUE(nodeA.consensus.IsSynced());
@@ -868,7 +866,7 @@ TEST(Integration, SlowSlewStability)
         auto jitterB = Ticks{static_cast<std::int64_t>(
             static_cast<std::uint64_t>(nextRand()) % static_cast<std::uint64_t>(maxJitter.count()))};
 
-        ProbeRoundWithQueueDelay(nodeA, "B", nodeB, "A", delay, jitterA, jitterB, false);
+        PulseRoundWithQueueDelay(nodeA, "B", nodeB, "A", delay, jitterA, jitterB, false);
         AdvanceAll(all, 50ms);
 
         nodeA.syncClock.Update();
@@ -925,13 +923,13 @@ TEST(Integration, MultiHopChainCommonTime)
     std::vector<SimNode*> all = {&nodeA, &nodeB, &nodeC};
 
     for (int i = 0; i < 14; ++i) {
-        ProbeRound(nodeA, "B", nodeB, "A", delay, delay);
+        PulseRound(nodeA, "B", nodeB, "A", delay, delay);
         AdvanceAll(all, 40ms);
-        ProbeRound(nodeB, "C", nodeC, "B", delay, delay);
+        PulseRound(nodeB, "C", nodeC, "B", delay, delay);
         AdvanceAll(all, 40ms);
-        ProbeRound(nodeB, "A", nodeA, "B", delay, delay);
+        PulseRound(nodeB, "A", nodeA, "B", delay, delay);
         AdvanceAll(all, 40ms);
-        ProbeRound(nodeC, "B", nodeB, "C", delay, delay);
+        PulseRound(nodeC, "B", nodeB, "C", delay, delay);
         AdvanceAll(all, 40ms);
     }
 

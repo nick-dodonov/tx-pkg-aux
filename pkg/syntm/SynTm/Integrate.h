@@ -15,13 +15,12 @@ namespace SynTm
     /// Message type byte for the sync layer header.
     enum class SyncMessageType : std::uint8_t
     {
-        ProbeRequest  = 1,
-        ProbeResponse = 2,
+        SyncPulse = 3, ///< Unified probe/reply (replaces old Request=1 and Response=2).
     };
 
     /// Fixed-size header prepended to sync messages.
     ///
-    /// Layout (41 bytes):
+    /// Layout (31 bytes):
     ///   [0]     version (1 byte, currently 1)
     ///   [1]     message type (1 byte)
     ///   [2..9]  epoch id (8 bytes LE)
@@ -29,68 +28,52 @@ namespace SynTm
     ///   [18..25] epoch createdAt (8 bytes LE)
     ///   [26..29] epoch memberCount (4 bytes LE)
     ///   [30]    reserved (1 byte, 0)
-    ///   [31..N] probe data (8 or 24 bytes depending on type)
+    ///   [31..N] SyncPulse payload:
+    ///             8 bytes  (ShortWireSize) → t1 only, no echo
+    ///            24 bytes  (FullWireSize)  → t1 + echo_t1 + echo_t2
     ///
-    /// Total: 31 + ProbeRequest::WireSize = 39 bytes for request
-    ///        31 + ProbeResponse::WireSize = 55 bytes for response
+    /// Total: 39 bytes (short) or 55 bytes (full)
     struct SyncHeader
     {
         static constexpr std::uint8_t CurrentVersion = 1;
         static constexpr std::size_t MetaSize = 31; // Up to and including reserved byte.
 
         std::uint8_t version = CurrentVersion;
-        SyncMessageType type = SyncMessageType::ProbeRequest;
+        SyncMessageType type = SyncMessageType::SyncPulse;
         EpochInfo epoch;
     };
 
-    /// Serialize a sync header + probe request into a buffer.
-    /// Returns the number of bytes written, or 0 if the buffer is too small.
-    [[nodiscard]] inline std::size_t WriteSyncProbeRequest(
+    /// Write the 31-byte sync header into buf starting at offset 0.
+    inline void WriteHeader(
         std::span<std::byte> buf,
-        const EpochInfo& epoch,
-        const ProbeRequest& req) noexcept
+        SyncMessageType type,
+        const EpochInfo& epoch) noexcept
     {
-        constexpr std::size_t totalSize = SyncHeader::MetaSize + ProbeRequest::WireSize;
-        if (buf.size() < totalSize) {
-            return 0;
-        }
-
         buf[0] = static_cast<std::byte>(SyncHeader::CurrentVersion);
-        buf[1] = static_cast<std::byte>(SyncMessageType::ProbeRequest);
+        buf[1] = static_cast<std::byte>(type);
         Detail::WriteRawU64(buf, 2, epoch.epochId);
         Detail::WriteLE64(buf, 10, epoch.baseTime);
         Detail::WriteLE64(buf, 18, epoch.createdAt);
-
         std::uint32_t mc = epoch.memberCount;
         std::memcpy(buf.data() + 26, &mc, sizeof(mc));
         buf[30] = std::byte{0}; // Reserved.
-
-        (void)WriteTo(buf.subspan(SyncHeader::MetaSize), req);
-        return totalSize;
     }
 
-    /// Serialize a sync header + probe response into a buffer.
-    [[nodiscard]] inline std::size_t WriteSyncProbeResponse(
+    /// Serialize a sync header + SyncPulse into a buffer.
+    /// Returns the number of bytes written, or 0 if the buffer is too small.
+    [[nodiscard]] inline std::size_t WriteSyncPulse(
         std::span<std::byte> buf,
         const EpochInfo& epoch,
-        const ProbeResponse& resp) noexcept
+        const SyncPulse& pulse) noexcept
     {
-        constexpr std::size_t totalSize = SyncHeader::MetaSize + ProbeResponse::WireSize;
+        const std::size_t payloadSize =
+            pulse.HasEcho() ? SyncPulse::FullWireSize : SyncPulse::ShortWireSize;
+        const std::size_t totalSize = SyncHeader::MetaSize + payloadSize;
         if (buf.size() < totalSize) {
             return 0;
         }
-
-        buf[0] = static_cast<std::byte>(SyncHeader::CurrentVersion);
-        buf[1] = static_cast<std::byte>(SyncMessageType::ProbeResponse);
-        Detail::WriteRawU64(buf, 2, epoch.epochId);
-        Detail::WriteLE64(buf, 10, epoch.baseTime);
-        Detail::WriteLE64(buf, 18, epoch.createdAt);
-
-        std::uint32_t mc = epoch.memberCount;
-        std::memcpy(buf.data() + 26, &mc, sizeof(mc));
-        buf[30] = std::byte{0};
-
-        (void)WriteTo(buf.subspan(SyncHeader::MetaSize), resp);
+        WriteHeader(buf, SyncMessageType::SyncPulse, epoch);
+        (void)WriteTo(buf.subspan(SyncHeader::MetaSize), pulse);
         return totalSize;
     }
 
@@ -99,8 +82,7 @@ namespace SynTm
     {
         SyncMessageType type;
         EpochInfo epoch;
-        std::optional<ProbeRequest> request;
-        std::optional<ProbeResponse> response;
+        std::optional<SyncPulse> pulse;
     };
 
     /// Parse a sync message from raw bytes.
@@ -133,15 +115,9 @@ namespace SynTm
 
         switch (type)
         {
-            case SyncMessageType::ProbeRequest:
-                result.request = ReadProbeRequest(payload);
-                if (!result.request) {
-                    return std::nullopt;
-                }
-                break;
-            case SyncMessageType::ProbeResponse:
-                result.response = ReadProbeResponse(payload);
-                if (!result.response) {
+            case SyncMessageType::SyncPulse:
+                result.pulse = ReadSyncPulse(payload);
+                if (!result.pulse) {
                     return std::nullopt;
                 }
                 break;

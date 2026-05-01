@@ -27,15 +27,15 @@ namespace
         Consensus& nodeB, FakeClock& clockB, const std::string& peerIdOnB,
         Ticks delay)
     {
-        auto req = nodeA.MakeProbeRequest(peerIdOnA);
-        ASSERT_TRUE(req.has_value());
+        auto pulseOpt = nodeA.MakePulse(peerIdOnA);
+        ASSERT_TRUE(pulseOpt.has_value());
         clockA.Advance(delay);
         clockB.Advance(delay);
-        auto resp = nodeB.HandleProbeRequest(peerIdOnB, *req);
-        ASSERT_TRUE(resp.has_value());
+        auto replyOpt = nodeB.HandleSyncPulse(peerIdOnB, *pulseOpt);
+        ASSERT_TRUE(replyOpt.has_value());
         clockA.Advance(delay);
         clockB.Advance(delay);
-        nodeA.HandleProbeResponse(peerIdOnA, *resp, nodeB.OurEpochInfo());
+        nodeA.HandleSyncPulse(peerIdOnA, *replyOpt, std::nullopt, nodeB.OurEpochInfo());
     }
 }
 
@@ -155,7 +155,7 @@ TEST(SyncClock, EventCallback)
 // Integrate — serialization round-trip
 // ===========================================================================
 
-TEST(Integrate, ProbeRequestRoundTrip)
+TEST(Integrate, SyncPulseShortFormRoundTrip)
 {
     EpochInfo epoch{
         .epochId     = 0xDEADBEEF,
@@ -163,24 +163,25 @@ TEST(Integrate, ProbeRequestRoundTrip)
         .createdAt   = 500ms,
         .memberCount = 5,
     };
-    ProbeRequest req{.t1 = 42s};
+    SyncPulse pulse{.t1 = 42s}; // no echo
 
     std::array<std::byte, 128> buf{};
-    auto written = WriteSyncProbeRequest(buf, epoch, req);
+    auto written = WriteSyncPulse(buf, epoch, pulse);
     EXPECT_GT(written, 0u);
 
     auto parsed = ParseSyncMessage(std::span<const std::byte>(buf.data(), written));
     ASSERT_TRUE(parsed.has_value());
-    EXPECT_EQ(parsed->type, SyncMessageType::ProbeRequest);
+    EXPECT_EQ(parsed->type, SyncMessageType::SyncPulse);
     EXPECT_EQ(parsed->epoch.epochId, epoch.epochId);
     EXPECT_EQ(parsed->epoch.baseTime, epoch.baseTime);
     EXPECT_EQ(parsed->epoch.createdAt, epoch.createdAt);
     EXPECT_EQ(parsed->epoch.memberCount, epoch.memberCount);
-    ASSERT_TRUE(parsed->request.has_value());
-    EXPECT_EQ(parsed->request->t1, req.t1);
+    ASSERT_TRUE(parsed->pulse.has_value());
+    EXPECT_EQ(parsed->pulse->t1, pulse.t1);
+    EXPECT_FALSE(parsed->pulse->HasEcho());
 }
 
-TEST(Integrate, ProbeResponseRoundTrip)
+TEST(Integrate, SyncPulseFullFormRoundTrip)
 {
     EpochInfo epoch{
         .epochId     = 0x12345678,
@@ -188,32 +189,35 @@ TEST(Integrate, ProbeResponseRoundTrip)
         .createdAt   = 1s,
         .memberCount = 3,
     };
-    ProbeResponse resp{
-        .t1 = 11s,
-        .t2 = 22s,
-        .t3 = 33s,
+    SyncPulse pulse{
+        .t1     = 11s,
+        .echo_t1 = Ticks{22s},
+        .echo_t2 = Ticks{33s},
     };
 
     std::array<std::byte, 128> buf{};
-    auto written = WriteSyncProbeResponse(buf, epoch, resp);
+    auto written = WriteSyncPulse(buf, epoch, pulse);
     EXPECT_GT(written, 0u);
 
     auto parsed = ParseSyncMessage(std::span<const std::byte>(buf.data(), written));
     ASSERT_TRUE(parsed.has_value());
-    EXPECT_EQ(parsed->type, SyncMessageType::ProbeResponse);
+    EXPECT_EQ(parsed->type, SyncMessageType::SyncPulse);
     EXPECT_EQ(parsed->epoch.epochId, epoch.epochId);
-    ASSERT_TRUE(parsed->response.has_value());
-    EXPECT_EQ(parsed->response->t1, resp.t1);
-    EXPECT_EQ(parsed->response->t2, resp.t2);
-    EXPECT_EQ(parsed->response->t3, resp.t3);
+    ASSERT_TRUE(parsed->pulse.has_value());
+    EXPECT_EQ(parsed->pulse->t1, pulse.t1);
+    ASSERT_TRUE(parsed->pulse->echo_t1.has_value());
+    ASSERT_TRUE(parsed->pulse->echo_t2.has_value());
+    EXPECT_EQ(*parsed->pulse->echo_t1, *pulse.echo_t1);
+    EXPECT_EQ(*parsed->pulse->echo_t2, *pulse.echo_t2);
+    EXPECT_TRUE(parsed->pulse->HasEcho());
 }
 
 TEST(Integrate, BufferTooSmall)
 {
     EpochInfo epoch{};
-    ProbeRequest req{};
+    SyncPulse pulse{.t1 = 1s};
     std::array<std::byte, 4> buf{};
-    EXPECT_EQ(WriteSyncProbeRequest(buf, epoch, req), 0u);
+    EXPECT_EQ(WriteSyncPulse(buf, epoch, pulse), 0u);
 }
 
 TEST(Integrate, InvalidVersion)

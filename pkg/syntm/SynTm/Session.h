@@ -85,7 +85,7 @@ namespace SynTm
 
         [[nodiscard]] const auto& GetLogger() const noexcept { return _logger; }
 
-        /// Whether it's time to send a new probe request.
+        /// Whether it's time to send a new pulse (Active role).
         [[nodiscard]] bool ShouldProbe() const noexcept
         {
             if (!_everProbed) {
@@ -95,81 +95,84 @@ namespace SynTm
             return (now - _lastProbeSentAt) >= CurrentProbeInterval();
         }
 
-        /// Create a probe request to send to the remote peer.
-        [[nodiscard]] ProbeRequest MakeProbeRequest()
+        /// Create a SyncPulse to initiate or continue the exchange (Active role).
+        ///
+        /// Updates _lastProbeSentAt so ShouldProbe() respects the interval.
+        /// Includes an echo of the last received pulse when available.
+        [[nodiscard]] SyncPulse MakePulse()
         {
             const auto now = _clock.Now();
             _lastProbeSentAt = now;
             _everProbed = true;
+            _awaitingReply = true;
             if (_state == SessionState::Idle) {
                 _state = SessionState::Probing;
             }
-            _logger.Trace("t1={}ns", Log::Sep{now.count()});
-            return ProbeRequest{.t1 = now};
-        }
-
-        /// Handle an incoming probe request from a remote peer.
-        /// Returns a response to send back.
-        ///
-        /// @param req      The probe request received from the initiator.
-        /// @param receivedAt  The timestamp at which the request was received on the
-        ///                    transport (t2). When supplied this is the exact network-
-        ///                    arrival time, which eliminates queuing-delay bias (H1).
-        ///                    When std::nullopt the current clock time is used.
-        [[nodiscard]] ProbeResponse HandleProbeRequest(
-            const ProbeRequest& req,
-            std::optional<Ticks> receivedAt = std::nullopt)
-        {
-            // t2 = actual receive time (network arrival), not processing time.
-            const auto t2 = receivedAt.value_or(_clock.Now());
-            // t3 = current time when building the response (after any processing delay).
-            const auto t3 = _clock.Now();
-            _logger.Trace("t1={}ns -> t2={}ns t3={}ns", Log::Sep{req.t1.count()},
-                Log::Sep{t2.count()}, Log::Sep{t3.count()});
-            return ProbeResponse{
-                .t1 = req.t1,
-                .t2 = t2,
-                .t3 = t3,
+            _logger.Trace("t1={}ns echo={}", Log::Sep{now.count()}, _lastReceivedT1.has_value());
+            return SyncPulse{
+                .t1      = now,
+                .echo_t1 = _lastReceivedT1,
+                .echo_t2 = _lastReceivedAt,
             };
         }
 
-        /// Handle an incoming probe response.
-        struct ProbeHandleResult
+        /// Result returned by HandleSyncPulse.
+        struct PulseHandleResult
         {
             FilterResult filterResult;
             /// A step correction was applied to the drift model.
             bool stepped = false;
             /// The session just transitioned INTO Resyncing (first step of a new episode).
-            /// False if the session was already in Resyncing before this probe.
             bool enteredResyncing = false;
             /// The session just transitioned OUT OF Resyncing into Synced.
             bool exitedResyncing = false;
+            /// True when the pulse carried echo data and an offset was computed.
+            bool hadEchoData = false;
         };
 
-        /// Handle an incoming probe response.
+        /// Handle an incoming SyncPulse.
         ///
-        /// @param resp       The probe response from the responder.
-        /// @param receivedAt The timestamp at which the response was received on the
-        ///                   transport (t4). When supplied this is the exact network-
-        ///                   arrival time, which eliminates queuing-delay bias (H1).
-        ///                   When std::nullopt the current clock time is used.
-        [[nodiscard]] ProbeHandleResult HandleProbeResponse(
-            const ProbeResponse& resp,
+        /// Always records the peer's t1 and the receive time for future echoes.
+        /// When the pulse carries echo data (both echo_t1 and echo_t2 set), the
+        /// NTP offset and RTT are computed and fed into the filter and drift model.
+        ///
+        /// @param pulse      The incoming SyncPulse from the remote peer.
+        /// @param receivedAt The timestamp at which the pulse was received on the
+        ///                   transport (t4 / t2 in NTP terms).  When supplied this
+        ///                   is the exact network-arrival time, eliminating queuing-
+        ///                   delay bias (H1).  When std::nullopt the current clock
+        ///                   time is used.
+        [[nodiscard]] PulseHandleResult HandleSyncPulse(
+            const SyncPulse& pulse,
             std::optional<Ticks> receivedAt = std::nullopt)
         {
-            // t4 = actual receive time (network arrival), not processing time.
-            const auto t4 = receivedAt.value_or(_clock.Now());
-            const auto probe = ComputeProbeResult(resp.t1, resp.t2, resp.t3, t4);
-            _logger.Trace("result: offset={}ns rtt={}ns", Log::Sep{probe.offset.count()}, Log::Sep{probe.rtt.count()});
+            const auto t2 = receivedAt.value_or(_clock.Now());
 
-            const auto filterResult = _filter.AddSample(t4, probe);
+            // Record for future echoes.
+            _lastReceivedT1 = pulse.t1;
+            _lastReceivedAt = t2;
+
+            _logger.Trace("received t1={}ns at t2={}ns hasEcho={}",
+                Log::Sep{pulse.t1.count()}, Log::Sep{t2.count()}, pulse.HasEcho());
+
+            if (!pulse.HasEcho() || !_awaitingReply) {
+                return {.hadEchoData = false};
+            }
+            _awaitingReply = false;
+
+            // NTP mapping: echo_t1=t1, echo_t2=t2, pulse.t1=t3 (implicit echo_t3), t2=t4.
+            const auto probeResult = ComputeProbeResult(*pulse.echo_t1, *pulse.echo_t2, pulse.t1, t2);
+            _logger.Trace("result: offset={}ns rtt={}ns",
+                Log::Sep{probeResult.offset.count()}, Log::Sep{probeResult.rtt.count()});
+
+            const auto filterResult = _filter.AddSample(t2, probeResult);
             const auto sampleCount = filterResult.sampleCount;
 
-            // Update cumulative RTT stats for diagnostics.
-            if (probe.rtt < _diagRttMin) { _diagRttMin = probe.rtt; }
-            if (probe.rtt > _diagRttMax) { _diagRttMax = probe.rtt; }
-            _diagRttSum += probe.rtt;
-            _diagOffsetSum += probe.offset;
+            // Update cumulative RTT/offset stats for diagnostics.
+            if (probeResult.rtt < _diagRttMin) { _diagRttMin = probeResult.rtt; }
+            if (probeResult.rtt > _diagRttMax) { _diagRttMax = probeResult.rtt; }
+            _diagRttSum += probeResult.rtt;
+            _diagOffsetSum += probeResult.offset;
             _diagLastJitter = filterResult.jitter;
             ++_diagSampleCount;
 
@@ -177,18 +180,19 @@ namespace SynTm
                 Log::Sep{filterResult.offset.count()}, filterResult.rate.count(), filterResult.rate.ToDouble(),
                 Log::Sep{filterResult.jitter.count()}, Log::Sep{filterResult.minRtt.count()}, sampleCount);
 
-            const auto stepped = _driftModel.Steer(t4, filterResult);
+            const auto stepped = _driftModel.Steer(t2, filterResult);
 
             auto enteredResyncing = false;
             auto exitedResyncing = false;
 
-            // Update state.
+            // Ensure state is at least Probing once we have a sample.
+            if (_state == SessionState::Idle) {
+                _state = SessionState::Probing;
+            }
+
             if (stepped) {
                 enteredResyncing = (_state != SessionState::Resyncing);
                 _state = SessionState::Resyncing;
-                // Reset filter so post-step probes build a fresh window —
-                // stale pre-step samples corrupt the drift estimate and cause
-                // cascading re-steps.
                 _filter.Reset();
                 _logger.Trace("state: STEPPED -> Resyncing (enteredResyncing={}) filter reset", enteredResyncing);
             } else if (_state == SessionState::Probing && sampleCount >= _config.minSamplesForSync) {
@@ -203,13 +207,13 @@ namespace SynTm
             }
 
             return {
-                .filterResult = filterResult,
-                .stepped = stepped,
+                .filterResult     = filterResult,
+                .stepped          = stepped,
                 .enteredResyncing = enteredResyncing,
-                .exitedResyncing = exitedResyncing,
+                .exitedResyncing  = exitedResyncing,
+                .hadEchoData      = true,
             };
         }
-
         /// Convert a local time to the estimated remote peer time.
         [[nodiscard]] Ticks ToRemoteTime(Ticks localTime) const noexcept
         {
@@ -281,6 +285,9 @@ namespace SynTm
             _state = SessionState::Idle;
             _lastProbeSentAt = {};
             _everProbed = false;
+            _lastReceivedT1.reset();
+            _lastReceivedAt.reset();
+            _awaitingReply = false;
             _filter.Reset();
             _driftModel.Reset();
             _diagSampleCount = 0;
@@ -325,6 +332,13 @@ namespace SynTm
         SessionState _state = SessionState::Idle;
         Ticks _lastProbeSentAt{};
         bool _everProbed = false;
+
+        // Echo state for SyncPulse: the t1 and receive-time of the last incoming pulse.
+        std::optional<Ticks> _lastReceivedT1;
+        std::optional<Ticks> _lastReceivedAt;
+        // True when MakePulse() has been called and we are awaiting the reply.
+        // Prevents spurious offset updates when acting as the responder.
+        bool _awaitingReply = false;
 
         // Cumulative stats for GetDiagnostics().
         std::size_t _diagSampleCount = 0;

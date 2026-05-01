@@ -11,31 +11,36 @@
 namespace SynTm
 {
     // -----------------------------------------------------------------------
-    // Wire-format probe structures (NTP-style four-timestamp model)
+    // Unified sync probe (NTP-style four-timestamp model, 2-message cycle)
     // -----------------------------------------------------------------------
 
-    /// Sent by the initiator to request a probe.
-    /// Contains t1: the local time at which the request was sent.
-    struct ProbeRequest
+    /// Unified sync probe.
+    ///
+    /// Each SyncPulse simultaneously acts as a new probe and as a reply to the
+    /// peer's last pulse.  echo_t3 is implicit: it equals t1 of this packet.
+    ///
+    /// NTP mapping when processing an incoming pulse:
+    ///   t1 = echo_t1  (our previous send time, echoed back by peer)
+    ///   t2 = echo_t2  (peer's receive time of our previous pulse)
+    ///   t3 = pulse.t1 (peer's send time of this pulse, the implicit echo_t3)
+    ///   t4 = receivedAt (our receive time of this pulse)
+    struct SyncPulse
     {
-        Ticks t1{}; ///< Origin timestamp (initiator's local time at send).
+        Ticks t1{};                   ///< Local send timestamp.
+        std::optional<Ticks> echo_t1; ///< Peer's t1 from their last SyncPulse.
+        std::optional<Ticks> echo_t2; ///< Time I received that SyncPulse (= t2).
 
-        static constexpr std::size_t WireSize = sizeof(Ticks);
+        /// True when this pulse carries echo data needed for offset computation.
+        [[nodiscard]] bool HasEcho() const noexcept
+        {
+            return echo_t1.has_value() && echo_t2.has_value();
+        }
+
+        static constexpr std::size_t ShortWireSize = sizeof(Ticks);        // 8 bytes
+        static constexpr std::size_t FullWireSize  = 3 * sizeof(Ticks);    // 24 bytes
     };
 
-    /// Sent by the responder after receiving a ProbeRequest.
-    /// Contains t1 (echoed), t2 (responder's receive time), t3 (responder's send time).
-    struct ProbeResponse
-    {
-        Ticks t1{}; ///< Echoed origin timestamp from the request.
-        Ticks t2{}; ///< Responder's local time at request reception.
-        Ticks t3{}; ///< Responder's local time at response transmission.
-
-        static constexpr std::size_t WireSize = 3 * sizeof(Ticks);
-    };
-
-    /// Computed from the four timestamps (t1..t4) after the initiator receives
-    /// the response. t4 is the initiator's local time at response reception.
+    /// Computed from the four timestamps (t1..t4) after receiving a SyncPulse.
     struct ProbeResult
     {
         Ticks offset{}; ///< Estimated clock offset: remote - local.
@@ -98,53 +103,47 @@ namespace SynTm
         }
     }
 
-    /// Serialize a ProbeRequest into the buffer.
-    /// Returns the number of bytes written (always ProbeRequest::WireSize),
-    /// or 0 if the buffer is too small.
+    /// Serialize a SyncPulse into the buffer.
+    ///
+    /// Writes SyncPulse::ShortWireSize (8) bytes when pulse.HasEcho() is false,
+    /// or SyncPulse::FullWireSize (24) bytes when pulse.HasEcho() is true.
+    /// Returns the number of bytes written, or 0 if the buffer is too small.
     [[nodiscard]] inline std::size_t WriteTo(
-        std::span<std::byte> buf, const ProbeRequest& req) noexcept
+        std::span<std::byte> buf, const SyncPulse& pulse) noexcept
     {
-        if (buf.size() < ProbeRequest::WireSize) {
+        if (pulse.HasEcho()) {
+            if (buf.size() < SyncPulse::FullWireSize) {
+                return 0;
+            }
+            Detail::WriteLE64(buf, 0, pulse.t1);
+            Detail::WriteLE64(buf, 8, *pulse.echo_t1);
+            Detail::WriteLE64(buf, 16, *pulse.echo_t2);
+            return SyncPulse::FullWireSize;
+        }
+        if (buf.size() < SyncPulse::ShortWireSize) {
             return 0;
         }
-        Detail::WriteLE64(buf, 0, req.t1);
-        return ProbeRequest::WireSize;
+        Detail::WriteLE64(buf, 0, pulse.t1);
+        return SyncPulse::ShortWireSize;
     }
 
-    /// Deserialize a ProbeRequest from the buffer.
-    [[nodiscard]] inline std::optional<ProbeRequest> ReadProbeRequest(
+    /// Deserialize a SyncPulse from the buffer.
+    ///
+    /// Payload of 8 bytes → no echo (short form).
+    /// Payload of 24 bytes → full form with echo_t1 and echo_t2.
+    [[nodiscard]] inline std::optional<SyncPulse> ReadSyncPulse(
         std::span<const std::byte> buf) noexcept
     {
-        if (buf.size() < ProbeRequest::WireSize) {
-            return std::nullopt;
+        if (buf.size() == SyncPulse::FullWireSize) {
+            return SyncPulse{
+                .t1     = Detail::ReadLE64(buf, 0),
+                .echo_t1 = Detail::ReadLE64(buf, 8),
+                .echo_t2 = Detail::ReadLE64(buf, 16),
+            };
         }
-        return ProbeRequest{.t1 = Detail::ReadLE64(buf, 0)};
-    }
-
-    /// Serialize a ProbeResponse into the buffer.
-    [[nodiscard]] inline std::size_t WriteTo(
-        std::span<std::byte> buf, const ProbeResponse& resp) noexcept
-    {
-        if (buf.size() < ProbeResponse::WireSize) {
-            return 0;
+        if (buf.size() >= SyncPulse::ShortWireSize) {
+            return SyncPulse{.t1 = Detail::ReadLE64(buf, 0)};
         }
-        Detail::WriteLE64(buf, 0, resp.t1);
-        Detail::WriteLE64(buf, 8, resp.t2);
-        Detail::WriteLE64(buf, 16, resp.t3);
-        return ProbeResponse::WireSize;
-    }
-
-    /// Deserialize a ProbeResponse from the buffer.
-    [[nodiscard]] inline std::optional<ProbeResponse> ReadProbeResponse(
-        std::span<const std::byte> buf) noexcept
-    {
-        if (buf.size() < ProbeResponse::WireSize) {
-            return std::nullopt;
-        }
-        return ProbeResponse{
-            .t1 = Detail::ReadLE64(buf, 0),
-            .t2 = Detail::ReadLE64(buf, 8),
-            .t3 = Detail::ReadLE64(buf, 16),
-        };
+        return std::nullopt;
     }
 }
