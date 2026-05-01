@@ -35,7 +35,8 @@ namespace
         ASSERT_TRUE(replyOpt.has_value());
         clockA.Advance(delay);
         clockB.Advance(delay);
-        nodeA.HandleSyncPulse(peerIdOnA, *replyOpt, std::nullopt, nodeB.OurEpochInfo());
+        auto nextReply = nodeA.HandleSyncPulse(peerIdOnA, *replyOpt, std::nullopt, nodeB.OurEpochInfo());
+        ASSERT_FALSE(nextReply.has_value());
     }
 }
 

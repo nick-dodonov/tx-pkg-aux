@@ -15,7 +15,6 @@
 #include <array>
 #include <cmath>
 #include <cstddef>
-#include <cstdint>
 #include <gtest/gtest.h>
 #include <string>
 #include <utility>
@@ -81,7 +80,8 @@ namespace
         a.clock.Advance(delayBtoA);
         b.clock.Advance(delayBtoA);
 
-        a.consensus.HandleSyncPulse(peerOnA, *replyOpt, std::nullopt, b.consensus.OurEpochInfo());
+        auto nextReply = a.consensus.HandleSyncPulse(peerOnA, *replyOpt, std::nullopt, b.consensus.OurEpochInfo());
+        ASSERT_FALSE(nextReply.has_value());
     }
 
     /// Advance all node clocks, applying per-node drift factor.
@@ -361,7 +361,8 @@ TEST(Integration, WireFormatEndToEnd)
         ASSERT_TRUE(parsedReply.has_value());
         ASSERT_TRUE(parsedReply->pulse.has_value());
 
-        nodeA.consensus.HandleSyncPulse("B", *parsedReply->pulse, std::nullopt, parsedReply->epoch);
+        auto nextReply = nodeA.consensus.HandleSyncPulse("B", *parsedReply->pulse, std::nullopt, parsedReply->epoch);
+        ASSERT_FALSE(nextReply.has_value());
 
         AdvanceAll(all, 50ms);
     }
@@ -714,9 +715,11 @@ namespace
         b.clock.Advance(queueDelayA);
 
         if (useReceivedAt) {
-            a.consensus.HandleSyncPulse(peerOnA, *replyOpt, trueT4, b.consensus.OurEpochInfo());
+            auto nextReply = a.consensus.HandleSyncPulse(peerOnA, *replyOpt, trueT4, b.consensus.OurEpochInfo());
+            ASSERT_FALSE(nextReply);
         } else {
-            a.consensus.HandleSyncPulse(peerOnA, *replyOpt, std::nullopt, b.consensus.OurEpochInfo());
+            auto nextReply = a.consensus.HandleSyncPulse(peerOnA, *replyOpt, std::nullopt, b.consensus.OurEpochInfo());
+            ASSERT_FALSE(nextReply);
         }
     }
 }
@@ -824,7 +827,7 @@ TEST(Integration, SlowSlewStability)
     auto config = FastConfig();
     config.filterWindowSize = 8;
     config.stepThreshold = 200ms;
-    config.maxSlewRate = DriftRate{500us}; // 500 µs/s.
+    config.maxSlewRate = 500us; // 500 µs/s.
 
     SimNode nodeA("A", 1s, ConsensusMode::Voter, config);
     SimNode nodeB("B", 1s + 20ms, ConsensusMode::Voter, config);

@@ -30,6 +30,7 @@ namespace SynTm
     {
         switch (s)
         {
+            // ReSharper disable once CppDFAUnreachableCode
             case SessionState::Idle:      return "Idle";
             case SessionState::Probing:   return "Probing";
             case SessionState::Synced:    return "Synced";
@@ -142,7 +143,7 @@ namespace SynTm
         ///                   is the exact network-arrival time, eliminating queuing-
         ///                   delay bias (H1).  When std::nullopt the current clock
         ///                   time is used.
-        [[nodiscard]] PulseHandleResult HandleSyncPulse(
+        PulseHandleResult HandleSyncPulse(
             const SyncPulse& pulse,
             std::optional<Ticks> receivedAt = std::nullopt)
         {
@@ -191,7 +192,7 @@ namespace SynTm
             }
 
             if (stepped) {
-                enteredResyncing = (_state != SessionState::Resyncing);
+                enteredResyncing = _state != SessionState::Resyncing;
                 _state = SessionState::Resyncing;
                 _filter.Reset();
                 _logger.Trace("state: STEPPED -> Resyncing (enteredResyncing={}) filter reset", enteredResyncing);

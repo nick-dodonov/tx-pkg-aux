@@ -25,7 +25,7 @@ namespace
         Ticks oneWayDelay)
     {
         // Step 1: Active creates pulse (includes echo of last received, if any).
-        auto pulse = initiator.MakePulse();
+        const auto pulse = initiator.MakePulse();
 
         // Step 2: Network delay (initiator → responder).
         initiatorClock.Advance(oneWayDelay);
@@ -33,7 +33,7 @@ namespace
 
         // Step 3: Responder records the echo data and builds a reply.
         responder.HandleSyncPulse(pulse);
-        auto reply = responder.MakePulse();
+        const auto reply = responder.MakePulse();
 
         // Step 4: Network delay (responder → initiator).
         initiatorClock.Advance(oneWayDelay);
@@ -317,7 +317,7 @@ TEST(Session, ResetClearsState)
 // A step correction must flush the filter window and zero the result count so
 // that post-step probes build a fresh estimate. Without this, stale pre-step
 // samples corrupt the drift rate and cause cascading re-steps.
-TEST(Session, StepResetsFilterAndResultCount)
+TEST(Session, StepResetsFilterAndResultCount) // NOLINT(*-function-cognitive-complexity)
 {
     FakeClock clockA;
     FakeClock clockB;
@@ -415,7 +415,7 @@ TEST(Session, LargeOffset_ConvergesWithoutInfiniteStepping)
 // Session — enteredResyncing fires only on the first step of an episode
 // ===========================================================================
 
-TEST(Session, EnteredResyncing_OnlyOnFirstStepOfEpisode)
+TEST(Session, EnteredResyncing_OnlyOnFirstStepOfEpisode) // NOLINT(*-function-cognitive-complexity)
 {
     FakeClock clockA;
     FakeClock clockB;
@@ -713,7 +713,7 @@ TEST(Session, HandleSyncPulse_EchoT2BeforeT3)
 // RED until SessionDiagnostics struct and Session::GetDiagnostics() exist.
 // ===========================================================================
 
-TEST(Session, GetDiagnosticsReflectsHistory)
+TEST(Session, GetDiagnosticsReflectsHistory) // NOLINT(*-function-cognitive-complexity)
 {
     FakeClock clockA;
     FakeClock clockB;
