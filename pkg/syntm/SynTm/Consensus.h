@@ -385,7 +385,7 @@ namespace SynTm
 
         /// Invoke callback for each peer ID.
         template <typename Fn>
-        void ForEachPeer(Fn&& fn) const
+        void ForEachPeerId(const Fn& fn) const
         {
             for (const auto& [peerId, _] : _peers) {
                 fn(peerId);
